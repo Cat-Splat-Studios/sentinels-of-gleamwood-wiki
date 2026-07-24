@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Combat &amp; Weapons — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a class="on" href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Combat &amp; <span class="flame">Weapons</span></h1>
+  <p class="tag">Every field on a weapon asset, what it actually does at runtime, which fields are dead, and the end-to-end recipe for shipping a new weapon. Edit through the <a href="workbench.html">Workbench</a>; tune reach in the scene tuner; trust this page for the fallback rules.</p>
+</header>
+
+<main>
+
+<section id="anatomy">
+  <h2><span class="num">01</span>Weapon anatomy — the shared base</h2>
+  <p class="lead">Every weapon is a ScriptableObject. Melee and ranged both inherit <code>WeaponDefinition</code> (<code>Assets/_Game/Combat/Code/Definitions/WeaponDefinition.cs</code>), so these fields exist on every weapon asset. Live assets sit in <code>Assets/_Game/Player/Resources/Weapons/</code>.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Type</th><th>What it really does</th></tr>
+    <tr><td><code>WeaponName</code></td><td>string</td><td>Display name on the HUD, pedestal and forge. Leave it empty and the <b>asset name</b> is shown instead (<code>WeaponPedestal.LabelText</code>).</td></tr>
+    <tr><td><code>Icon</code></td><td>Sprite</td><td>HUD slot + pedestal sprite. Unset = blank HUD slot and the pedestal icon is hidden. Set it.</td></tr>
+    <tr><td><code>BaseDamage</code></td><td>int</td><td>Melee: <code>damage = round(BaseDamage × WeaponInstance.DamageScale × swing DamageMultiplier)</code>. Ranged: <code>round(BaseDamage × DamageScale × perfect multiplier)</code>. The Workbench Swings tab shows the computed result live ("= deals 24").</td></tr>
+    <tr><td><code>BaseHitstun</code></td><td>float</td><td><b>Fallback value.</b> Used whenever a swing/dash authors <code>HitstunDuration = 0</code>. Ranged shots use it directly. If a hit still lands with 0, <code>EnemyHitState</code> substitutes 0.2&nbsp;s.</td></tr>
+    <tr><td><code>BaseHitstop</code></td><td>float (default 0)</td><td><b>Fallback value.</b> Used whenever a swing/dash authors <code>HitstopDuration = 0</code>. Hitstop only fires when the final value is <b>&gt; 0</b> (<code>EnemyStateMachine.TakeHit</code> → <code>CombatTimeManager.TriggerHitstop</code>). This fallback used to be silently dead on melee — the greatsword authored 0.15 and got nothing — it is fixed and now real.</td></tr>
+    <tr><td><code>ArmorPiercing</code></td><td>bool</td><td>Sets <code>HitInfo.armorPiercing</code> — hits punch through enemy super armor (the per-phase <code>SuperArmorHits</code> budget on <a href="enemies.html">enemy attacks</a>).</td></tr>
+    <tr><td><code>StatusesToApply</code></td><td>List&lt;CombatStatusDefinition&gt;</td><td>Applied on <b>every</b> melee swing hit, every dash-attack hit, <b>and</b> every arrow hit — one <code>CombatStatusManager.AddStatus</code> per status per hit. See §07.</td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td><b>DEAD</b> — never rendered anywhere. The Workbench hides it. See §08.</td></tr>
+    <tr><td><code>BaseKnockback</code></td><td>float</td><td><b>Effectively DEAD</b> — melee never reads it; ranged reads it but the magnitude is never applied to any enemy. See §08.</td></tr>
+  </table>
+  </div>
+
+  <h3>Melee adds four things (<code>MeleeWeaponDefinition.cs</code>)</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Default</th><th>Behavior</th></tr>
+    <tr><td><code>ComboAttacks</code></td><td>—</td><td>The swing chain, in order — one <code>MeleeAttackConfig</code> per swing (§02). The Workbench adds/removes with <b>+ Add Swing</b> / <b>− Remove Last</b>; minimum one swing.</td></tr>
+    <tr><td><code>RecoveryTime</code></td><td>0.2</td><td>Lockout after the combo ends: the state enters a Recovery phase (timer resets) and cannot exit until <code>stateTimer ≥ RecoveryTime</code>.</td></tr>
+    <tr><td><code>InputBufferTime</code></td><td>0.2</td><td>Lifetime of a buffered attack press, in seconds, before it expires.</td></tr>
+    <tr><td><code>DashAttackConfig</code></td><td>—</td><td>One dash-attack struct per weapon — <b>not</b> per swing (§03).</td></tr>
+  </table>
+  </div>
+
+  <h3>The shipped roster (authored values, verbatim)</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Asset</th><th>Base</th><th>Chain</th><th>Dash</th></tr>
+    <tr><td><code>DefaultSword</code></td><td>Dmg 1 · hitstun 0.2 · hitstop 0.1</td><td>2 swings: 0.3&nbsp;s / window 0.5, reach 1.3×1.4, JP20/EP20 → 0.35&nbsp;s / window 0.6, ×1.5, reach 1.4×1.4, JP50/EP50. Recovery 0.2, buffer 0.2.</td><td>×<b>20</b>, reach 1.25×1.15, anim <code>SwordDashAttack</code></td></tr>
+    <tr><td><code>SolarGreatsword</code></td><td>Dmg 24 · hitstun 0.5 · hitstop 0.15 · applies <b>Ignite</b></td><td>0.4&nbsp;s reach 1.9×1.7 → 0.5&nbsp;s ×1.8 reach 2.1×1.8 JP60. Recovery 0.35.</td><td>×1.5, reach 1.6×1.35, anim <code>GreatswordDashAttack</code></td></tr>
+    <tr><td><code>DaggerUnseen</code></td><td>Dmg 6 · hitstun 0.15 · hitstop 0</td><td>3 swings: 0.12/0.12/0.15&nbsp;s, ×0.8/0.8/1.2, reach 0.95–1.1, LockMovement off, EP 15/15/25. Recovery 0.1, buffer 0.15.</td><td>reach 1.05×0.95, anim <code>DaggerDashAttack</code></td></tr>
+    <tr><td><code>DefaultBow</code></td><td>Dmg 12 · hitstun 0.4 · hitstop 0.05 · applies <b>StickyArrows</b></td><td colspan="2">DrawTime 0.3, perfect window 0.5–0.7&nbsp;s, JP15/EP20, perfect ×1.5 damage, all animation overrides empty (engine defaults).</td></tr>
+  </table>
+  </div>
+  <p class="dim">All shipped swings author their hit window as 0.15–0.85 of the swing duration.</p>
+</section>
+
+<section id="swings">
+  <h2><span class="num">02</span>The swing chain</h2>
+  <p class="lead">Each entry in <code>ComboAttacks</code> is a <code>MeleeAttackConfig</code> — one swing. Edit them on the <span class="kbd">Gleamwood ▸ Content Workbench</span> Melee page, <b>Swings</b> sub-tab. The Workbench shows only fields the runtime reads, and computes the effective numbers for you.</p>
+
+  <div class="shotgrid">
+    <figure class="shot">
+      <img src="images/workbench-melee-swings.png" alt="Workbench Swings sub-tab for SolarGreatsword: Feel, Hitbox, Impact, Motion and Presentation groups for Swing 1">
+      <figcaption><b>Real capture.</b> The Swings sub-tab — note the Hit Window min–max slider with its effective label, the "= deals 24" computed damage line, and the hitstun/hitstop fields whose 0 means "use Base".</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="images/workbench-melee-dash.png" alt="Workbench Dash Attack sub-tab: strike box 1.6 x 1.35, damage x1.5 deals 36, full-body GreatswordDashAttack animator state">
+      <figcaption><b>Real capture.</b> The Dash Attack sub-tab (§03) — one strike box per weapon, ×1.5 reading "= deals 36", and a full-body <code>GreatswordDashAttack</code> state picked from the validated animator dropdown.</figcaption>
+    </figure>
+  </div>
+
+  <h3>Every field on a swing</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Live behavior</th><th>Fallback when 0</th></tr>
+    <tr><td><code>Duration</code></td><td>Total swing time in seconds. The animation clip is speed-synced to fit: <code>Animator.speed = clipLength / Duration</code> (guarded when either is ≤ 0.01). <code>AttackProgress = clamp01(stateTimer / Duration)</code>.</td><td>—</td></tr>
+    <tr><td><code>ComboWindow</code></td><td><b>Absolute time from swing START</b> — same timer as Duration, <em>not</em> "extra time after". The step ends into recovery when <code>stateTimer ≥ ComboWindow</code> with no buffered chain. The chain fires while <code>Duration × 0.7 ≤ stateTimer ≤ ComboWindow</code>.</td><td>—</td></tr>
+    <tr><td><code>DamageMultiplier</code></td><td>Multiplies <code>BaseDamage</code>. The Workbench prints the computed total next to it.</td><td>—</td></tr>
+    <tr><td><code>HitstunDuration</code></td><td>Enemy stun length for this swing.</td><td>0 ⇒ <code>BaseHitstun</code></td></tr>
+    <tr><td><code>HitstopDuration</code></td><td>Freeze-frame length for this swing.</td><td>0 ⇒ <code>BaseHitstop</code></td></tr>
+    <tr><td><code>JugglePoints</code></td><td>Added to the enemy's juggle meter <b>only while the enemy is grounded</b> (air hits build none). Scaled by <code>WeaponInstance.JuggleScale</code>. Meter hits 60 ⇒ launch.</td><td>—</td></tr>
+    <tr><td><code>ExecutionPoints</code></td><td>Always added (meter caps at the threshold, 100). Scaled by <code>ExecutionScale</code>. Executions trigger on a <b>follow-up</b> hit after the meter is already full (§07).</td><td>—</td></tr>
+    <tr><td><code>MovementForce</code></td><td>The lunge. <b>Only <code>.x</code> is read</b>: <code>velocityX = MovementForce.x × facing × 10</code> for the first 0.1&nbsp;s, then 50/s friction. The Workbench exposes it as a single float, "Lunge Speed". <code>.y</code> is dead.</td><td>—</td></tr>
+    <tr><td><code>LockMovement</code></td><td>After the 0.1&nbsp;s lunge threshold, zeroes horizontal velocity for the rest of the step.</td><td>—</td></tr>
+    <tr><td><code>HitboxReach</code></td><td>Horizontal reach from player center in the facing direction (§05).</td><td>≤ 0.01 ⇒ <b>1.2</b></td></tr>
+    <tr><td><code>HitboxHeight</code></td><td>Vertical extent of the box (§05).</td><td>≤ 0.01 ⇒ <b>1.4</b></td></tr>
+    <tr><td><code>HitWindowStart</code></td><td>Fraction of Duration when the box goes live (Range 0–1). <b>0 is a valid start — no fallback here.</b></td><td>none — 0 is real</td></tr>
+    <tr><td><code>HitWindowEnd</code></td><td>Fraction of Duration when the box stops.</td><td>≤ 0.01 ⇒ <b>0.9</b></td></tr>
+    <tr><td><code>HitEffect</code></td><td>Prefab instantiated at the target's position on hit.</td><td>—</td></tr>
+    <tr><td><code>AttackSound</code></td><td><code>PlayOneShot</code> on the player's AudioSource at swing start. The Workbench row has a ▶ Play preview.</td><td>—</td></tr>
+    <tr><td><code>CustomPlayerAnimationState</code></td><td><code>[AnimatorStateRef(0)]</code> — a base-layer (layer&nbsp;0) player animator state, picked from a validated dropdown of real states. A wrong raw name is a <b>silent no-op in game</b> (the drawer flags unknown names in the editor).</td><td>empty ⇒ <code>PlayerMeleeAttack1</code> for step 0, <code>PlayerMeleeAttack2</code> for every later step</td></tr>
+    <tr><td><code>KnockbackForce</code> · <code>IsLauncher</code></td><td colspan="2"><b>Inert</b> — see the dead-fields table (§08). Launches actually come from JugglePoints.</td></tr>
+  </table>
+  </div>
+
+  <div class="rule note"><b>Author ComboWindow larger than Duration.</b> It shares the swing timer, so a window smaller than Duration would close before the swing even finishes. Every shipped asset does this (e.g. greatsword swing 1: Duration 0.4, window 0.7).</div>
+  <div class="warn note"><b>You cannot author a true zero</b> for HitboxReach/Height, HitWindowEnd, HitstunDuration or HitstopDuration — the fallback sentinels use <code>&gt; 0.01</code> / <code>&gt; 0</code> checks, so 0 means "use the default", never "none". The single exception: <code>HitWindowStart</code> 0 is real.</div>
+
+  <h3>How the swing actually scans</h3>
+  <ul>
+    <li><code>ScanForHits</code> runs every <code>FixedUpdate</code> during the hit window: <code>Physics2D.OverlapBoxAll(center, size, 0f)</code> — <b>no layer mask</b>.</li>
+    <li>Targets need <code>IHittable</code> <b>on the same GameObject as the collider</b> (not a parent). Anything with a <code>PlayerStateMachine</code> in its parents is skipped — you can never hit yourself.</li>
+    <li>One hit per target per swing step (<code>_hitThisStep</code> set, cleared each step).</li>
+    <li>Trigger colliders are <b>not</b> ignored — a stale XML comment claims otherwise. Enemy body colliders ARE triggers (Enemy layer); the <code>IHittable</code> requirement is the target filter, not trigger-ness.</li>
+    <li>Attack start kills momentum (<code>mover.Launch(Vector2.zero)</code>); exit resets <code>Animator.speed = 1</code>. Damage type is <code>MELEE_SLASH</code>.</li>
+  </ul>
+
+  <h3>Combo timing knobs (player-side, not per-weapon)</h3>
+  <p>These live on <code>PlayerMeleeAttackConfig</code>, a sub-asset of <code>Assets/_Game/Player/Data/PlayerDef.asset</code> — edit via the Workbench Player category. Stamped values: <code>LungeTimeThreshold 0.1</code>, <code>LungeForceMultiplier 10</code>, <code>LungeFrictionRate 50</code>, <code>InputBufferTiming 0.6</code> (the next press can buffer from 60% of Duration), <code>ComboProgressTiming 0.7</code> (the chain fires from 70%), <code>BowTransitionTiming 0.8</code> (melee→bow branch — only from combo step index 1, while the range-attack button is held). Transition priorities: Dash 12 &gt; BowAim 11 &gt; Fall 10 &gt; Run 9 &gt; Idle 8.</p>
+</section>
+
+<section id="dash">
+  <h2><span class="num">03</span>Dash attacks — the traveling box</h2>
+  <p class="lead">Press attack while dashing and <code>PlayerDashAttackState</code> takes over. Each weapon authors exactly one <code>DashAttackConfig</code> — edit it on the <b>Dash Attack</b> sub-tab (screenshot in §02).</p>
+  <ul>
+    <li><b>Enter:</b> momentum zeroed, <code>GravityScale = 0</code> for the whole strike. Direction = move-input sign, else current facing.</li>
+    <li><b>The box travels.</b> <code>ScanForHits()</code> runs every FixedUpdate while <code>stateTimer &lt; DashAttackDuration</code>, and the box is recomputed via <code>GetScanBox</code> at the player's <b>current</b> position each physics step — it rides along with the dash. Same filters as melee; <code>_hitThisDash</code> gives one hit per target per dash.</li>
+    <li><b>Damage type is <code>DASH_SLASH</code></b> — this is what triggers the execution on Juggled enemies. <code>isLauncher</code> is always false on the dash path.</li>
+    <li><b>Exit:</b> after <code>DashAttackDuration</code>, gravity returns to 1 and the player decelerates at <code>DecelerationRate</code>.</li>
+  </ul>
+  <p>The struct's fields mirror a swing: <code>DamageMultiplier</code>, <code>HitstunDuration</code> / <code>HitstopDuration</code> (0 ⇒ Base, same rule), <code>JugglePoints</code>, <code>ExecutionPoints</code> (this one was once dropped on the floor — the dash's authored execution points never landed; fixed), <code>HitEffect</code>, <code>AttackSound</code>, <code>HitboxReach</code> / <code>HitboxHeight</code> (0 ⇒ 1.2 / 1.4), <code>CustomPlayerAnimationState</code>, and the inert <code>KnockbackForce</code>.</p>
+
+  <h3>The dash animation contract: full-body vs the legacy overlay</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th><code>CustomPlayerAnimationState</code></th><th>What plays</th></tr>
+    <tr><td><b>Set</b> (the modern contract)</td><td>Played as a <b>full-body state on base layer 0</b>, speed-synced to span the strike window: <code>Animator.speed = clipLength / max(0.05, DashAttackDuration)</code>. All three shipped melee weapons do this: <code>SwordDashAttack</code>, <code>GreatswordDashAttack</code>, <code>DaggerDashAttack</code>.</td></tr>
+    <tr><td><b>Empty</b> (legacy fallback)</td><td><code>Animator.Play("Upper_Slash1", 1, 0f)</code> — the layer-1 <b>upper-body overlay</b>; the legs keep the dash pose. Fine for prototyping, but ship a full-body state.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Player-side dash tuning lives on <code>PlayerDashAttackConfig</code> (PlayerDef sub-asset), stamped: <code>DashAttackDuration 0.4</code>, <code>DashAttackSpeed 10</code>, <code>DecelerationRate 50</code>, <code>CanPassThroughEnemies true</code> (false ⇒ the first hit ends the dash early), <code>RunInputThreshold 0.1</code>.</p>
+</section>
+
+<section id="ranged">
+  <h2><span class="num">04</span>Ranged weapons — the bow truth</h2>
+  <p class="lead">There is no arrow. Every shot is an <b>instant <code>CircleCastAll</code></b> down a lane the moment you release — <code>ProjectilePrefab</code> is dead (§08). Author these on the Workbench Ranged page (<b>Overview</b> / <b>Shot &amp; Timing</b> / <b>Presentation</b> sub-tabs).</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Live behavior</th></tr>
+    <tr><td><code>DrawTime</code></td><td>Releasing before <code>aimTimer ≥ DrawTime</code> <b>cancels the shot</b> — nothing fires. Also gates the hold-anim switch and the stand-draw resume point.</td></tr>
+    <tr><td><code>PerfectTimingStart</code> / <code>PerfectTimingEnd</code></td><td>Seconds from aim start; releasing inside the window is a <b>perfect shot</b>. The HUD ring is fed <code>clamp01(value / MaxChargeTime)</code>.</td></tr>
+    <tr><td><code>PerfectDamageMultiplier</code></td><td>Damage multiplier on a perfect release (shipped: 1.5).</td></tr>
+    <tr><td><code>JugglePoints</code> / <code>ExecutionPoints</code></td><td>Flat per arrow hit, scaled by the ranged <code>WeaponInstance</code>'s Juggle/ExecutionScale.</td></tr>
+    <tr><td><code>HitEffect</code></td><td>Instantiated at the cast's <code>hit.point</code>.</td></tr>
+    <tr><td><code>ReleaseSound</code> / <code>PerfectReleaseSound</code></td><td>Chosen by normal vs perfect; played if <code>PlayerBowAimConfig.UseAudioFeedback</code>.</td></tr>
+    <tr><td><code>DrawAnimationState</code></td><td><code>[AnimatorStateRef(0)]</code>, default <code>StandBowDraw</code>. Overrides only the <b>planted</b> draw — while moving, the hardcoded <code>RunBowCharge</code> / <code>RunBowShoot</code> cycles play regardless.</td></tr>
+    <tr><td><code>HoldAnimationState</code></td><td><code>[AnimatorStateRef(1)]</code>, default <code>Upper_BowHold</code> — layer 1, plays once <code>aimTimer ≥ DrawTime</code> while held.</td></tr>
+    <tr><td><code>ReleaseAnimationState</code></td><td><code>[AnimatorStateRef(1)]</code>, default <code>Upper_BowRelease</code> — layer 1, on fire.</td></tr>
+    <tr><td><code>ProjectilePrefab</code> · <code>DrawSound</code> · <code>PerfectForceMultiplier</code></td><td><b>Dead</b> — §08. The Workbench lists all three in its "Not yet in game" note on the Presentation sub-tab and keeps them off the editable form.</td></tr>
+  </table>
+  </div>
+  <h3>How the shot resolves</h3>
+  <p><code>PlayerBowAimState.FireBowProjectile</code> runs <code>Physics2D.CircleCastAll(fireOrigin, ProjectileRadius, fireDirection, ProjectileMaxDistance, context.EnemyLayers)</code> — layer-masked, unlike melee. <code>fireDirection</code> is the facing, or toward <code>context.LastHitTransform</code> when set. <code>fireOrigin = player position + FireOriginOffset</code>. With <code>SingleTargetHit</code> true the cast stops at the first <code>IHittable</code>; false pierces the whole lane. Damage type <code>RANGED_PIERCE</code>. Holding past <code>MaxChargeTime</code> auto-releases. Mobile archery: horizontal input × MoveSpeed × <code>AimMoveSpeedMultiplier</code> (0 would make the bow stationary).</p>
+  <p class="dim">Player-side stamped values (<code>PlayerBowAimConfig</code> in PlayerDef.asset): <code>MaxChargeTime 1.5</code>, <code>AimMoveSpeedMultiplier 0.9</code>, <code>FireOriginOffset (0, 0.5)</code>, <code>ProjectileRadius 0.5</code>, <code>ProjectileMaxDistance 10</code>, <code>SingleTargetHit true</code>.</p>
+</section>
+
+<section id="scanbox">
+  <h2><span class="num">05</span>GetScanBox — the single source of truth</h2>
+  <p class="lead">Every melee swing, every dash strike, <b>and</b> the scene-tuner gizmos all compute their box through one static method: <code>PlayerMeleeAttackState.GetScanBox</code>. The comment in the file says it plainly — "keep all box math HERE" — which is why the preview can never drift from the game.</p>
+<pre><code><span class="c">// PlayerMeleeAttackState.GetScanBox(reachRaw, heightRaw, origin, dir, out center, out size)</span>
+reach  = reachRaw  &gt; <span class="a">0.01f</span> ? reachRaw  : <span class="a">1.2f</span>;   <span class="c">// 0 means "default", never "none"</span>
+height = heightRaw &gt; <span class="a">0.01f</span> ? heightRaw : <span class="a">1.4f</span>;
+center = origin + <span class="k">new</span> <span class="t">Vector2</span>(dir * reach * <span class="a">0.5f</span>, height * <span class="a">0.45f</span>);
+size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height);</code></pre>
+  <ul>
+    <li><code>origin</code> is the player transform position — the pivot is at the <b>feet</b>. <code>dir</code> is +1 right / −1 left.</li>
+    <li>So the box spans <code>origin.y − 0.05·height</code> to <code>origin.y + 0.95·height</code> vertically, and from the player's center line to <code>reach</code> units forward.</li>
+    <li>An overload takes a <code>MeleeAttackConfig</code> and forwards its <code>HitboxReach</code>/<code>HitboxHeight</code>.</li>
+    <li>Editor-only debug feed: both melee and dash scans write <code>DebugLastScanCenter/Size/Time</code> statics, which the scene tuner draws as a fading red flash in play mode — instant whiff diagnosis.</li>
+  </ul>
+</section>
+
+<section id="tuner">
+  <h2><span class="num">06</span>The scene tuner, handle by handle</h2>
+  <p class="lead"><code>PlayerCombatRangePreview</code> lives on <code>Assets/Prefabs/Player.prefab</code>. Select the Player in any scene (or the prefab stage) and every reach box appears as draggable gizmos — drawn through the real <code>GetScanBox</code>, so what you see is exactly what the game scans.</p>
+
+  <figure class="shot">
+    <img src="images/tuner-player.png" alt="Scene view of the Player prefab stage: melee reach boxes in ember and gold, violet dash strike box, green bow origin and lane, drag handles, detection circle">
+    <figcaption><b>Real capture.</b> The Player prefab stage with the preview selected — swing boxes (ember, gold), the violet dash box, the green bow origin + lane, and the cube handles on each far edge that write straight to the weapon asset.</figcaption>
+  </figure>
+
+  <h3>Component fields</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Purpose</th></tr>
+    <tr><td><code>Weapon</code></td><td>The <code>MeleeWeaponDefinition</code> being previewed and tuned. <b>Swap this to tune another weapon</b> — the handles always write to whatever is slotted here.</td></tr>
+    <tr><td><code>AttackIndex</code></td><td>−1 = all swings overlaid; 0-based index to focus a single swing.</td></tr>
+    <tr><td><code>PreviewFacingLeft</code></td><td>Mirror the boxes to check the left-facing silhouette.</td></tr>
+    <tr><td><code>ShowBow</code></td><td>Draw the bow fire origin + projectile lane from PlayerDef's <code>PlayerBowAimConfig</code> (default on).</td></tr>
+    <tr><td><code>ShowLiveScan</code></td><td>In play mode (even unselected): a red flash of the LIVE scan box for 0.25&nbsp;s after each swing/dash scan (default on).</td></tr>
+  </table>
+  </div>
+
+  <h3>The handles</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Handle</th><th>Writes</th><th>Clamp</th></tr>
+    <tr><td>Cube on each swing box's <b>far edge</b></td><td>That swing's <code>HitboxReach</code></td><td>0.2 – 6</td></tr>
+    <tr><td>Handle on each swing box's <b>top edge</b> (top sits at <code>origin.y + 0.95·height</code>)</td><td><code>HitboxHeight</code></td><td>0.3 – 5</td></tr>
+    <tr><td>Same two handles on the <b>violet</b> box</td><td><code>DashAttackConfig.HitboxReach</code> / <code>HitboxHeight</code></td><td>same clamps</td></tr>
+    <tr><td>Green free-move handle at the bow origin</td><td><code>PlayerBowAimConfig.FireOriginOffset</code></td><td>—</td></tr>
+    <tr><td>Handle at the end of the green lane</td><td><code>ProjectileMaxDistance</code></td><td>1 – 40</td></tr>
+  </table>
+  </div>
+  <p>Colors: swing 1 <b>ember orange</b>, swing 2 <b>gold</b>, swing 3 <b>cyan</b>, dash <b>violet</b>, bow <b>green</b>. Labels on each box show the swing name, size and hit window. The inspector has a <span class="kbd">Select Weapon Asset (full attack list)</span> button to jump to the raw asset.</p>
+  <div class="warn note"><b>Handles write straight onto the shared asset.</b> Every drag goes through <code>Undo.RecordObject</code> + <code>SetDirty</code> directly on the weapon definition / PlayerDef sub-asset — fully Ctrl+Z-able, but you are editing the one shared SO every copy of that weapon uses. That's the point (tune once, everywhere), just don't leave an experiment half-dragged.</div>
+
+  <ol class="steps">
+    <li>Open any scene with the Player in it (or open <code>Assets/Prefabs/Player.prefab</code> in the prefab stage) and select the Player.</li>
+    <li>Slot the weapon you want to tune into <code>PlayerCombatRangePreview.Weapon</code>.</li>
+    <li>Drag the far-edge cube for reach, the top-edge handle for height. Watch the labels.</li>
+    <li>Enter play mode with <code>ShowLiveScan</code> on and swing — the red flash is the actual box the game scanned. If the flash misses where you expected, the numbers are wrong, not the renderer.</li>
+  </ol>
+  <p class="dim">The matching enemy-side tuner (<code>EnemyRangePreview</code> — detection/leash/attack-trigger rings and strike bands) is covered on <a href="enemies.html">Enemies &amp; Bosses</a>.</p>
+</section>
+
+<section id="statuses">
+  <h2><span class="num">07</span>Statuses, juggle &amp; executions</h2>
+  <p class="lead">Every hit carries three payloads besides damage: statuses, juggle points, execution points. All three land in the enemy's <code>CombatStatusManager</code>.</p>
+
+  <h3>CombatStatusDefinition (<span class="kbd">Assets ▸ Create ▸ Combat ▸ Status Definition</span>)</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Behavior</th></tr>
+    <tr><td><code>StatusName</code></td><td>Display name — feeds the <code>OnStatusChanged</code> event and status tags.</td></tr>
+    <tr><td><code>DecayTime</code> (default 5)</td><td>Stack lifetime in seconds. The timer <b>refreshes to full on every re-apply</b>, and expiry clears the <b>whole stack</b> at once (<code>ClearStatus</code>), not one stack at a time.</td></tr>
+    <tr><td><code>MaxStacks</code> (default 10)</td><td>Stack count clamp.</td></tr>
+    <tr><td><code>Description</code> / <code>Icon</code></td><td><b>DEAD</b> — not shown in game yet (§08).</td></tr>
+  </table>
+  </div>
+  <p>Shipped: <code>Ignite</code> (decay 5, max 3 — applied by SolarGreatsword) and <code>StickyArrows</code> (decay 5, max 10 — applied by DefaultBow), in <code>Assets/_Game/Enemies/Data/StatusDefinitions/</code>. Statuses gate executions (<code>ExecutionDefinition.RequiredStatus</code>) and enemy transitions — a weapon that applies the right status is the key that unlocks the finisher.</p>
+
+  <h3>The two meters</h3>
+  <ul>
+    <li><b>Juggle:</b> points accrue <b>only while the enemy is grounded</b>. Threshold 60 ⇒ launch. Decay: 20/s after 2&nbsp;s.</li>
+    <li><b>Execution:</b> points always accrue, capped at the threshold (100). Decay: 25/s after 3&nbsp;s.</li>
+  </ul>
+  <div class="rule note"><b>Executions are a two-hit contract.</b> The readiness check in <code>EnemyStateMachine.TakeHit</code> runs <b>before</b> the hit lands, so the swing that tops the meter never executes on the same frame — the <em>next</em> hit does. A dash attack (<code>DASH_SLASH</code>) is what triggers the execution on a Juggled enemy. And enemies with <code>MaxHealth 0</code> cannot die from plain damage at all — executions only.</div>
+  <p class="dim"><code>CombatStatusManager</code> serialized tuning on enemy prefabs: <code>launchThreshold 60</code>, <code>juggleDecayRate 20</code>, <code>timeToDecay 2</code>, <code>executionThreshold 100</code>, <code>executionDecayRate 25</code>, <code>executionTimeToDecay 3</code>. Its <code>defaultStatusDecayTime 5</code> field is never consulted — <code>AddStatus</code> always uses the definition's own DecayTime.</p>
+</section>
+
+<section id="dead">
+  <h2><span class="num">08</span>Dead fields — ignore these</h2>
+  <p class="lead">These fields exist on the assets but do nothing (or almost nothing) at runtime. The Workbench hides most of them; the raw inspector shows them all. <b>Do not spend tuning time here.</b></p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Why it's dead</th></tr>
+    <tr><td><code>WeaponDefinition.Description</code></td><td>Never rendered anywhere.</td></tr>
+    <tr><td><code>WeaponDefinition.BaseKnockback</code></td><td>Melee never reads it. Ranged writes it into <code>HitInfo.knockbackForce</code>, but the only consumer normalizes it for <em>direction</em> (<code>EnemyDashExecutionState</code>) — the magnitude never pushes anyone. <code>HitInfo.GetKnockbackDirection</code> has zero callers.</td></tr>
+    <tr><td><code>MeleeAttackConfig.MovementForce.y</code></td><td>Only <code>.x</code> is read (the lunge).</td></tr>
+    <tr><td><code>MeleeAttackConfig.KnockbackForce</code> · <code>DashAttackConfig.KnockbackForce</code></td><td>Magnitude inert; only the normalized direction feeds <code>EnemyDashExecutionState</code>.</td></tr>
+    <tr><td><code>MeleeAttackConfig.IsLauncher</code></td><td>Feeds a method with no callers. Real launches come from JugglePoints ≥ 60. (Still authored on shipped assets — harmless.)</td></tr>
+    <tr><td><code>RangedWeaponDefinition.ProjectilePrefab</code></td><td>Only referenced inside a commented-out block; shots are instant CircleCasts.</td></tr>
+    <tr><td><code>RangedWeaponDefinition.DrawSound</code></td><td>Never played by any runtime code.</td></tr>
+    <tr><td><code>RangedWeaponDefinition.PerfectForceMultiplier</code></td><td>Multiplies the dead <code>BaseKnockback</code>.</td></tr>
+    <tr><td><code>CombatStatusDefinition.Description</code> / <code>.Icon</code></td><td>Not shown in game yet.</td></tr>
+    <tr><td><code>HitInfo.hitTime</code> (attacker-set)</td><td>Overwritten in <code>EnemyStateMachine.TakeHit</code> with <code>Time.time</code>.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="recipe">
+  <h2><span class="num">09</span>Adding a new weapon, end to end</h2>
+  <p class="lead">Asset → catalog → loot table → animations → sounds. Miss the middle two and the Workbench Overview tab tells you — that's what its registration checks are for.</p>
+  <ol class="steps">
+    <li><b>Create the asset.</b> <span class="kbd">Assets ▸ Create ▸ Combat ▸ Weapon ▸ Melee Weapon</span> (or <span class="kbd">… ▸ Ranged Weapon</span>) into <code>Assets/_Game/Player/Resources/Weapons/</code>. <b>Name it its final name now</b> — the asset name IS the save id (<code>WeaponInstance.WeaponId</code>; <code>WeaponCatalog.Resolve</code> matches <code>def.name == weaponId</code>). Renaming a shipped weapon breaks player saves; the validator guards the catalog list.</li>
+    <li><b>Author it in the Workbench.</b> Right-click the asset → <span class="kbd">Open in Content Workbench</span> (or <span class="kbd">Gleamwood ▸ Content Workbench</span>). Fill Identity, Base Stats, the swing chain (§02) and the dash attack (§03) — the effective-damage lines and "0 = Base" hints do the arithmetic for you.</li>
+    <li><b>Register it in the catalog.</b> Add it to the <code>weapons</code> array of <code>Assets/_Game/Systems/Run/Resources/WeaponCatalog.asset</code> (loaded via <code>Resources.Load</code>). Without this, run-resume cannot restore the weapon. The catalog also holds <code>defaultMelee</code> (DefaultSword), <code>defaultRanged</code> (DefaultBow) — the run-start loadout — and <code>defaultTrack</code> (<code>UpgradeTrack_Default</code>: maxLevel 3, +0.25 damage / +0.15 juggle / +0.15 execution per level).</li>
+    <li><b>Put it in a loot table.</b> Add an entry to <code>Assets/_Game/Systems/Run/Weapons/Loot_HubMelee.asset</code> (or <code>Loot_HubBow.asset</code> for ranged): <code>{weapon, weight}</code>. Weight is <code>[Min(0)]</code>; weight 0 = never offered. Keep tables single-type by convention. Without this, no pedestal will ever offer it.</li>
+    <li><b>Wire the animations.</b> Author the player animator states (a full-body layer-0 state per swing and for the dash; layer-1 hold/release for bows), then pick them from the <code>AnimatorStateRef</code> dropdowns — they list only real states on the required layer, offer <span class="kbd">Create New State...</span> to scaffold a clip + state next to the controller, and flag unknown names. Leave empty to accept the defaults (§02–§04). Remember: a wrong raw-text name (the [T] toggle) fails silently in game.</li>
+    <li><b>Hook the sounds.</b> Per-swing <code>AttackSound</code>, dash <code>AttackSound</code>, and for ranged <code>ReleaseSound</code> + <code>PerfectReleaseSound</code> — every sound row in the Workbench has a ▶ Play preview. Skip <code>DrawSound</code>; it's dead.</li>
+    <li><b>Verify.</b> The weapon's Workbench Overview must show both registration checks <b>[ok]</b> — "[!!] NOT in WeaponCatalog" and "[!!] not in any loot table" are exactly the failures from steps 3–4. Then tune the boxes with the scene tuner (§06).</li>
+  </ol>
+  <h3>What happens at runtime (so you can test it)</h3>
+  <p>The hub <code>WeaponPedestal</code> (interact = gamepad North / keyboard <span class="kbd">V</span>) rolls from its loot table on scene load, excluding your currently-held melee + ranged (best-effort: if nothing new qualifies it re-rolls without the exclusion). Interacting swaps the weapon into <code>PlayerContext</code> with a fresh level-0 <code>WeaponInstance</code> and calls <code>RunDirector.SetPendingWeapon</code> (warns and no-ops mid-run); the pedestal then holds what you gave up, so you can swap back. <code>StartRun</code> equips the catalog defaults, then <code>ApplyPendingLoadout()</code> overrides with your picks. In sandbox scenes with no run active, the player loads <code>"Weapons/DefaultSword"</code> / <code>"Weapons/DefaultBow"</code> from Resources at level 0.</p>
+  <div class="rule note"><b>Upgrades never touch your asset.</b> All level scaling rides the per-run <code>WeaponInstance</code> (<code>DamageScale/JuggleScale/ExecutionScale = 1 + level × perLevel</code>) — never the shared definition. A mutated SO silently persists in-editor, which is exactly why the rule exists.</div>
+</section>
+
+<section id="modding">
+  <h2><span class="num">10</span>Retuning weapons from text (modding)</h2>
+  <p class="lead">A player with the Steam build and no Unity can change any weapon's numbers — the same folder convention as <a href="enemies.html#modding">enemy modding</a> and <a href="dialogue.html#modding">dialogue</a>: a file beside the executable, matched by name, applied to a private copy. The recipe above is authoring; this is modding, and they meet at the same <code>WeaponDefinition</code>.</p>
+
+<pre><code><span class="c">; Mods/Weapons/sharper_sword.ini</span>
+[<span class="a">Weapon:DefaultSword</span>]
+BaseDamage = <span class="a">3</span>
+
+[<span class="a">Weapon:DefaultSword.attack:1</span>]   <span class="c">; the second combo swing</span>
+DamageMultiplier = <span class="a">2.5</span>
+HitboxReach      = <span class="a">2.0</span>
+
+[<span class="a">Weapon:DefaultSword.dash</span>]       <span class="c">; the dash-attack</span>
+DamageMultiplier = <span class="a">30</span></code></pre>
+
+  <div class="note rule"><b>Sections address SUB-PARTS, and that is the whole point.</b> A blade's feel is not one number — it is the per-swing damage, reach and timing of each combo step, plus the dash. Those live in a <code>List&lt;MeleeAttackConfig&gt;</code> and a <code>DashAttackConfig</code>, addressed by <code>.attack:&lt;n&gt;</code> (0-based) and <code>.dash</code>. A bow has no sub-parts, so <code>[Weapon:DefaultBow]</code> alone covers it.</div>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Folder (beside the executable)</th><th>What it is</th></tr>
+    <tr><td><code>Mods/Weapons/*.ini</code></td><td><b>Loaded.</b> Overrides any weapon whose asset name matches a section.</td></tr>
+    <tr><td><code>Mods/Weapons.templates/</code></td><td><b>Not loaded.</b> One generated <code>.ini</code> per shipped weapon carrying its <b>current</b> values — one section per combo swing and the dash — every line commented out, plus a README.</td></tr>
+  </table>
+  </div>
+
+  <p>The templates are <b>generated, not authored</b>: generating from the live definitions means a modder gets the real numbers, correctly spelled and correctly addressed, and the template can never drift from the build because it <i>is</i> the build. Regenerate any time with <span class="kbd">Gleamwood ▸ Weapons ▸ Generate Mod Templates</span> (writes to <code>Documentation/WeaponTemplates/</code>).</p>
+
+  <h3 id="newweapon">Declaring a new weapon</h3>
+  <p>A mod can also add a weapon, built by cloning a shipped one:</p>
+<pre><code>[<span class="a">NewWeapon:Frostbite</span>]
+basedOn         = <span class="a">DefaultBow</span>      <span class="c">; whose type and stats to reuse</span>
+icon            = <span class="a">frostbite.png</span>   <span class="c">; from Mods/Weapons/sprites/</span>
+weight          = <span class="a">1</span>               <span class="c">; loot weight; 0 = declared but never offered</span>
+WeaponName      = <span class="a">Frostbite</span>
+BaseDamage      = <span class="a">14</span>
+StatusesToApply = <span class="a">Ignite</span>          <span class="c">; resolved by name through the StatusCatalog</span></code></pre>
+
+  <div class="note rule"><b>Why <code>basedOn</code> rather than declaring from nothing.</b> A weapon's TYPE — bow or blade — decides which player states drive it and which animator states it names. A clone inherits all of that from the donor, so a mod weapon can never point the combat code at a state that does not exist. The mod supplies numbers, an icon and a status; the donor supplies the machinery. <b>Weapons have no state graph</b>, so unlike enemies there is no <code>[Graph:]</code> tier — this is the only declaration weapons have.</div>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Header key</th><th>Means</th></tr>
+    <tr><td><code>basedOn</code></td><td><b>Required.</b> A weapon asset name from the <code>WeaponCatalog</code>. An unknown one is reported <i>with the valid names listed</i>.</td></tr>
+    <tr><td><code>weight</code></td><td>How often it is offered in loot. <code>weight = 0</code> declares a weapon without putting it in any pool (still resolvable by a save that holds it).</td></tr>
+    <tr><td><code>icon</code></td><td>A picture file from <code>Mods/Weapons/sprites/</code>, shown on the pedestal. A bad path is reported and the weapon still works.</td></tr>
+    <tr><td>anything else</td><td>A field override on the cloned definition, exactly as for a shipped weapon — including <code>.attack:&lt;n&gt;</code> / <code>.dash</code> sub-sections for a melee donor.</td></tr>
+  </table>
+  </div>
+
+  <div class="note"><b>A declared weapon enters TWO pools, and needs both.</b> It joins the <b>loot roll</b> so a pedestal can offer it — type-matched, so a bow pool never starts handing out blades — and it becomes <b><code>WeaponCatalog.Resolve</code>-able</b> so a save that holds it restores on resume instead of silently reverting to the default. The editor's <a href="#recipe">run-content validator</a> asserts exactly this coupling for shipped weapons; the mod path wires both from the shipped runtime rather than duplicating it.</div>
+
+  <h3>Clone-then-override</h3>
+  <p>Every equip funnels through one seam — the <code>WeaponInstance</code> constructor. A shipped weapon with an override resolves there to a <b>deep clone</b> (a single <code>Object.Instantiate</code>, which copies the combo list and dash struct by value); combat, which reads the definition for base stats, sees the modded numbers everywhere it is equipped, forged or resumed. The clone keeps the asset name (the save id) and the concrete type, so nothing downstream can tell it from the shipped asset except its numbers.</p>
+  <div class="note"><b>The shared asset is never touched.</b> "Never mutate shared ScriptableObjects at runtime" is true here <i>by construction</i>: the override lands on a private clone built the first time the weapon is equipped and shared for the process. Unmodded, the seam returns the shared asset untouched and allocates nothing.</div>
+
+  <h3>What you can and cannot change</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Type</th><th>Overridable?</th><th>Why</th></tr>
+    <tr><td>numbers, <code>true</code>/<code>false</code>, text, enum options</td><td><b style="color:#73d95c">yes</b></td><td>Plain scalars; the field name IS the authoring vocabulary the template and this page both show.</td></tr>
+    <tr><td><code>Vector2</code> forces (knockback / movement), written <code>x, y</code></td><td><b style="color:#73d95c">yes</b></td><td>Weapon data uses them for the swing/dash forces — a superset of what enemy modding parses.</td></tr>
+    <tr><td><code>StatusesToApply</code>, by name</td><td><b style="color:#73d95c">yes</b></td><td>Resolved through a <code>StatusCatalog</code> in Resources — the one place text can name a status asset.</td></tr>
+    <tr><td>projectile prefabs, hit effects, sounds</td><td><b style="color:#ffc740">no</b></td><td>Text cannot name a Unity object reference. These are omitted from the templates entirely rather than listed and refused.</td></tr>
+    <tr><td>a whole new weapon</td><td><b style="color:#73d95c">yes</b></td><td>Via <code>[NewWeapon:]</code> + <code>basedOn</code> — its own name, numbers, icon and status, borrowing a shipped weapon's type and machinery.</td></tr>
+  </table>
+  </div>
+
+  <div class="note warn"><b>Some fields are settable but inert.</b> The parser will happily write <code>KnockbackForce</code> on a swing or the dash, but the <a href="#dead">dead-fields table (§08)</a> notes the magnitude is never read — only its normalized direction feeds an execution. A retune there parses cleanly and changes nothing you can feel. The template lists it because it is a real field; §08 says why not to bother.</div>
+
+  <h3 id="modding-refusals">What it refuses, and why</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Refused</th><th>Because</th></tr>
+    <tr><td>a field the weapon does not have</td><td>Reported by name and ignored; the weapon keeps its shipped value. One bad line cannot break a run.</td></tr>
+    <tr><td><code>.attack:&lt;n&gt;</code> past the last swing</td><td>Reported with the real range (e.g. "0-1"); otherwise a typo'd index would land nowhere and look like nothing happened.</td></tr>
+    <tr><td><code>.attack:</code> / <code>.dash</code> on a bow</td><td>A ranged weapon has no combo or dash; the section is reported rather than silently dropped.</td></tr>
+    <tr><td>a <code>basedOn</code> that is not a shipped weapon</td><td>Reported <i>with the valid names listed</i> — a misspelled donor otherwise makes the whole weapon vanish with no clue why.</td></tr>
+    <tr><td>a status name with no catalog match</td><td>Reported with the known names; the other statuses in the line still apply.</td></tr>
+    <tr><td>an object reference (prefab, clip, sound)</td><td>Text has no way to name one, so those fields are not offered at all — refusing at the template stage, not at load.</td></tr>
+  </table>
+  </div>
+
+  <p class="dim">Editor and build diverge exactly as enemies do: builds always load overrides; the editor only under <span class="kbd">Gleamwood ▸ Weapons ▸ Simulate Mod Overrides</span>. With no folder present the whole cost is one directory probe, and a boot report (<code>GLEAMWOOD WEAPON MOD REPORT</code> in the player log) says what loaded and what failed. See <a href="modding.html">Modding</a> for the player-facing quick start.</p>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Weapon SOs: <code>Assets/_Game/Combat/Code/Definitions/WeaponDefinition.cs</code>, <code>MeleeWeaponDefinition.cs</code> (+ <code>MeleeAttackConfig</code> / <code>DashAttackConfig</code> structs), <code>RangedWeaponDefinition.cs</code>.</li>
+    <li>Attack states: <code>Assets/_Game/Player/Code/States/AttackStates/PlayerMeleeAttackState.cs</code> (incl. <code>GetScanBox</code>), <code>PlayerDashAttackState.cs</code>, <code>PlayerBowAimState.cs</code> — and their configs in <code>Assets/_Game/Player/Code/Definitions/States/</code> (sub-assets of <code>Assets/_Game/Player/Data/PlayerDef.asset</code>).</li>
+    <li>Statuses &amp; meters: <code>Assets/_Game/Combat/Code/CombatStatusDefinition.cs</code>, <code>CombatStatusManager.cs</code>; hit payload: <code>Assets/_Game/Systems/Interfaces/IHittable.cs</code>.</li>
+    <li>Scene tuner: <code>Assets/_Game/Combat/Code/PlayerCombatRangePreview.cs</code> + <code>Assets/_Game/Editor/Combat/PlayerCombatRangePreviewEditor.cs</code>.</li>
+    <li>Registration &amp; loot: <code>Assets/_Game/Systems/Run/Weapons/WeaponCatalog.cs</code>, <code>LootTable.cs</code>, <code>WeaponInstance.cs</code>, <code>WeaponPedestal.cs</code>, <code>UpgradeTrack.cs</code>.</li>
+    <li>Modding (§10): <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>; template build step <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>; verification pack <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code> + tests <code>Assets/Tests/PlayMode/WeaponModTests.cs</code>.</li>
+    <li>Authoring surface: <code>Assets/_Game/Editor/ContentWorkbench.cs</code>, <code>Assets/_Game/Combat/Code/AnimatorStateRefAttribute.cs</code> + <code>Assets/_Game/Editor/Combat/AnimatorStateRefDrawer.cs</code>.</li>
+    <li>Markdown companion: <a href="../GAME_TUNING_GUIDE.md"><code>Documentation/GAME_TUNING_GUIDE.md</code></a> — wiki and guide must agree.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="workbench.html"><span>← Previous</span>Workbench</a>
+  <a href="enemies.html"><span>Next →</span>Enemies &amp; Bosses</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

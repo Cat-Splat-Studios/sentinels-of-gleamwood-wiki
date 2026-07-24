@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Framework &amp; Architecture — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a class="on" href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Framework &amp; <span class="flame">Architecture</span></h1>
+  <p class="tag">The state machine that runs every player and enemy, the data-driven transition system designers author against, the one known bug that eats config edges, and the boot/services spine underneath it all. This is the condensed map — the <code>state_machine_*.md</code> pages carry the full prose.</p>
+</header>
+
+<main>
+
+<section id="model">
+  <h2><span class="num">01</span>The five-piece model</h2>
+  <p class="lead">The framework lives at <code>Assets/_Framework/StateMachine/</code> — namespaces <code>StateMachine</code> (core + states) and <code>StateMachine.Core</code> (transition/condition data types); editor code under <code>StateMachine.Editor</code> / <code>StateMachine.Editor.Creator</code>. Five pieces, always the same five:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Key types</th><th>File</th><th>What it is</th></tr>
+    <tr><td><b>Context</b></td><td><code>ReactiveContext&lt;TDerived&gt;</code> · <code>LightweightReactiveContext&lt;TDerived&gt;</code> · <code>IHasAnimator</code></td><td><code>Core/ReactiveContext.cs</code> · <code>Core/LightweightReactiveContext.cs</code> · <code>State/IHasAnimator.cs</code></td><td>The runtime data bag every state shares. <code>ReactiveContext</code> is ScriptableObject-based (PlayerContext); <code>Lightweight</code> is the same API without the SO for frequently-spawned entities (EnemyContext) — no Remove/Clear methods on the lightweight one. A context that implements <code>IHasAnimator</code> (expose <code>Animator Animator { get; }</code>) opts into automatic animation playback — there is no reflection fallback anymore.</td></tr>
+    <tr><td><b>State machine</b></td><td><code>StateMachine&lt;TContext&gt;</code> (abstract MonoBehaviour, <code>where TContext : class</code>)</td><td><code>Core/StateMachine.cs</code></td><td>Registers states, checks transitions, drives Update/FixedUpdate. Context is intentionally <b>not</b> <code>[SerializeField]</code> — it's runtime-only, assigned in the concrete machine's <code>Awake</code>.</td></tr>
+    <tr><td><b>State</b></td><td><code>IState&lt;TContext&gt;</code> · <code>StateBase&lt;TContext, TStateMachine&gt;</code> · <code>ConfigurableState&lt;TContext, TConfig, TStateMachine&gt;</code> · <code>LambdaState&lt;TContext&gt;</code> + <code>StateBuilder&lt;TContext&gt;</code></td><td><code>State/IState.cs</code> · <code>State/StateBase.cs</code> · <code>State/ConfigurableState.cs</code> · <code>State/LambdaState.cs</code> · <code>State/Builder/StateBuilder.cs</code></td><td>Interface: <code>Enter / Exit / Update / FixedUpdate / SetupTransitions / Init(stateMachine, context)</code>. <code>ConfigurableState</code> caches <code>Animator.StringToHash("Layer.StateName")</code> from <code>IStateConfigWithAnimation</code> (explicit <code>AnimatorStateName</code> wins, else <code>Animation.name</code>, prefixed with <code>AnimatorLayerName</code> if set) and plays it on the context's Animator in <code>Enter()</code> — a null config logs an Error and early-returns.</td></tr>
+    <tr><td><b>Config</b></td><td><code>StateConfig&lt;TContext&gt;</code> (ScriptableObject)</td><td><code>Core/StateConfig.cs</code></td><td>Per-state data asset. Abstract <code>IState&lt;TContext&gt; CreateState()</code> factory plus <code>virtual string StateId =&gt; name</code> — both game configs override <code>StateId</code> to prefer their <code>StateName</code> field.</td></tr>
+    <tr><td><b>Definition</b></td><td><code>StateMachineDefinition</code> (non-generic marker) · <code>StateMachineDefinition&lt;TConfig&gt;</code></td><td><code>Core/StateMachineDefinition.cs</code></td><td>The roster asset: public <code>List&lt;TConfig&gt; States</code> + <code>TConfig InitialState</code>. State configs are usually <b>sub-assets</b> of the definition (§05).</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>There is no single-generic <code>StateBase&lt;TContext&gt;</code>.</b> The only base is <code>StateBase&lt;TContext, TStateMachine&gt;</code> — code copied from <code>state_machine_code_examples.md</code> §2.1 will not compile (see §06). <code>SetupTransitions()</code> is a virtual no-op on StateBase; <code>ConfigurableState</code> overrides it to register config-authored edges.</div>
+<pre><code><span class="c">// ReactiveContext contract: write through SetProperty so listeners fire.</span>
+<span class="k">public bool</span> IsGrounded { <span class="k">get</span> =&gt; isGrounded; <span class="k">set</span> =&gt; SetProperty(<span class="k">ref</span> isGrounded, <span class="k">value</span>); }
+
+context.OnPropertyChanged&lt;<span class="t">bool</span>&gt;(<span class="k">nameof</span>(IsGrounded), (was, now) =&gt; { <span class="c">/* react */</span> });
+<span class="c">// SO contexts: call ClearPropertyChangedCallbacks() at play-start —</span>
+<span class="c">// the callback list survives play sessions on a ScriptableObject.</span></code></pre>
+
+  <h3>The two consumers</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Machine</th><th>Where</th><th>What matters</th></tr>
+    <tr><td><code>PlayerStateMachine : StateMachine&lt;PlayerContext&gt;</code></td><td><code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code></td><td><b>Data-driven only</b> — the legacy manual registration path was retired in Phase 3 (it NRE'd with null configs); no <code>Definition</code> assigned = Error + abort. <code>PlayerDefinition</code> via <span class="kbd">Create ▸ Player ▸ Player Definition</span>; base state <code>PlayerState : ConfigurableState&lt;PlayerContext, PlayerStateConfig, PlayerStateMachine&gt;</code> (<code>Player/Code/States/PlayerState.cs</code>). <code>PlayerStateConfig</code>: <code>StateName</code> (+ <code>StateId</code> override), Animation / <code>AnimatorLayerName</code> ("Base Layer" default) / <code>[AnimatorStateRef] AnimatorStateName</code>, <code>List&lt;PlayerTransitionDefinition&gt; Transitions</code>. Registration: <code>InitializeFromDefinition</code> (~lines 168–195).</td></tr>
+    <tr><td><code>EnemyStateMachine : StateMachine&lt;EnemyContext&gt;, IHittable</code></td><td><code>Assets/_Game/Enemies/Code/EnemyStateMachine.cs</code></td><td>Registers <code>Definition.States</code> by <code>StateName</code>, auto-registers <code>Executions[].ExecutionConfig</code> (skips duplicates), plays per-state <code>EnterSound</code> one-shots via an <code>OnStateChanged</code> hook, registers with the Visualizer as <code>"{name} ({EntityId})"</code>. Juggle wiring: <code>CombatStatus.OnJuggleThresholdReached → context.ShouldLaunch = true</code> only if <code>enemyDefinition.CanBeJuggled</code>. Registration in <code>Awake</code> (~lines 77–129). <code>EnemyStateConfig</code> adds <code>AudioClip EnterSound</code> + <code>[Range(0,1)] EnterSoundVolume</code>; <code>EnemyDefinition</code> (<span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>) carries <code>MaxHealth = 3</code> (<b>0 = no health system: damage can't kill, executions still can</b>), <code>CanBeJuggled</code>, <code>List&lt;ExecutionDefinition&gt;</code>.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Post-M6 enemy state roster (<code>Assets/_Game/Enemies/Code/States/</code>): <code>EnemyIdleState</code>, <code>EnemyChaseState</code>, <code>EnemyHitState</code>, <code>EnemyDeathState</code>, <code>EnemyJuggledState</code>, <code>EnemyAttackPhaseState</code>, <code>EnemyFloatChaseState</code>, <code>EnemyHazardPhaseState</code>, <code>EnemyProjectileAttackState</code>, <code>EnemyRelocateState</code>, <code>EnemySummonState</code>, executions <code>EnemyBowExecutionState</code> / <code>EnemyDashExecutionState</code> / <code>EnemyExplosiveExecutionState</code>, plus <code>IEnemySuperArmor</code>.</p>
+</section>
+
+<section id="api">
+  <h2><span class="num">02</span>Runtime behavior — what the machine actually does</h2>
+  <p class="lead">The exact API of <code>StateMachine&lt;TContext&gt;</code> (<code>Core/StateMachine.cs</code>). Everything a programmer touches; designers mostly meet this indirectly through configs.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Member</th><th>Behavior</th></tr>
+    <tr><td><code>CurrentState</code> / <code>PreviousState</code> / <code>Context</code></td><td><code>PreviousState</code> returns <code>CurrentState</code> if there is no previous yet.</td></tr>
+    <tr><td><code>Initialize(TContext context)</code></td><td>Just assigns the context — the public path for wiring one in. In practice both concrete machines write the protected <code>context</code> field directly in <code>Awake</code> (<code>Initialize</code> has zero call sites today); the base class has <b>no abstract members</b> to implement.</td></tr>
+    <tr><td><code>RegisterState&lt;T&gt;(string stateId, T state)</code></td><td><b>Throws</b> <code>InvalidOperationException</code> on a duplicate id; calls <code>state.Init(this, context)</code>.</td></tr>
+    <tr><td><code>GetState(string)</code> · <code>TryGetState(string, out …)</code> · <code>GetState&lt;T&gt;()</code></td><td><code>GetState</code> throws if missing; <code>TryGetState</code> is the safe lookup (added in Phase 3 for fallbacks — see the EnemyHitState safety net in §03); <code>GetState&lt;T&gt;()</code> returns the first state of that type, throws if none.</td></tr>
+    <tr><td><code>AddTransition(from, to, Func&lt;bool&gt; condition, Action onTransition = null, int priority = 0)</code></td><td>Registers an edge, then re-sorts that state's edges descending by priority. <b>See the rule box below — this call overwrites.</b></td></tr>
+    <tr><td><code>SetInitialState(string | IState)</code></td><td>Sets <b>and calls <code>Enter()</code> immediately</b>.</td></tr>
+    <tr><td><code>ChangeState(string | IState)</code> · <code>RevertToPreviousState()</code></td><td>Manual switches, same Exit→Enter flow.</td></tr>
+    <tr><td><code>event OnStateChanged(IState previous, IState current)</code></td><td>Fired on every switch — this is where the enemy machine hooks EnterSound one-shots.</td></tr>
+    <tr><td><code>EnableDebug()</code> / <code>[SerializeField] bool debugMode</code></td><td>State-change logging for live debugging.</td></tr>
+    <tr><td><code>states</code> · <code>stateTransitions</code></td><td>Both dictionaries are <b>public</b> fields. Convenient, unguarded — treat them as read-only unless you know why you're writing.</td></tr>
+  </table>
+  </div>
+  <div class="rule"><b>AddTransition = last writer wins per from→to pair.</b> Before adding, it silently <code>RemoveAll</code>s any existing transition from <code>from</code> to the same target. This is the exact mechanism behind the hybrid-state bug in §04: a hardcoded edge added after <code>base.SetupTransitions()</code> deletes the config-authored edge to that same target without a whisper.</div>
+  <div class="note"><b>Update order:</b> <code>Update()</code> runs <code>CheckTransitions()</code> <b>before</b> <code>currentState.Update()</code> — at most <b>one</b> transition fires per frame (priority order, breaks after the first hit). <code>FixedUpdate()</code> only forwards to the state; it never checks transitions. A doc comment claiming "<code>base.Update()</code> updates transitions" is wrong (§06).</div>
+  <p><code>Transition&lt;TContext&gt;</code> (<code>State/Transition.cs</code>) carries <code>TargetState</code>, <code>Priority</code>, <code>TransitionCount</code> (increments each firing), <code>ShouldTransition()</code>, <code>PerformTransitionAction()</code>. For hand-built edges there's a fluent builder via <code>StateExtensions</code>:</p>
+<pre><code><span class="c">// TransitionBuilder (State/Builder/TransitionBuilder.cs)</span>
+state.AddTransition(stateMachine)
+     .To(<span class="s">"idle"</span>)                    <span class="c">// state instance or id</span>
+     .When(() =&gt; ctx.IsGrounded)
+     .WithAction(() =&gt; PlayLandDust())
+     .WithPriority(<span class="a">1</span>)
+     .Build();</code></pre>
+</section>
+
+<section id="datadriven">
+  <h2><span class="num">03</span>Data-driven transitions — the designer path</h2>
+  <p class="lead">Every state config carries a <b>Transitions</b> list. That list is the designer-facing edge authoring surface — no code, no rebuild.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Type</th><th>File</th><th>Contract</th></tr>
+    <tr><td><code>TransitionDefinition&lt;TStateConfig, TContext&gt;</code></td><td><code>Core/TransitionDefinition.cs</code></td><td><code>[Serializable]</code> row: <code>ToState</code> (a config in the same Definition) + <code>List&lt;TransitionCondition&gt; Conditions</code> + <code>List&lt;DynamicCondition&gt; DynamicConditions</code>. <b>Everything ANDs</b> — all conditions in both lists must pass.</td></tr>
+    <tr><td><code>TransitionCondition&lt;TContext&gt;</code></td><td><code>Core/TransitionCondition.cs</code></td><td>ScriptableObject; override <code>bool Check(TContext context)</code>. Type-safe, hand-coded — generate new ones with the Creator's Condition Creator tab (§05).</td></tr>
+    <tr><td><code>DynamicCondition</code></td><td><code>Core/DynamicCondition.cs</code></td><td>No-code property rule: <span class="kbd">Create ▸ StateMachine ▸ Dynamic Condition</span>. Fields: <code>PropertyName</code> (exact context property, e.g. <code>IsGrounded</code>), <code>Operator</code> (Equal / NotEqual / Greater / Less / GreaterOrEqual / LessOrEqual / IsTrue / IsFalse), <code>FloatValue</code>, <code>BoolValue</code>. Compiles an expression-tree predicate cached per (asset, context type) — context-agnostic, so one asset can serve player and enemy machines.</td></tr>
+  </table>
+  </div>
+  <div class="warn"><b>DynamicCondition failure mode:</b> if the property name doesn't compile against the context, it logs an Error once and the predicate <b>permanently returns false</b> — the transition just never fires. Typo in <code>PropertyName</code> = a dead edge with one console line to show for it. <code>DynamicCondition.ClearCache()</code> exists if you need to recompile after a hot fix.</div>
+  <p><b>How config edges register:</b> <code>ConfigurableState.SetupTransitions()</code> walks <code>IStateConfigWithTransitions&lt;TContext&gt;.GetTransitions()</code> (<code>Core/IStateConfigWithTransitions.cs</code>), resolves each target by <code>ToState.StateId</code>, pre-compiles the dynamic predicates, folds everything into one composite <code>Func&lt;bool&gt;</code>, and registers it via <code>AddTransition</code> — <b>always priority 0, never an onTransition action</b>. An unresolvable target logs a Warning and is skipped. Both machines register in <b>two passes</b>: all states first, then <code>SetupTransitions()</code> on every state — so forward references always resolve, regardless of list order.</p>
+  <h3>Recipe: add a transition to an existing state</h3>
+  <ol class="steps">
+    <li>Select the state config — it's a sub-asset of the Definition (expand the <code>.asset</code> in the Project window), or edit it on the workbench's <a href="workbench.html#states">States tab</a>.</li>
+    <li>In the <b>Transitions</b> list, add an element and set <b>ToState</b> to another config in the same Definition.</li>
+    <li>Add <b>Conditions</b> (existing <code>TransitionCondition</code> assets) and/or <b>DynamicConditions</b> — for a dynamic one, <span class="kbd">Create ▸ StateMachine ▸ Dynamic Condition</span>, set <code>PropertyName</code> to an exact context property, pick the Operator, fill FloatValue/BoolValue.</li>
+    <li>Enter Play mode and watch it in the Visualizer (§05). Remember: all conditions AND together, and config edges sit at priority 0.</li>
+  </ol>
+  <div class="note"><b>The EnemyHitState safety net</b> (<code>Assets/_Game/Enemies/Code/States/EnemyHitState.cs</code> ~lines 34–52): data-driven Hit→X transitions are the primary path; once hitstun elapses it falls back to <code>config.FallbackStateName</code> (default <code>"idle"</code>) via <code>TryGetState</code> — a missing fallback warns <b>once</b> instead of throwing. This is why <code>TryGetState</code> exists.</div>
+</section>
+
+<section id="hybrid">
+  <h2><span class="num">04</span>The hybrid model — and the known bug that eats config edges</h2>
+  <p class="lead">Some player states are <b>hybrids</b>: they call <code>base.SetupTransitions()</code> (config-authored edges) and then keep hardcoded <code>AddTransition</code> calls afterward. Combine that with the overwrite rule from §02 and you get the top item in <code>HANDOVER.md</code> §6.A0.</p>
+  <div class="warn"><b>KNOWN BUG (HANDOVER §6.A0 — the missing early return).</b> Several hybrid player states call <code>base.SetupTransitions()</code> then run their hardcoded <code>AddTransition</code> edges unconditionally — no early return. Because <code>AddTransition</code> silently removes any existing edge to the same target, <b>hardcoded edges override config-authored edges to the same target state</b>. A designer editing the Transitions list on these configs sees <b>no effect</b> for any overlapping target. Affected files (<code>Assets/_Game/Player/Code/States/</code>):
+    <ul>
+      <li><code>MovementStates/PlayerWallSlideState.cs</code> (~line 24)</li>
+      <li><code>MovementStates/PlayerJumpState.cs</code> (~line 149 — its own comment admits "Priorities might need adjustment if Config transitions conflict")</li>
+      <li><code>MovementStates/PlayerDashState.cs</code> (~line 27)</li>
+      <li><code>AttackStates/PlayerMeleeAttackState.cs</code> (~line 32)</li>
+      <li><code>AttackStates/PlayerDashAttackState.cs</code> (~line 29)</li>
+    </ul>
+    Pure data-driven states where your config edits <b>do</b> win: <code>PlayerRunState</code>, <code>PlayerIdleState</code>, <code>PlayerFallState</code>, <code>PlayerBowAimState</code> ("legacy manual path retired"). Until the audit lands: before tuning a transition on a hybrid state, check its <code>SetupTransitions</code> override for a hardcoded edge to the same target — if one exists, your config row is dead weight.</div>
+<pre><code><span class="c">// The hybrid shape (abridged — this is the bug pattern, not a model to copy):</span>
+<span class="k">public override void</span> SetupTransitions()
+{
+    <span class="k">if</span> (config != <span class="k">null</span>) { <span class="k">base</span>.SetupTransitions(); }   <span class="c">// config edges land first…</span>
+
+    <span class="c">// …then these run unconditionally — no early return — and each call</span>
+    <span class="c">// RemoveAll()s any existing edge to the same target. Hardcoded wins.</span>
+    stateMachine.AddTransition(<span class="k">this</span>, stateMachine.GetState(<span class="s">"idle"</span>), () =&gt; Done());
+}</code></pre>
+  <h3>The rest of the §6.A0 ledger</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Debt</th><th>Detail</th></tr>
+    <tr><td><code>PlayerClimbState</code> is orphaned</td><td><code>MovementStates/PlayerClimbState.cs</code> is referenced only by a commented-out transition in <code>PlayerJumpState</code> (~line 173). §6.A0 says: decide revive-or-delete.</td></tr>
+    <tr><td>Visualizer reflection cost · IMGUI config-editor polish · sub-asset orphan tooling</td><td>Detail lives in <a href="../History/BACKLOG.md"><code>Documentation/History/BACKLOG.md</code></a> items 1 / 2 / 4 (archived 2026-07-19; open items extracted into <code>HANDOVER.md</code> §6.A0).</td></tr>
+    <tr><td><code>EnemyContext.MoveSpeed</code> is hardcoded</td><td><code>public float MoveSpeed = 3f</code> at <code>Assets/_Game/Enemies/Code/EnemyContext.cs</code> line 17 — per-enemy speed only differentiates via the chase state's SpeedMultiplier.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="tooling">
+  <h2><span class="num">05</span>Editor tooling — exact menu paths</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>Tool</th><th>Where</th><th>What it does</th></tr>
+    <tr><td>State Machine Creator</td><td><span class="kbd">Cat Splat State Machine ▸ Tools ▸ State Machine Creator</span><br><code>Editor/Creator/StateMachineCreatorWindow.cs</code></td><td><b>Code generation only</b> since the 2026-07-20 consolidation: two tabs, <b>State Creator</b> and <b>Condition Creator</b>, which write new C# state/condition <i>types</i>. Config Creator, State Config Editor and Assembler are gone — building an actual machine (create states, set initial, wire transitions) is the Content Workbench's <a href="workbench.html#states">States tab</a>. The Target System dropdown reflects over all <code>StateMachine&lt;T&gt;</code> subclasses with matching config/definition types — a new system is auto-detected, no tool edits. Variable types offered: float, int, bool, string, Vector2, Vector3, GameObject, AnimationClip, AnimationCurve. Both generators now <b>confirm before overwriting</b> an existing script (they used to replace hand-written code silently).</td></tr>
+    <tr><td>State Machine Visualizer</td><td><span class="kbd">Cat Splat State Machine ▸ State Machine Visualizer</span><br><code>Editor/StateCentricWindow.cs</code></td><td>State-centric view: one state centered, incoming edges left, outgoing right. Machine + state dropdowns, <b>Live View</b> toggle, min size 800×660. Backed by <code>StateMachineRegistry</code> — machines self-register at runtime (player shows as <code>PlayerStateMachine</code>, enemies as <code>"Name (EntityId)"</code>). Decorate state classes with <code>[StateMachine.Editor.Description("…")]</code> for the info panel.</td></tr>
+    <tr><td>Sub-Asset Migration</td><td><span class="kbd">Cat Splat State Machine ▸ Tools ▸ Sub-Asset Migration</span><br><code>Editor/Creator/SubAssetMigrationTool.cs</code></td><td>Migrates loose config assets into definition sub-assets — the current authoring shape.</td></tr>
+    <tr><td>Cleanup Sub-Assets</td><td>Project window: select the <code>.asset</code> → right-click → <span class="kbd">State Machine ▸ Cleanup Sub-Assets</span><br><code>Editor/SubAssetCleanupUtility.cs</code></td><td>Removes (1) broken "Missing (Mono Script)" sub-assets by rewriting the YAML and (2) orphaned sub-assets unreachable from the main asset. Run it after deleting a state script.</td></tr>
+    <tr><td>Definition inspector</td><td><code>Editor/StateMachineDefinitionEditor.cs</code> (+ <code>StateMachineInspector.uss</code>)</td><td>UI Toolkit (<code>CreateInspectorGUI</code>): title banner, live validation, Configuration card, inline expandable States list, with <code>CreateCustomContent()</code> / <code>CreatePostStateListContent()</code> override points. <b>The game no longer uses it</b> — since the consolidation, <code>EnemyDefinitionEditor</code> and <code>PlayerDefinitionEditor</code> are thin <code>Editor</code>s (a note, an <b>Open in Content Workbench</b> button, raw fields), so this base is currently unreferenced and is a deletion candidate. The enemy editor's old CanBeJuggled auto-state management was also dropped — it added the first <code>EnemyJuggledConfig</code> found <i>project-wide</i>, which for sub-assets meant another enemy's state.</td></tr>
+    <tr><td>Config inspector base</td><td><code>Editor/StateConfigEditor.cs</code></td><td><code>StateConfigEditor&lt;TConfig, TContext&gt;</code> — base custom inspector for config assets, e.g. <code>PlayerStateConfigEditor</code> at <code>Assets/_Game/Editor/Player/PlayerStateConfigEditor.cs</code>.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Where generated code lands:</b> the feature Code root, <b>not</b> next to the tool — <code>Assets/_Game/Player/Code/Definitions/States/</code>, <code>Assets/_Game/Enemies/Code/Definitions/States/</code>, fallback <code>Assets/_Game/Generated</code> (<code>ResolveFeatureCodeRoot</code>, ~line 1166). Output is <code>{Name}Config.cs</code> + <code>{Name}State.cs</code>; the config's <code>Reset()</code> sets <code>StateName</code> to the camelCase name; the state stub overrides <b>only <code>Enter()</code></b> (not OnEnter/OnUpdate/OnExit, whatever the tool guide says). Condition Creator writes <code>TransitionCondition</code> scripts to <code>…/Definitions/Transitions/Conditions/</code>. Hook for build-out: <code>IStateMachineAssetPostProcessor.OnConfigCreated(config, definition)</code> (<code>Editor/IStateMachineAssetPostProcessor.cs</code>).</div>
+  <h3>Recipe: a brand-new state type, end to end</h3>
+  <ol class="steps">
+    <li><b>Only if the state TYPE doesn't exist yet:</b> <span class="kbd">Cat Splat State Machine ▸ Tools ▸ State Machine Creator</span> → <b>State Creator</b> → pick the Target System, name it, choose the base config, add variables → <b>Generate</b>. Wait for the compile. (Reusing an existing type? Skip straight to step 2.)</li>
+    <li><span class="kbd">Gleamwood ▸ Content Workbench</span> → Enemies (or Player) → <b>States</b> → <b>+ Create State</b>: pick the type, name it. That one action creates the sub-asset, sets <code>StateName</code>, adds it to <code>States</code>, promotes it to <code>InitialState</code> if it's the first, and runs the post-processors.</li>
+    <li>Same tab: wire its <b>Transitions</b> (To State + Conditions), and <b>Set as Initial State</b> if this is the entry state.</li>
+    <li>Check the validation rows are green, then test in the Visualizer.</li>
+  </ol>
+  <div class="note">Authoring lives in the workbench precisely because the old flow spanned two windows: the Creator made the asset and the definition inspector's <code>+</code> appended an <b>empty slot</b>, leaving <code>StateName</code> to be set by hand — the field that decides whether any transition can reach the state. See <a href="workbench.html#states">Workbench §07</a>.</div>
+  <p class="dim">Debugging live: open the Visualizer, pick the machine, flip on Live View — or call <code>EnableDebug()</code> / tick <code>debugMode</code> on the machine component for state-change console logs.</p>
+</section>
+
+<section id="sources">
+  <h2><span class="num">06</span>Source-of-record docs — and where they lie</h2>
+  <p class="lead">This page is the condensed map. The full framework prose lives in five markdown pages in this folder — they remain the source of record, with the stale spots listed honestly below (verified against code 2026-07-19, post fat-trim commit <code>c332547</code>, which deleted the Example trio and the entire <code>Assets/_Game/NPCs/</code> module).</p>
+  <ul>
+    <li><a href="wiki_index.md"><code>wiki_index.md</code></a> — index; correctly points to <a href="../History/REFACTOR_CONTEXT.md"><code>Documentation/History/REFACTOR_CONTEXT.md</code></a> and notes <code>History/BACKLOG.md</code> was archived with open items extracted into <code>HANDOVER.md</code> §6.A0.</li>
+    <li><a href="state_machine_manual.md"><code>state_machine_manual.md</code></a> — concepts and workflow; mostly accurate.</li>
+    <li><a href="state_machine_api_reference.md"><code>state_machine_api_reference.md</code></a> — <b>the most accurate page</b> (partially refreshed post-refactor: <code>TryGetState</code>, <code>IHasAnimator</code>, the UI Toolkit definition editor).</li>
+    <li><a href="state_machine_code_examples.md"><code>state_machine_code_examples.md</code></a> — copy-paste snippets; <b>one does not compile</b> (below).</li>
+    <li><a href="state_machine_tool_guide.md"><code>state_machine_tool_guide.md</code></a> — tool walkthrough; the tab list is stale.</li>
+  </ul>
+  <p><a href="../../HANDOVER.md"><code>HANDOVER.md</code></a> (repo root) is the source of record for the boot/services/run architecture and the open framework debts (§6.A0). <a href="../GAME_TUNING_GUIDE.md"><code>Documentation/GAME_TUNING_GUIDE.md</code></a> is the finalized designer-tuning doc (Content Workbench / <code>[Tunable]</code> — a separate domain; see <a href="tuning.html">Tuning</a>).</p>
+  <h3>Known stale claims (docs vs. code)</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Doc</th><th>Stale claim</th><th>Reality</th></tr>
+    <tr><td>manual §3.1</td><td>NPC walkthrough as the running example; "implement abstract methods to initialize context"</td><td>The NPC module is deleted (recipe still valid — system discovery is reflection-based and would still auto-detect a new one). <code>StateMachine&lt;TContext&gt;</code> has <b>no</b> abstract members; concrete machines build the context in <code>Awake</code> and call <code>Initialize(context)</code>.</td></tr>
+    <tr><td>manual §5.1</td><td>Override points named <code>DrawCustomContent</code>/<code>DrawPostStateListContent</code></td><td>Real (UI Toolkit) names: <code>CreateCustomContent</code>/<code>CreatePostStateListContent</code> (api_reference has the correct names).</td></tr>
+    <tr><td>manual + tool guide</td><td>—</td><td>Neither ever mentions <code>DynamicCondition</code>, the two condition lists on <code>TransitionDefinition</code>, or the two-pass SetupTransitions contract — all central to the data-driven path.</td></tr>
+    <tr><td>api_reference</td><td><code>IHasAnimator</code> "implemented by PlayerContext, EnemyContext, NPCContext"</td><td>NPCContext is deleted; only PlayerContext and EnemyContext remain.</td></tr>
+    <tr><td>api_reference</td><td><code>IState</code> listing; <code>StateConfig</code> listing; <code>AddTransition</code></td><td>Omits <code>SetupTransitions()</code> (it IS on the interface — the seam the whole data-driven system hangs off); omits <code>virtual string StateId =&gt; name</code>; omits the RemoveAll-same-target overwrite semantics — the exact behavior behind the §04 bug.</td></tr>
+    <tr><td>api_reference</td><td>"Common States" roster; <code>EnemyStateConfig</code> / <code>EnemyDefinition</code> fields</td><td>Roster predates M6 (missing <code>EnemyChaseState</code>, <code>EnemyAttackPhaseState</code>, the five M6 verbs, <code>EnemyExplosiveExecutionState</code>, <code>IEnemySuperArmor</code>). <code>EnemyStateConfig</code> listing omits the animation fields, <code>StateId</code>, and <code>EnterSound</code>/<code>EnterSoundVolume</code>; <code>EnemyDefinition</code> listing omits <code>MaxHealth</code> and its 0-=-unkillable-by-damage rule.</td></tr>
+    <tr><td>code_examples §2.1</td><td><code>class BasicMoveState : StateBase&lt;MyEntityContext&gt;</code></td><td><b>Does not compile</b> — StateBase requires two generics (<code>StateBase&lt;TContext, TStateMachine&gt;</code>).</td></tr>
+    <tr><td>code_examples §3.2</td><td>"<code>base.Update(); // Updates transitions</code>"</td><td>Wrong — <code>ConfigurableState</code> has no Update override; transitions are evaluated by <code>StateMachine.Update → CheckTransitions()</code> <b>before</b> the state's Update.</td></tr>
+    <tr><td>tool_guide §2 (+ wiki_index, manual §4)</td><td>Four tabs: State Creator, Config Creator, Assembler, Config Editor</td><td>The window is now <b>code generation only</b>: State Creator + Condition Creator. Config Creator, State Config Editor and Assembler were removed in the 2026-07-20 consolidation — machine-building is the workbench's <a href="workbench.html#states">States tab</a>. The whole of tool_guide §2 describes a UI that no longer exists.</td></tr>
+    <tr><td>tool_guide §2.2 / §2.3</td><td>Output "in the system's Definitions folder" with OnEnter/OnUpdate/OnExit stubs; no mention of the sub-asset toggle</td><td>Output root is <code>Assets/_Game/&lt;Feature&gt;/Code/Definitions/States/</code>; the stub overrides only <code>Enter()</code>. The "Add to Selected Definition" toggle no longer exists — it was retired along with that tab, and sub-asset creation is now what the workbench's <b>+ Create State</b> does.</td></tr>
+  </table>
+  </div>
+  <div class="rule"><b>Fixing one of these?</b> Update the markdown page and this table in the same commit — this table shrinking to zero rows is the goal.</div>
+</section>
+
+<section id="boot">
+  <h2><span class="num">07</span>Boot &amp; services — the spine under everything</h2>
+  <p class="lead">One static class owns startup order. Everything else hangs off it. Source of record: <code>HANDOVER.md</code> §2.</p>
+  <h3>GameBootstrap — the single owner of startup</h3>
+  <p><code>Assets/_Game/Systems/Boot/GameBootstrap.cs</code> (static). Fires from <b>any</b> scene. Every step is wrapped: a failure logs <code>[Boot] Step 'X' failed</code> and later steps still run.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Phase</th><th>Unity hook</th><th>Does</th></tr>
+    <tr><td><code>ResetStatics</code></td><td>SubsystemRegistration</td><td>Runs <b>every</b> play session, even with domain reload off. Resets <code>CoreReady</code>, <code>_uiRoot</code>, <code>GameSignals.Reset()</code>, <code>MenuRouter.Reset()</code>, <code>MenuState.Reset()</code>, <code>RunDirector.Reset()</code>, <code>SaveSystem.ResetSession()</code>.</td></tr>
+    <tr><td><code>InitPlayerLoop</code></td><td>AfterAssembliesLoaded</td><td>TickManager into the player loop.</td></tr>
+    <tr><td><code>InitCore</code></td><td>BeforeSceneLoad</td><td>GameSettings → console brand provider (<code>#if</code> consoles) → InputDeviceTracker → <code>CoreReady = true</code>.</td></tr>
+    <tr><td><code>InitAfterFirstScene</code></td><td>AfterSceneLoad</td><td>Steam (<code>#if GLEAMWOOD_STEAM</code>) → <code>SpawnUIRoot()</code>. Skipped when the active scene name starts with <code>InitTestScene</code>; tests opt in by calling the public, idempotent <code>GameBootstrap.SpawnUIRoot()</code>.</td></tr>
+  </table>
+  </div>
+  <div class="rule"><b>Two hard rules.</b> (1) Do <b>not</b> add <code>[RuntimeInitializeOnLoadMethod]</code> to services anywhere else — GameBootstrap is the single owner of startup order. (2) New static state anywhere in the game <b>must</b> be reset in <code>ResetStatics</code>, or it leaks across play sessions with domain reload off.</div>
+  <h3>Entry flow and the services root</h3>
+  <ul>
+    <li><b><code>BootConfig</code></b> — SO at <code>Assets/_Game/Systems/Boot/Resources/BootConfig.asset</code> (<span class="kbd">Create ▸ Game ▸ Boot Config</span>), loaded via <code>BootConfig.Load()</code> = <code>Resources.Load&lt;BootConfig&gt;("BootConfig")</code>. Fields: <code>firstSceneName = "1.Title"</code>, <code>splashEnabled = true</code>, <code>splashSeconds = 2f</code> (any button skips), <code>gameServicesPrefab</code>.</li>
+    <li><b><code>Bootstrapper</code></b> (<code>Systems/Boot/Bootstrapper.cs</code>) drives the entry scene <code>0.Bootstrapper</code> (build index 0): waits for <code>CoreReady</code> → splash → <code>LoadScene(firstScene)</code>.</li>
+    <li><b><code>GameServices.prefab</code></b> (<code>Systems/Boot/GameServices.prefab</code>) — the DontDestroyOnLoad root spawned by <code>SpawnUIRoot()</code>. Hosts the global Loading screen (sort order 10) and SettingsMenu (sort 2). Scene menus use sort 0–2, ConfirmPrompt 3. <b>Never add per-scene copies of Loading/Settings.</b></li>
+  </ul>
+  <h3>Signals, router, prompt</h3>
+  <ul>
+    <li><b><code>GameSignals</code></b> (static, <code>Systems/Boot/GameSignals.cs</code>) — the gameplay→UI event surface: <code>LevelCompleted(RunStats)</code>, <code>ObjectiveEntered(string chapter, string title, string objective)</code>, <code>WeaponsChanged</code>, each with a <code>Raise*</code> method. A raise with zero listeners logs a Warning — silence is a bug signal here.</li>
+    <li><b><code>MenuRouter</code></b> (static, <code>Assets/_Game/UI/Code/Framework/MenuRouter.cs</code>) — type-keyed registry of live screens: <code>Open&lt;T&gt;(Action onClosed) where T : MenuScreen, IMenuOverlay</code> (warns if the panel is missing), <code>Get&lt;T&gt;()</code>, <code>TryGet&lt;T&gt;(out T)</code>. Screens auto-register via <code>MenuScreen</code> OnEnable/OnDisable.</li>
+    <li><b><code>ConfirmPrompt</code></b> — the shared modal; resolve it via <code>MenuRouter.TryGet</code>. The builder/labels API is deferred, not missing by accident.</li>
+  </ul>
+  <div class="rule"><b>Never add a <code>static Instance</code> to a menu screen</b> — the router is the registry. And all scene loads go through <code>LoadingScreenController.LoadScene(…)</code>, never <code>SceneManager.LoadScene</code> directly.</div>
+  <h3>Scene singletons — exactly two are sanctioned</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Singleton</th><th>File</th><th>Contract</th></tr>
+    <tr><td><code>CombatTimeManager</code></td><td><code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code></td><td><code>public static CombatTimeManager Instance</code>. Header comment: "Intentional scene-scoped singleton… callers use <code>Instance?.</code> … Not part of the MenuRouter/GameSignals migration — do not convert." API: <code>TriggerHitstop(float duration, float timeScale = 0.05f)</code>, <code>CancelHitstop()</code>.</td></tr>
+    <tr><td><code>BiomeHostController</code></td><td><code>Assets/_Game/Systems/Run/BiomeHostController.cs</code></td><td><code>public static BiomeHostController Instance</code> — set in the scene lifecycle, nulled on destroy.</td></tr>
+  </table>
+  </div>
+  <div class="warn"><b>Stale claim alert: there is no <code>LevelManager</code>.</b> It was deleted in the M1 run-based redesign along with Checkpoint/LevelExit/RunTracker (HANDOVER §4). Any doc or memory line saying "LevelManager/CombatTimeManager stay scene singletons" is out of date — <code>RunDirector</code> (the static run phase machine under <code>Systems/Run/</code>) plus the host controllers replaced it. The sanctioned pair is <code>CombatTimeManager</code> + <code>BiomeHostController</code>.</div>
+  <h3>PlayerSettings: clone at boot, never mutate the asset</h3>
+  <p><code>PlayerStateMachine.Awake()</code> (execution order −110) loads <code>Resources.Load&lt;PlayerContext&gt;("PlayerSettings")</code> — the asset at <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> — and assigns <code>context = Instantiate(initalState)</code>: a <b>clone</b>. Runtime tweaks (states, the F1 panel) hit the copy and evaporate on scene change; the Workbench's Player category edits the asset itself, which is the durable path. Same philosophy as the run loadout: <code>RunDirector</code> hands out <code>WeaponInstance</code> wrappers (upgrade levels ride the instance) and the shared weapon definitions are never mutated.</p>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Framework core: <code>Assets/_Framework/StateMachine/Core/</code> (<code>StateMachine.cs</code>, <code>StateConfig.cs</code>, <code>StateMachineDefinition.cs</code>, <code>TransitionDefinition.cs</code>, <code>TransitionCondition.cs</code>, <code>DynamicCondition.cs</code>, <code>ReactiveContext.cs</code>, <code>LightweightReactiveContext.cs</code>) and <code>State/</code> (<code>IState.cs</code>, <code>StateBase.cs</code>, <code>ConfigurableState.cs</code>, <code>Transition.cs</code>, <code>IHasAnimator.cs</code>, the Builder pair).</li>
+    <li>Editor tooling: <code>Assets/_Framework/StateMachine/Editor/</code> (<code>Creator/StateMachineCreatorWindow.cs</code>, <code>StateCentricWindow.cs</code>, <code>StateMachineRegistry.cs</code>, <code>StateMachineDefinitionEditor.cs</code>, <code>StateConfigEditor.cs</code>, <code>Creator/SubAssetMigrationTool.cs</code>, <code>SubAssetCleanupUtility.cs</code>).</li>
+    <li>Consumers: <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code> + <code>States/</code>, <code>Assets/_Game/Enemies/Code/EnemyStateMachine.cs</code> + <code>States/</code> + <code>Definitions/</code>, <code>Assets/_Game/Enemies/Code/EnemyContext.cs</code>.</li>
+    <li>Boot/services: <code>Assets/_Game/Systems/Boot/</code> (<code>GameBootstrap.cs</code>, <code>Bootstrapper.cs</code>, <code>GameSignals.cs</code>, <code>BootConfig</code>, <code>GameServices.prefab</code>), <code>Assets/_Game/UI/Code/Framework/MenuRouter.cs</code>, <code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code>, <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
+    <li>Debts and architecture record: <code>HANDOVER.md</code> §2 / §4 / §6.A0. The §04 bug list and the §06 stale-claim table must track both the code and the <code>state_machine_*.md</code> pages — fix a lie there, delete its row here, same commit.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="extending.html"><span>← Previous</span>Extending</a>
+  <a href="publishing.html"><span>Next →</span>Publishing</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

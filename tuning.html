@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tuning &amp; INI — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a class="on" href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Live Tuning &amp; the <span class="flame">INI</span></h1>
+  <p class="tag">Two INI files, one JSON, and an F1 panel that builds itself from attributes. This page is the contract: where every number lives, which edits persist and which die with the session, and the key-by-key reference for <code>GameContent.ini</code>.</p>
+</header>
+
+<main>
+
+<section id="homes">
+  <h2><span class="num">01</span>The four homes of a number</h2>
+  <p class="lead">Before you tune anything, know where the value you're touching actually lives. There are exactly four homes, and they never overlap.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>You edit…</th><th>It lives in</th><th>Persists</th><th>Written when</th></tr>
+    <tr><td>A Workbench / inspector field</td><td>The <code>.asset</code> ScriptableObject (e.g. <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code>)</td><td>Permanent — the authored default, versioned in git</td><td>Editor-time only</td></tr>
+    <tr><td>An F1-panel slider (<code>Save = true</code>)</td><td>Editor: <code>&lt;project&gt;\DebugSettings\DebugSettings.json</code> · Windows build: <code>&lt;exe folder&gt;\DebugSettings\DebugSettings.json</code> · fallback: <code>persistentDataPath</code></td><td>Until <b>Clear Saved</b> — and it <b>overrides the asset every startup</b> (§6)</td><td>Debounced 2 s after the change; on focus loss; on destroy; rewritten at every startup</td></tr>
+    <tr><td>A player settings-menu row</td><td>Desktop: <code>persistentDataPath\config.ini</code> · console/mobile: PlayerPrefs <code>cfg.&lt;section&gt;.&lt;key&gt;</code></td><td>Permanent per machine</td><td>Immediately on every Set</td></tr>
+    <tr><td>A <code>GameContent.ini</code> key</td><td><code>Assets/_Game/Content/GameContent.ini</code> → imported one-way into SO assets</td><td>Permanent — after <span class="kbd">Gleamwood ▸ Import Content INI</span></td><td>Editor-time only; the game <b>never</b> reads this INI at runtime</td></tr>
+  </table>
+  </div>
+  <div class="rule note"><b>Rule of thumb:</b> asset/Workbench edits = permanent authored defaults. F1 edits = this session only — unless the control has <code>Save = true</code>, in which case the saved JSON silently wins over the asset every session until you press <b>Clear Saved</b>. Deep-prose companion: <a href="../GAME_TUNING_GUIDE.md"><code>Documentation/GAME_TUNING_GUIDE.md</code></a> §5.</div>
+</section>
+
+<section id="tunable">
+  <h2><span class="num">02</span><code>[Tunable]</code> — declare, don't wire</h2>
+  <p>One attribute on a field (or property) puts a live control on the F1 panel. No panel code, no tab registration — a new tab name creates the tab on demand. Defined in <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code>, built into UI by <code>TunableTabs.Build</code> (<code>Assets/_Framework/DebugUI/TunableTabs.cs</code>).</p>
+<pre><code><span class="c">// Declare on any float/int/bool field — the tab appears on demand:</span>
+[<span class="t">Tunable</span>(<span class="s">"Movement"</span>, <span class="a">0f</span>, <span class="a">20f</span>, Save = <span class="k">true</span>, Tooltip = <span class="s">"Top run speed"</span>)]
+<span class="k">public float</span> MoveSpeed = <span class="a">5f</span>;
+
+[<span class="t">Tunable</span>(<span class="s">"Jump"</span>, <span class="a">0f</span>, <span class="a">5f</span>, OnChanged = <span class="k">nameof</span>(ApplyJumpGravity))]
+<span class="k">public float</span> MaxJumpHeight = <span class="a">2f</span>;   <span class="c">// side effects via OnChanged, still declaration-local</span></code></pre>
+  <h3>Full signature</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Member</th><th>Kind</th><th>What it does</th></tr>
+    <tr><td><code>tab</code></td><td>positional <code>string</code> (required)</td><td>The tab this control lives on. Created on demand; the <b>same string merges across targets</b> in the order given. Internal tab name = the string with spaces stripped — <code>"Wall Slide"</code> yields save keys prefixed <code>WallSlide.</code></td></tr>
+    <tr><td><code>min</code>, <code>max</code></td><td>positional <code>float</code> (defaults <code>0f</code>, <code>1f</code>)</td><td>Slider range. The slider carries a linked float field, clamped to this range.</td></tr>
+    <tr><td><code>Section</code></td><td>named <code>string</code></td><td>Optional section header grouping controls inside the tab (e.g. <code>"Mover (Collision)"</code>).</td></tr>
+    <tr><td><code>Label</code></td><td>named <code>string</code></td><td>Display label. Empty = the member name, nicified (regex <code>(\B[A-Z])</code> → <code>" $1"</code> — <code>DashBufferTime</code> shows as "Dash Buffer Time").</td></tr>
+    <tr><td><code>Tooltip</code></td><td>named <code>string</code></td><td>Hover tooltip on the control.</td></tr>
+    <tr><td><code>Save</code></td><td>named <code>bool</code></td><td>Persist through the DebugUI save system. Key = <code>Tab.Field</code> — <b>renaming the field auto-invalidates the stale saved value</b> (§5).</td></tr>
+    <tr><td><code>OnChanged</code></td><td>named <code>string</code></td><td>Method name on the declaring type, invoked <b>with no arguments</b> after <b>every</b> change — including when saved JSON is applied at startup (so e.g. gravity resync happens on load too). Must be parameterless; a missing method logs <code>OnChanged method '{name}' not found (must be parameterless).</code> and is ignored.</td></tr>
+  </table>
+  </div>
+  <h3>What it accepts</h3>
+  <ul>
+    <li><b>Types:</b> <code>bool</code> → Toggle; <code>float</code> and <code>int</code> → Slider (int values are <code>Mathf.RoundToInt</code> on set). Anything else logs <code>[Tunable] {Type}.{Field}: unsupported type {T} (float/int/bool only).</code> and is skipped.</li>
+    <li><b>Fields AND properties:</b> reflection covers <code>Public | NonPublic | Instance</code>; properties need both <code>CanRead</code> and <code>CanWrite</code>. <code>KinematicMover2D</code> uses properties deliberately — its setters clamp and trigger recalculation (e.g. <code>SkinWidth</code> clamps ≥ 0.001 and calls <code>CalculateRaySpacing()</code>).</li>
+    <li><b>Tab merging:</b> <code>PlayerContext</code> and <code>KinematicMover2D</code> both declare on <code>"Movement"</code> — one tab, two source objects, sections keeping them readable.</li>
+  </ul>
+</section>
+
+<section id="panel">
+  <h2><span class="num">03</span>The F1 panel today — every control on it</h2>
+  <p>Press <span class="kbd">F1</span> in play mode (title: <b>Debug Settings</b>; the toggle key is stamped on the Player prefab's <code>PlayerDebugUI</code>). Movement, Dash, Jump and Wall Slide come entirely from <code>[Tunable]</code> declarations on <code>PlayerContext</code> (<code>Assets/_Game/Player/Code/PlayerContext.cs</code>) and <code>KinematicMover2D</code> (<code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>). Camera and Debug Info are hand-built tabs because they bind scene components and lambdas.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Tab · Section</th><th>Control</th><th>Range</th><th>Authored default</th><th>Notes</th></tr>
+    <tr><td rowspan="4"><b>Movement</b></td><td>MoveSpeed</td><td>0–20</td><td>5</td><td rowspan="4">All <code>Save = true</code> (as is every stock tunable below).</td></tr>
+    <tr><td>RunAcceleration</td><td>0–50</td><td>10</td></tr>
+    <tr><td>MinRunAnimationSpeed</td><td>0–1</td><td>0.3</td></tr>
+    <tr><td>MaxRunAnimationSpeed</td><td>0–2</td><td>1.2</td></tr>
+    <tr><td rowspan="3">Movement · Mover (Collision)</td><td>SkinWidth</td><td>0.001–0.05</td><td>0.015</td><td>Property on the mover; setter clamps and recalcs ray spacing. Tooltip: "Raycast inset - too small causes tunneling, too large causes floating".</td></tr>
+    <tr><td>MaxSlopeAngle</td><td>0–89</td><td>45</td><td>Setter clamps 0–89.</td></tr>
+    <tr><td>MaxStepHeight</td><td>0–1</td><td>0.5</td><td>Setter clamps ≥ 0.</td></tr>
+    <tr><td>Movement · Mover (Gravity)</td><td>TerminalFallSpeed</td><td>1–50</td><td>20</td><td>Gravity itself is deliberately <b>not</b> tunable here — see the warn box below.</td></tr>
+    <tr><td rowspan="4"><b>Dash</b></td><td>DashDistance</td><td>0–10</td><td>2</td><td rowspan="4"><code>DashBufferTime</code> carries <code>Label = "Dash Buffer"</code>.</td></tr>
+    <tr><td>DashDuration</td><td>0.05–1</td><td>0.4</td></tr>
+    <tr><td>DashCooldown</td><td>0–3</td><td>0.2</td></tr>
+    <tr><td>DashBufferTime</td><td>0–0.5</td><td>0.2</td></tr>
+    <tr><td rowspan="4"><b>Jump</b> · Jump Settings</td><td>MaxJumpHeight</td><td>0–5</td><td>2</td><td rowspan="2"><code>OnChanged = nameof(ApplyJumpGravity)</code> — gravity is derived, see below.</td></tr>
+    <tr><td>TimeToJumpApex</td><td>0.05–1</td><td>0.4</td></tr>
+    <tr><td>CoyoteTime</td><td>0–0.5</td><td>0.2</td><td rowspan="2"></td></tr>
+    <tr><td>JumpBufferTime</td><td>0–0.5</td><td>0.2</td></tr>
+    <tr><td rowspan="2">Jump · Dash Jump Settings</td><td>DashJumpVerticalMultiplier</td><td>0–2</td><td>1.2</td><td rowspan="2"></td></tr>
+    <tr><td>DashJumpHorizontalMultiplier</td><td>0–2</td><td>1.2</td></tr>
+    <tr><td rowspan="3"><b>Wall Slide</b></td><td>WallSlideSpeed</td><td>0–5</td><td>1</td><td rowspan="3">Save keys use the space-stripped prefix: <code>WallSlide.WallSlideSpeed</code>.</td></tr>
+    <tr><td>WallSlideBuffer</td><td>0–0.5</td><td>1</td></tr>
+    <tr><td>WallJumpCooldown</td><td>0–0.5</td><td>0.3</td></tr>
+    <tr><td><b>Camera</b></td><td colspan="3">hand-built (e.g. <code>Camera.OffsetX</code>)</td><td>Only appears when a <code>CameraFollow</code> exists on <code>Camera.main</code>; a missing <code>PixelPerfectCamera</code> only logs a warning (and would break the tab's three PPC sliders).</td></tr>
+    <tr><td><b>Debug Info</b></td><td colspan="3">hand-built, read-only</td><td>InfoDisplay rows (string getters) refreshed every frame while visible.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Tune jumps on the Jump tab, never mover gravity.</b> Gravity is derived: <code>Gravity = -(2·MaxJumpHeight) / TimeToJumpApex²</code>. <code>ApplyJumpGravity()</code> pushes it to <b>both</b> consumers — <code>Mover.Gravity</code> and <code>Physics2D.gravity</code> (dynamic rigidbodies inherit it). The mover's serialized <code>gravity</code> (−25) is overwritten at startup by <code>PlayerStateMachine</code>.</div>
+  <div class="note"><b>No panel in your scene?</b> The Player prefab leaves <code>uiDocument</code> unassigned (<code>{fileID: 0}</code>); only scenes that override it have the F1 panel — today that's <code>2.Hub</code>, <code>3.BiomeHost</code> and <code>4.RestHost</code>. Elsewhere the panel logs an error in Start and disables itself.</div>
+  <p class="dim">Not tunable on purpose (inspector/Workbench only): <code>TurnAccelerationMultiplier</code>, <code>MaxHealth</code>, <code>ComboResetTime</code>, <code>dashCurve</code>, <code>MinJumpFraction</code>, <code>JumpCutMultiplier</code>, <code>ApexSpeedThreshold</code>, the weapon references and <code>EnemyLayers</code>.</p>
+</section>
+
+<section id="registry">
+  <h2><span class="num">04</span>Getting your object in front of the panel</h2>
+  <p>Declaring <code>[Tunable]</code> is half the job — the panel also has to know your object exists. There are exactly two doors in, both in <code>DebugUI.cs</code> / <code>TunableTabs.cs</code>:</p>
+  <h3>Door 1 — <code>AddTabsFrom</code> (the wired path)</h3>
+  <p><code>PlayerDebugUI.ConfigureTabs()</code> (<code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code>) is the override point. Today it does, in essence:</p>
+<pre><code>AddTabsFrom(playerContext, playerContext.Mover);  <span class="c">// Movement / Dash / Jump / Wall Slide — all from [Tunable]</span>
+if (cameraFollow != null) AddTab(ConfigureCameraTab()); <span class="c">// hand-built: binds scene components + lambdas</span>
+AddTab(ConfigureDebugInfoTab());</code></pre>
+  <p>If your object is reachable from here (a player-side SO or component), append it to the <code>AddTabsFrom</code> call and you're done.</p>
+  <h3>Door 2 — <code>TunableRegistry</code> (the zero-wiring path)</h3>
+  <p>For anything the player panel shouldn't know about — mechanic SOs, spawned systems — there's an opt-in registry (<code>TunableTabs.cs</code>): <code>TunableRegistry.Register(object)</code> / <code>Unregister(object)</code>, null-safe and deduping. <code>AddTabsFrom</code> always builds from its explicit targets <b>plus everything registered</b>.</p>
+<pre><code><span class="k">void</span> OnEnable()  { RuntimeDebugUI.TunableRegistry.Register(<span class="k">this</span>); }
+<span class="k">void</span> OnDisable() { RuntimeDebugUI.TunableRegistry.Unregister(<span class="k">this</span>); }
+<span class="c">// Register in Awake/OnEnable — the panel SNAPSHOTS the registry when its Start() configures tabs.</span>
+<span class="c">// Register late and your tab simply doesn't appear this session.</span></code></pre>
+  <div class="note"><b>Status today:</b> zero game-code registrants — grep for <code>TunableRegistry.Register</code> and you find only the framework and comments. It is a ready-but-unused extension point; the first mechanic that wants live sliders gets them for two lines.</div>
+  <h3>Recipe: a whole new tab for a new system</h3>
+  <ol class="steps">
+    <li>Declare <code>[Tunable("MyMechanic", min, max, ...)]</code> on float/int/bool fields or read-write properties of any class. A new tab name creates the tab — no registration of tab names anywhere.</li>
+    <li>Pick a door: add the object to <code>AddTabsFrom(...)</code> in <code>PlayerDebugUI.ConfigureTabs</code>, <b>or</b> call <code>TunableRegistry.Register(this)</code> in <code>Awake</code>/<code>OnEnable</code> (and <code>Unregister</code> on the way out).</li>
+    <li>Optional polish: <code>Section</code> groups controls under headers, <code>Save = true</code> persists, <code>OnChanged = nameof(Method)</code> handles side effects.</li>
+    <li>Nothing else. <code>DebugUI</code> and <code>PlayerDebugUI</code> need no edits — this is the M6 "declare, don't wire" rule.</li>
+  </ol>
+</section>
+
+<section id="saving">
+  <h2><span class="num">05</span>Save keys and what actually persists</h2>
+  <p>Only controls with <code>Save = true</code> are written. The save key is <code>{tabName}.{memberName}</code> — tab name with spaces stripped, member name as written in C#. Live examples: <code>Movement.MoveSpeed</code>, <code>Jump.MaxJumpHeight</code>, <code>WallSlide.WallSlideSpeed</code>, <code>Camera.OffsetX</code>. Saved controls show a trailing <code>*</code> on their label and an <code>(Auto-saved)</code> tooltip suffix.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Mechanism</th><th>Behavior in this project</th></tr>
+    <tr><td>Auto-save mode</td><td><b>Debounced</b> (the default): the JSON is written 2 s after the last change. Other modes exist (<code>Immediate</code>, <code>Interval</code> 30 s, <code>Manual</code>). Also saves on focus loss and on destroy.</td></tr>
+    <tr><td>File</td><td><code>DebugSettings\DebugSettings.json</code> — in the editor that's <code>&lt;project root&gt;\DebugSettings\</code>; in a Windows build, next to the .exe; fallback <code>Application.persistentDataPath</code>. Newtonsoft JSON, values rounded to 3 decimals. (<code>DebugUISettings.json</code> beside it is a stale leftover from the old default filename — the active file is <code>DebugSettings.json</code>.)</td></tr>
+    <tr><td>Footer buttons</td><td><b>Save Settings</b> (reads <code>Save Settings *</code> when dirty), <b>Clear Saved</b>, <b>Open Folder</b> (desktop). A status label flashes Saving… / Saved.</td></tr>
+    <tr><td>Startup order</td><td><code>Start()</code> runs <code>ConfigureTabs()</code> → <code>LoadValues()</code> → <code>StoreOriginalValues()</code>. Saved JSON is applied <b>over</b> the authored defaults every startup, and the file is rewritten every startup.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Reset ≠ authored defaults.</b> "Originals" are captured <i>after</i> the JSON load, so the Reset button restores the start-of-session (saved) values — not the asset's authored values. To truly go back to the asset, press <b>Clear Saved</b> and restart play mode.</div>
+  <div class="note"><b>Renames auto-invalidate saves.</b> Because the key embeds the member name, renaming a <code>[Tunable]</code> field orphans its stale persisted value for free. Hand-built controls must bump their name manually — the Camera tab's <code>LookAheadTriggerSpeedV2</code> and <code>VerticalDeadzoneV2</code> are the precedent: both were renamed precisely so a stale persisted value could not silently disarm look-ahead or break the calm-follow guarantee.</div>
+</section>
+
+<section id="clone">
+  <h2><span class="num">06</span>Authored source vs live copy</h2>
+  <p>The authored source of player feel is one asset: <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> (a <code>PlayerContext</code> SO). At boot, <code>PlayerStateMachine.Awake</code> loads it and <b>clones it</b>:</p>
+<pre><code><span class="t">PlayerContext</span> initalState = Resources.Load&lt;<span class="t">PlayerContext</span>&gt;(<span class="s">"PlayerSettings"</span>);
+context = Instantiate(initalState);   <span class="c">// a fresh clone per session — the asset is never touched at runtime</span></code></pre>
+  <p>The F1 panel binds to this clone (<code>AddTabsFrom(playerContext, ...)</code>), so slider edits die with the play session — <b>except</b> when <code>Save = true</code> writes them to the JSON, which is re-applied over the clone at every startup. That's the whole trap: an F1-saved value overrides the authored asset value every session until <b>Clear Saved</b>. If a tuned value "won't change", check <code>DebugSettings\DebugSettings.json</code> first.</p>
+  <p>To change the <em>authored</em> defaults, edit the asset — the Workbench's Player category (<span class="kbd">Gleamwood ▸ Content Workbench</span>) is the curated front door, complete with derived-gravity effective labels so you see the jump math while you type.</p>
+  <figure class="shot">
+    <img src="images/workbench-player.png" alt="Content Workbench, Player category, editing PlayerSettings.asset with derived-gravity effective labels">
+    <figcaption><b>Real capture.</b> The Workbench Player category edits <code>PlayerSettings.asset</code> — the authored source the F1 panel's session clone shadows; the effective labels show the gravity derived from MaxJumpHeight / TimeToJumpApex.</figcaption>
+  </figure>
+  <div class="note"><b>The mover is different:</b> <code>KinematicMover2D</code> tunables bind to the scene/prefab component itself — no clone. In a build nothing persists except via the DebugUI JSON; in the editor, play-mode changes revert on exiting play as usual.</div>
+  <p class="dim">Diff noise you can ignore: the asset's <code>[ReadOnly]</code> runtime fields (e.g. <code>LastTimeGrounded</code>) leak in from editor play sessions. <code>ResetProperties()</code> zeroes them at Awake — harmless, just noisy in git.</p>
+</section>
+
+<section id="gamesettings">
+  <h2><span class="num">07</span>GameSettings &amp; <code>config.ini</code> — player-facing persistence</h2>
+  <p>Everything the player touches in the settings menu goes through <code>GameSettings</code> → <code>ConfigStore</code> (<code>Assets/_Game/Systems/Settings/</code>). On desktop and in the editor that's a human-editable INI at <code>Application.persistentDataPath/config.ini</code> (Windows: <code>%USERPROFILE%\AppData\LocalLow\DefaultCompany\sentinels-of-gleamwood-unity\config.ini</code>); on other platforms the same keys land in PlayerPrefs as <code>cfg.&lt;section&gt;.&lt;key&gt;</code>. Every typed Set persists immediately, invariant culture throughout.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>INI section</th><th>Keys (defaults)</th></tr>
+    <tr><td><code>[Display]</code></td><td><code>windowMode</code> (0 = exclusive fullscreen, 1 = borderless, 2 = windowed), <code>vsync</code>, <code>frameCap</code> (index into 30/60/120/144/unlimited; applies only with VSync off), <code>brightness</code>, <code>resW</code>, <code>resH</code></td></tr>
+    <tr><td><code>[Audio]</code></td><td><code>masterVol</code> 100, <code>musicVol</code> 80, <code>sfxVol</code> 90, <code>uiVol</code> 90, plus four <code>*Muted</code> flags</td></tr>
+    <tr><td><code>[Controls]</code></td><td><code>vibration</code></td></tr>
+    <tr><td><code>[Accessibility]</code></td><td><code>screenShake</code>, <code>reduceFlashing</code>, <code>aimMode</code>, <code>colourblind</code>, <code>textSize</code> — stored placeholders today (persisted, not yet consumed)</td></tr>
+    <tr><td><code>[Game]</code></td><td><code>damageNumbers</code>, <code>tutorials</code></td></tr>
+    <tr><td><code>[Controllers]</code></td><td>Per-controller glyph-brand overrides written by <code>ControllerOverrides</code> (e.g. <code>XInput-1 = Nintendo</code>) — desktop/INI-only, since it enumerates the section</td></tr>
+    <tr><td><code>Misc</code></td><td>Fallback section for any key not in the <code>Sections</code> map</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>Apply-as-they-store:</b> the typed accessors do the side effect in the setter — <code>MasterVolume</code> drives <code>AudioListener.volume</code>; music/SFX/UI volumes drive the <code>GameAudioMixer</code> exposed params (percent→dB via <code>Log10(p/100)*20</code>, mute = −80 dB floor); <code>WindowMode</code>/<code>SetResolution</code>/<code>VSync</code>/<code>FrameCapIndex</code> apply to Screen/QualitySettings. Details on the audio side: <a href="audio.html">Audio</a>.</li>
+    <li><b>Boot order:</b> <code>GameBootstrap.InitCore</code> (BeforeSceneLoad) runs <code>GameSettings.Initialize</code> first — seeds every default via <code>ConfigStore.Seed</code>, applies display + volumes, logs <code>[Config] &lt;path&gt;</code>. Then <code>GameAudio.ApplySavedVolumesAfterBoot</code> re-applies volumes one frame in, because a mixer <code>SetFloat</code> during early boot can be silently reset by the snapshot init. Replicate that pattern if you add mixer params.</li>
+    <li><b>Hand edits welcome:</b> the file is designed for it — its own header says values are re-read on launch and invalid ones fall back to defaults. It is rewritten by the game whenever a setting changes in-menu.</li>
+  </ul>
+  <h3>Adding a persisted setting (one-liner pattern)</h3>
+  <ol class="steps">
+    <li>Add the key + section to <code>GameSettings.Sections</code> and a default to <code>GameSettings.Defaults</code> (<code>GameSettings.cs</code>).</li>
+    <li>Add one row in <code>SettingsMenuController.BuildModel()</code> (<code>Assets/_Game/UI/Code/Screens/SettingsMenuController.cs</code>) using the row factories — <code>Header</code>, <code>Option</code>, <code>Slider</code> (0–100), <code>Action</code>:</li>
+  </ol>
+<pre><code>Option(<span class="s">"Screen Shake"</span>, <span class="k">new</span>[]{ <span class="s">"Full"</span>, <span class="s">"Reduced"</span>, <span class="s">"Off"</span> },
+    () =&gt; GameSettings.GetInt(<span class="s">"screenShake"</span>, <span class="a">0</span>),
+    i  =&gt; GameSettings.SetInt(<span class="s">"screenShake"</span>, i))</code></pre>
+  <p class="dim">For a live-apply setting, add a typed accessor on <code>GameSettings</code> that applies in its setter (the <code>WindowMode</code>/<code>MasterVolume</code> pattern). Non-settings systems can persist here too — <code>ConfigStore</code>'s own comment: "Other systems can store their own data here too - just pick a section."</p>
+</section>
+
+<section id="gamecontent">
+  <h2><span class="num">08</span><code>GameContent.ini</code> — the content authoring INI</h2>
+  <p class="lead">The other INI is nothing like <code>config.ini</code>. <code>Assets/_Game/Content/GameContent.ini</code> is the <b>authoring source for the entire run</b> — biomes, bosses, enemy vitals, rests, and the node web — imported by <code>ContentIniImporter</code> (<code>Assets/_Game/Editor/ContentIniImporter.cs</code>).</p>
+  <div class="rule note"><b>Strictly one-way, editor-only.</b> The INI is the authoring source; the SO assets stay the runtime truth. The game <b>never</b> reads INI at runtime, and there is no INI export. <code>RunContentValidator</code> (<span class="kbd">Gleamwood ▸ Validate Run Content</span>) auto-runs after every import — and the same validator is the build gate, so broken content refuses to compile.</div>
+  <h3>Grammar</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Rule</th><th>Detail</th></tr>
+    <tr><td><code>key = value</code></td><td>Last write wins within a section. <code>;</code> starts a comment. Invariant-culture numbers; bools accept <code>true/1/yes</code> and <code>false/0/no</code>.</td></tr>
+    <tr><td><code>-</code></td><td>Deliberately <b>clears</b> a reference (e.g. <code>addsTable = -</code>, <code>next = -</code> marks a FINAL node).</td></tr>
+    <tr><td>Comma lists</td><td>Multi-value keys (<code>next</code>, <code>roomPool</code>) are comma-separated.</td></tr>
+    <tr><td><code>*</code> globs</td><td><code>roomPool</code> entries may end in <code>*</code> — a name-prefix glob over RoomTemplate prefabs, resolved into a name-sorted set. An entry matching nothing is an error.</td></tr>
+    <tr><td>Creation</td><td>Missing <b>Biome</b>/<b>Boss</b> definitions are <b>created</b> by the import (into <code>Assets/_Game/Biomes</code>, biome file <code>Biome_&lt;id&gt;.asset</code>). <b>Enemy</b> and <b>Rest</b> definitions must already exist — the INI only tunes them (enemy FSMs and rest layouts are authored in Unity).</td></tr>
+    <tr><td>Safety</td><td>Unknown section/key → warning. An <b>unresolvable asset name → error and the field is left untouched</b> — a typo in the INI must never silently wipe existing wiring. (Live example: pyre-crown's pool lists <code>Room_Ember_Arena</code>, which doesn't exist — that entry errors on import and the asset keeps its 19 resolved rooms.)</td></tr>
+  </table>
+  </div>
+  <h3>Key reference — every section, every key</h3>
+  <h4 style="margin-top:18px"><code>[Biome:&lt;biomeId&gt;]</code></h4>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Sets</th><th>Meaning</th></tr>
+    <tr><td><code>displayName</code> / <code>chapter</code> / <code>objective</code></td><td>Intro card</td><td>The CHAPTER band, title and objective text shown on biome entry.</td></tr>
+    <tr><td><code>minRooms</code> / <code>maxRooms</code></td><td><code>genRules</code></td><td>How many <b>middle</b> rooms between the Entry and Exit rooms (inclusive range).</td></tr>
+    <tr><td><code>verticalJogChance</code></td><td><code>genRules</code></td><td>0–1 chance per step to prefer a room whose door row jogs vertically.</td></tr>
+    <tr><td><code>calmRoomBeforeBoss</code></td><td><code>genRules</code></td><td>Suppress enemy spawns in the room directly before the boss corridor. Must be ON for any node with a bypass — the junction door lives there.</td></tr>
+    <tr><td><code>branchChance</code> / <code>maxBranches</code> / <code>branchRunMax</code></td><td><code>genRules</code></td><td>Side dungeons: chance per fork candidate (a chain room with an unused Up socket), branch cap, and max runner rooms per branch.</td></tr>
+    <tr><td><code>branchTreasure</code></td><td>Prefab ref</td><td>Spawned in each Treasure-tagged branch terminal (heal orb v1).</td></tr>
+    <tr><td><code>statScalePerStage</code></td><td>Float</td><td>Spawned enemies get <code>1 + depth × this</code> applied to health — context-side, never the shared SO.</td></tr>
+    <tr><td><code>roomPool</code></td><td>RoomTemplate list</td><td>Exact names and/or trailing-<code>*</code> globs. <b>Pool order feeds the seeded generator</b> — see the warn box below.</td></tr>
+    <tr><td><code>socketCap</code></td><td>Prefab ref</td><td>Cap prefab sealing every unused socket aperture.</td></tr>
+    <tr><td><code>spawnTable</code></td><td>EnemySpawnTable</td><td>Rolled at every spawn marker (markers can override).</td></tr>
+    <tr><td><code>boss</code></td><td>BossDefinition</td><td>Empty/<code>-</code> = stand-in mode (arena adds only).</td></tr>
+    <tr><td><code>musicTrack</code></td><td>AudioClip</td><td>Looping biome music; empty = the MusicSet's LevelTrack fallback.</td></tr>
+    <tr><td><code>standInLayout</code></td><td>Prefab ref</td><td>Hand-authored fallback layout used when the pool is empty (needs <code>EntryPoint</code> + <code>BiomeExit</code>).</td></tr>
+  </table>
+  </div>
+  <h4><code>[Boss:&lt;assetName&gt;]</code></h4>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Meaning</th></tr>
+    <tr><td><code>bossPrefab</code></td><td>Enemy prefab (<code>EnemyStateMachine</code> on the root) spawned at the arena's boss-point marker.</td></tr>
+    <tr><td><code>dialogue</code></td><td><code>DialogueSet</code> with every beat the boss speaks. The lines themselves are NOT authored here — they live in <code>.dlg</code> files. See <a href="dialogue.html">Dialogue</a>.</td></tr>
+    <tr><td><code>entranceDelay</code></td><td>Extra pause before the boss arrives, added on top of the <code>spawnInterval</code> the add loop already waits after the last add — see <a href="dialogue.html#encounter">Dialogue §04</a>.</td></tr>
+    <tr><td><code>addsTable</code></td><td>Optional spawn table for the arena's deferred markers; <code>-</code> = use the biome's.</td></tr>
+    <tr><td><code>rewardPrefab</code></td><td>Spawned at the boss point when the gate opens.</td></tr>
+    <tr><td><code>outroSpeaker</code> / <code>outroText</code></td><td>Convenience for the victory line — folds into the dialogue set's <b>Victory</b> group on import (idempotent). Author beats directly on the Dialogue tab for more than one line.</td></tr>
+    <tr><td><code>musicTrack</code></td><td>Boss-fight track — crossfades in at fight-on; empty = level music continues.</td></tr>
+    <tr><td><code>musicCueId</code></td><td>Superseded by <code>musicTrack</code>; kept only so old INIs still import.</td></tr>
+  </table>
+  </div>
+  <h4><code>[Enemy:&lt;assetName&gt;]</code></h4>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Meaning</th></tr>
+    <tr><td><code>maxHealth</code></td><td>The enemy definition's health.</td></tr>
+    <tr><td><code>canBeJuggled</code></td><td>Whether launchers work on it.</td></tr>
+    <tr><td colspan="2" class="dim">These two are the <b>only</b> enemy keys — FSMs, attacks and presentation are authored in Unity (see <a href="enemies.html">Enemies &amp; Bosses</a>).</td></tr>
+  </table>
+  </div>
+  <h4><code>[Rest:&lt;assetName&gt;]</code></h4>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Meaning</th></tr>
+    <tr><td><code>healMissingFraction</code></td><td>Fraction of the player's <b>missing</b> health restored at the RestSite (0–1).</td></tr>
+    <tr><td><code>forgeEnabled</code></td><td>Whether this rest offers one free weapon upgrade via the layout's ForgeSites.</td></tr>
+    <tr><td><code>layoutPrefab</code></td><td>The hand-authored rest layout (needs <code>EntryPoint</code>, <code>RestSite</code>, <code>RestExit</code>).</td></tr>
+  </table>
+  </div>
+  <h4><code>[Node:&lt;nodeId&gt;]</code> and <code>[Plan]</code></h4>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Meaning</th></tr>
+    <tr><td><code>biome</code></td><td>The node's biome, referenced <b>by biomeId</b>.</td></tr>
+    <tr><td><code>rest</code></td><td>Rest after this biome (<code>-</code> = none). The choice doors live at the rest.</td></tr>
+    <tr><td><code>next</code></td><td>Comma list of next nodeIds; <code>-</code> = FINAL — clearing this biome ends the run.</td></tr>
+    <tr><td><code>bypass</code></td><td>The non-boss path out of this biome's calm-room junction door (<code>-</code> = boss is mandatory).</td></tr>
+    <tr><td><code>entry</code> <span class="dim">(Plan)</span></td><td>The run's entry nodeId.</td></tr>
+    <tr><td><code>gradeRubric</code> <span class="dim">(Plan)</span></td><td>Run-clear grading asset.</td></tr>
+    <tr><td><code>stages</code> / <code>restAfter</code> <span class="dim">(Plan, legacy)</span></td><td>Old linear form; still imports as a synthesized chain (nodeId = biomeId, counts must match, <code>-</code> = no rest).</td></tr>
+  </table>
+  </div>
+  <h3>A verbatim slice of the shipped file</h3>
+<pre><code><span class="c">; one node, its biome, and its boss — exactly as shipped</span>
+<span class="t">[Node:emberfall-1]</span>
+<span class="a">biome</span> = emberfall
+<span class="a">rest</span> = Rest_EmberTrail
+<span class="a">next</span> = depths-2
+<span class="a">bypass</span> = cinder-2
+
+<span class="t">[Biome:emberfall]</span>
+<span class="a">displayName</span> = The Emberfall Clearing
+<span class="a">chapter</span> = CHAPTER I
+<span class="a">objective</span> = Awaken, and carve a path through the burning grove.
+<span class="a">minRooms</span> = 8
+<span class="a">maxRooms</span> = 10
+<span class="a">verticalJogChance</span> = 0.45
+<span class="a">calmRoomBeforeBoss</span> = true
+<span class="a">branchChance</span> = 0.5
+<span class="a">maxBranches</span> = 2
+<span class="a">branchRunMax</span> = 1
+<span class="a">branchTreasure</span> = Reward_HealOrb
+<span class="a">statScalePerStage</span> = 0.25
+<span class="a">roomPool</span> = Room_Ember_*
+<span class="a">socketCap</span> = SocketCap_Emberfall
+<span class="a">spawnTable</span> = SpawnTable_Emberfall
+<span class="a">boss</span> = Boss_Krag
+
+<span class="t">[Boss:Boss_Krag]</span>
+<span class="a">bossPrefab</span> = Krag
+<span class="a">dialogue</span> = Dlg_Krag
+<span class="a">entranceDelay</span> = 0.8
+<span class="a">addsTable</span> = -
+<span class="a">rewardPrefab</span> = Reward_HealOrb
+<span class="a">outroSpeaker</span> = KRAG
+<span class="a">outroText</span> = The furnace... grows... cold.</code></pre>
+  <h3>What's in the file today</h3>
+  <ul>
+    <li><b>Plan:</b> <code>entry = emberfall-1</code>, <code>gradeRubric = GradeRubric</code>.</li>
+    <li><b>Web (4 nodes):</b> <code>emberfall-1</code> → <code>depths-2</code> → <code>crown-3</code> (FINAL), with bypass <code>emberfall-1</code> → <code>cinder-2</code> → <code>crown-3</code>. Three levels, one real choice, both path types.</li>
+    <li><b>5 biomes:</b> emberfall (8–10 rooms, jog 0.45), emberfall-depths (11–14, 0.45), cinderway (14–17, 0.5), ashen-vaults (14–17, 0.55 — not in the demo web), pyre-crown (12–15, 0.6, explicit roomPool swapping in <code>Room_Crown_BossArena</code>).</li>
+    <li><b>3 bosses:</b> Boss_Krag, Boss_CinderShepherd, Boss_PyreRegent.</li>
+    <li><b>8 enemy blocks:</b> Krag 40 HP no-juggle · CinderShepherd 60 · PyreRegent 80 · VaultAcolyte 22 · SootBomber 6 (juggle) · PyreArcher 5 (juggle) · CinderHound 4 (juggle) · EmberWisp 3.</li>
+    <li><b>1 rest:</b> Rest_EmberTrail — <code>healMissingFraction = 0.4</code>, <code>forgeEnabled = true</code>.</li>
+  </ul>
+  <h3>The import loop</h3>
+  <ol class="steps">
+    <li>Edit <code>Assets/_Game/Content/GameContent.ini</code> in any text editor.</li>
+    <li>Run <span class="kbd">Gleamwood ▸ Import Content INI</span>. The importer resolves every key into the SO assets, creating missing Biome/Boss definitions as it goes.</li>
+    <li>The validator auto-runs. Read the Console: warnings are advisory, errors mean a field was left untouched — fix the INI and re-import. (You can re-run it any time with <span class="kbd">Gleamwood ▸ Validate Run Content</span>.)</li>
+    <li>Commit the <code>.ini</code> <b>and</b> the touched <code>.asset</code> files together — the import is the edit; the assets are its output.</li>
+  </ol>
+  <div class="warn note"><b>Re-globbing changes old seeds.</b> The resolved <code>roomPool</code> order feeds the seeded generator, so adding a room that matches an existing glob can change layouts for old seeds. Resumed runs re-generate from the current pool — acceptable by design, but know it's happening.</div>
+  <div class="rule note"><b>nodeIds are SAVE data.</b> They're written into suspended-run files; never rename shipped ones — the INI's own header says so. Renaming a <i>biomeId</i> breaks the <code>[Node]</code> <code>biome =</code> references at import time, not existing saves.</div>
+</section>
+
+<section id="future">
+  <h2><span class="num">09</span>Where the INI is headed</h2>
+  <p class="lead">Today's split is deliberate: <code>config.ini</code> belongs to the player, <code>GameContent.ini</code> belongs to the designer, and the runtime reads only assets. That shape is also the growth plan.</p>
+  <div class="grid c3">
+    <div class="card accent-ember">
+      <h4>More keys, same file</h4>
+      <p>The Workbench already defers deep wiring to the INI on purpose — its Levels UI states "Rooms/pool + layout wiring stay in the raw inspector and GameContent.ini". As fields prove stable, they graduate into the key tables above. The table on this page is the contract: a new key isn't shipped until it's listed here.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Content packs</h4>
+      <p>Because the importer <b>creates</b> missing Biome and Boss definitions and the run web is pure data, a new block of INI is a new chapter: nodes, biomes, a boss, a rest — no scene edits, no Build Settings. The intended future: additional authoring INIs imported the same one-way route, validated by the same gate.</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Mod-friendly by construction</h4>
+      <p>One-way import + the validator-as-build-gate means text edits can never silently break a build — a typo errors and leaves wiring untouched. Pair that with a human-editable <code>config.ini</code> and the ready-but-unused <code>TunableRegistry</code>, and the tuning surface is already shaped for hands that aren't ours.</p>
+    </div>
+  </div>
+  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>The attribute + registry: <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code>, <code>Assets/_Framework/DebugUI/TunableTabs.cs</code> (signature, type support, tab merging, <code>TunableRegistry</code>).</li>
+    <li>The panel + save semantics: <code>Assets/_Framework/DebugUI/DebugUI.cs</code>, <code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code> (tabs, save keys, auto-save modes, file locations, startup order).</li>
+    <li>The tunable inventory: <code>Assets/_Game/Player/Code/PlayerContext.cs</code>, <code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>; authored defaults in <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code>; the clone in <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code>.</li>
+    <li>Player settings: <code>Assets/_Game/Systems/Settings/GameSettings.cs</code>, <code>ConfigStore.cs</code>, <code>IniConfigBackend.cs</code>; menu rows in <code>Assets/_Game/UI/Code/Screens/SettingsMenuController.cs</code>.</li>
+    <li>The content INI: <code>Assets/_Game/Content/GameContent.ini</code> and <code>Assets/_Game/Editor/ContentIniImporter.cs</code> (sections, keys, grammar, create-vs-tune rules) — a new key means a new table row here.</li>
+    <li>Companion prose: <code>Documentation/GAME_TUNING_GUIDE.md</code> §5.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="audio.html"><span>← Previous</span>Audio</a>
+  <a href="extending.html"><span>Next →</span>Extending</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

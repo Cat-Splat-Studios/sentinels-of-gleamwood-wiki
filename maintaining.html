@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maintaining this wiki — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a class="on" href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Maintaining the <span class="flame">wiki</span></h1>
+  <p class="tag">This wiki only works if it stays true. This page makes staying true mechanical: what to update when, how to re-shoot the screenshots, and how to add a page — no judgment calls required.</p>
+</header>
+
+<main>
+
+<section id="rules">
+  <h2><span class="num">01</span>The three laws of this wiki</h2>
+  <div class="grid c3">
+    <div class="card accent-ember">
+      <h4>Code is the only truth</h4>
+      <p>If the wiki and the code disagree, the code wins and the wiki has a bug. Fix it in the same commit as the code change — a stale page is worse than no page.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Every page declares its sources</h4>
+      <p>Each domain page ends with a <b>“Keep this page honest”</b> box listing the exact files it mirrors (the index mirrors no sources, so it has none). Touched one of those files? That page is now suspect. That box is the whole audit system.</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Screenshots are regenerated, not edited</h4>
+      <p>Every screenshot is captured from the live editor by a menu item. Nobody crops or annotates by hand — if a tool's UI changes, re-run the capture and the images are current again.</p>
+    </div>
+  </div>
+</section>
+
+<section id="matrix">
+  <h2><span class="num">02</span>The update matrix — “I changed X, what do I touch?”</h2>
+  <p class="lead">Find your change in the left column. Do the things on the right. Done.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>You changed…</th><th>Update</th></tr>
+    <tr><td>A field on a weapon / enemy / boss / biome / status SO (added, removed, renamed)</td><td>The workbench usually follows automatically ([WorkbenchField] / curated form). Check the matching wiki page's field table → <a href="combat.html">Combat</a>, <a href="enemies.html">Enemies</a> or <a href="levels.html">Levels</a>. Re-run screenshots if the visible form changed.</td></tr>
+    <tr><td>The Content Workbench UI itself (tabs, rows, checks, save model)</td><td><a href="workbench.html">workbench.html</a> + <b>re-run screenshots</b> (§3). Also <code>Documentation/GAME_TUNING_GUIDE.md</code> §2.</td></tr>
+    <tr><td>Hitbox scan logic or the scene tuner gizmos</td><td><a href="combat.html">combat.html</a> (player) / <a href="enemies.html">enemies.html</a> (rings) + re-run screenshots.</td></tr>
+    <tr><td>Music rules, buses, SFX seams, settings sliders</td><td><a href="audio.html">audio.html</a>. If you added a music beat (like the boss-intro hush), also the boss beat diagram there.</td></tr>
+    <tr><td>The dialogue system (groups/triggers, the Dialogue tab, the rotation rule)</td><td><a href="dialogue.html">dialogue.html</a> is the source of record — plus the brief in <a href="enemies.html#dialogue">enemies.html §8b</a> and the Dialogue rows on <a href="workbench.html">workbench.html</a> / <a href="tuning.html">tuning.html</a>. Re-shoot <code>workbench-dialogue.png</code>.</td></tr>
+    <tr><td><b>Dialogue presentation content or its tools</b> — the shipped <code>PoseCatalog</code> art, the <code>VoiceBank</code> stings, the <code>Generate Portraits</code> / <code>Generate Demo Audio</code> / <code>Export Voice Manifest</code> / <code>Bake Voice Into Bank</code> generators, <code>generate_voice.ps1</code>, or the <code>Preview…</code> tool</td><td><a href="dialogue.html#generators">dialogue.html §06</a> — the generators table and the <b>Preview</b> subsection — and the pose/VO <b>Honest limits</b> bullets. If the shipped portraits change, re-shoot <code>workbench-dialogue.png</code> (§03): the Dialogue tab renders pose thumbnails. The spoken VO ships in the base game (baked into the <code>VoiceBank</code>) via a three-step Windows flow (<code>Export Voice Manifest</code> → <code>generate_voice.ps1</code> → <code>Bake Voice Into Bank</code>); a <code>.dlg</code> line edit needs all three re-run.</td></tr>
+    <tr><td><b>The .dlg format</b> — new syntax, a new modifier, or a parser rule</td><td><a href="dialogue.html#dlg">dialogue.html §06</a>'s syntax table AND the modder README emitted by <code>DialogueTemplateBuildStep.cs</code> — that README ships to players, so a format change that misses it teaches the wrong syntax to everyone outside the team. Add a case to <code>DialogueFormatTests</code>.</td></tr>
+    <tr><td><b>Mod / locale loading</b> — folders, precedence, or what a broken file does</td><td><a href="dialogue.html#modding">dialogue.html §09</a> + the shipped README. The editor/build divergence is load-bearing: builds always load overrides, the editor never does without the Simulate toggle.</td></tr>
+    <tr><td><b>Wired a dialogue trigger</b> — added a <code>Next("Defeat")</code>-style call site anywhere</td><td><a href="dialogue.html#wired">dialogue.html §03</a>: move that trigger's row from <b>NO</b> to <b>YES</b> and name the component that fires it. That table is the only place in the wiki that says which beats actually speak — a stale row means designers write content that never plays. Drop the matching bullet from §Honest limits too.</td></tr>
+    <tr><td><b>Added or removed tests</b> — the suite count changed</td><td>The count is hardcoded in <b>five</b> places and goes stale the moment it moves: <a href="index.html">index.html</a> (the hero pill <i>and</i> the "Validated, loudly" card <i>and</i> the pipeline SVG's "N-test suite" label) plus <a href="quickstart.html">quickstart.html</a> (the §01 card and the §05 checklist), <a href="progression.html#tests">progression.html §08</a> (the "N-test PlayMode suite" line), and <code>Documentation/GAME_TUNING_GUIDE.md</code>'s menu table. Grep the old number — but skip SVG <code>x=</code>/<code>y=</code> coordinates, which will match it by coincidence.</td></tr>
+    <tr><td><b>Enemy modding</b> — the override loader, the clone, or a new field on any state config</td><td><a href="enemies.html#modding">enemies.html §10</a>. A new public scalar field on a state config becomes moddable <b>automatically</b> (the loader reflects over public fields and the templates are generated) — so the risk is the opposite of usual: the surface grows without anyone documenting it. Adding a field type that is NOT a scalar needs the "what you can and cannot change" table updated, or the templates will quietly omit it with no explanation.</td></tr>
+    <tr><td><b>Weapon modding</b> — <code>WeaponOverrides</code> / <code>WeaponVariants</code>, the clone, the loot/catalog injection, or a new field on a weapon or combo/dash config</td><td><a href="combat.html#modding">combat.html §10</a>. Same auto-moddable-scalar rule as enemies (public fields are reflected, templates generated) — plus weapons also parse <code>Vector2</code> and <code>StatusesToApply</code> by name, so a NEW parseable type means updating both the "what you can change" table AND the <code>WeaponOverrides.Parse</code> allowlist. A new shipped status must be added to the <code>StatusCatalog</code> asset or a mod cannot name it.</td></tr>
+    <tr><td><b>Player skinning</b> — <code>PlayerSkinOverrides</code>, the <code>PlayerAnimation.Awake</code> hook, or the player's clip vocabulary (a clip added/removed/renamed, or a <code>slot</code> changed on <code>Player.asset</code>)</td><td><a href="modding.html#player">modding.html §06</a>. The skin template is GENERATED from <code>Player.asset</code>, so a new clip appears in it automatically — but if you rename a clip the FSM plays, existing skins that named the old one silently show shipped art for it. The clip-line grammar itself lives in <code>ModClipSetBuilder.ParseClipLine</code>, shared with the enemy graph reader: a new clip keyword there must be documented for both.</td></tr>
+    <tr><td><b>Mod art</b> — the sheet reader, the pivot rule, or anything about how a mod's clips are built</td><td><a href="enemies.html#art">enemies.html §12</a>. Two invariants there are load-bearing and neither is obvious from the code: <b>pivot is authored in PIXELS from the bottom</b> (Unity's own default is the centre, which floats every modded creature) — and now optionally as an <code>x,y</code> pair for off-centre anchors like a split-body torso, parsed in <code>EnemyGraphParser.TryPivotXY</code> — and <b>pixels-per-unit is read off the donor's art, never written</b> (enemies are 100, the player 64 — a key could only ever be got wrong, and wrong silently resizes the character). If you add an option word to <code>clip</code>, it needs a row in §12's key table; if you add a refusal, it needs one in the refusal table <b>with what would otherwise have happened</b>. Changing the <code>loop</code> default means rewriting the warn box that explains the asymmetry, not just the word.</td></tr>
+    <tr><td><b>Graph authoring</b> — a new state config type, a new transition condition, or a change to the <code>[Graph:]</code> grammar</td><td><a href="enemies.html#graph">enemies.html §11</a>. A new <b>state config type</b> becomes authorable automatically — the type list is derived by reflection over <code>EnemyStateConfig</code> subclasses, so only the printed list in §11 needs the new verb. A new <b>condition</b> does NOT: the allowlist in <code>EnemyConditionCompiler</code> is closed on purpose, so it needs a keyword there <i>and</i> a row in the conditions table. Anything newly refused needs a row in <a href="enemies.html#graph-refusals">§11's refusal table</a> <b>with the reason</b> — a refusal that does not say what would have happened is barely better than a crash. If you add a field that must never be settable from text, deny it in <code>EnemyGraphParser</code> too, or it becomes a way around every graph check.</td></tr>
+    <tr><td>Room standards, sockets, the reachability model, a validator check</td><td><a href="levels.html">levels.html</a> + <code>Documentation/ROOM_STANDARDS.md</code> if the standard itself moved.</td></tr>
+    <tr><td>[Tunable] / TunableTabs / the F1 panel</td><td><a href="tuning.html">tuning.html</a>.</td></tr>
+    <tr><td>GameContent.ini keys or the importer</td><td><a href="tuning.html">tuning.html</a> INI reference + <a href="levels.html">levels.html</a> if it's a world key. Add the new key to the key table — the table is the contract.</td></tr>
+    <tr><td>A workbench/tunable/dropdown <b>attribute</b> or any registry/discovery seam</td><td><a href="extending.html">extending.html</a> (the seam catalog is a promise — keep it complete).</td></tr>
+    <tr><td>The state machine framework or boot/services architecture</td><td><a href="framework.html">framework.html</a> + the <code>state_machine_*.md</code> sources it summarizes.</td></tr>
+    <tr><td>FSM authoring — the States tab, the Creator's tabs, the definition inspectors</td><td><a href="workbench.html#states">workbench.html §07 States</a> + <a href="framework.html">framework.html</a>'s tool inventory and recipe (it is the page most likely to go stale here) + <a href="enemies.html">enemies.html</a>'s enemy recipe. Re-shoot <code>workbench-enemy-states.png</code>. Remember the enemy sub-tab <b>indices</b> live in <code>WikiScreenshotTool.cs</code> — adding a sub-tab shifts them.</td></tr>
+    <tr><td>A registration point, a save-id rule, or the add-content/add-mechanic flow (catalogs, spawn tables, RunPlan, WeaponInstance, nodeIds)</td><td><a href="quickstart.html">quickstart.html</a> — Guide A's registration table and Guide B's steps must stay true; the §04 safety rules are load-bearing.</td></tr>
+    <tr><td><b>The meta / economy loop</b> — the <code>Economy</code> reward curve, a <code>MetaUpgradeCatalog</code> entry or new <code>MetaEffect</code>, a weapon lock/unlock, the hub <code>ShopScreen</code>/<code>ShopkeeperNPC</code>, or a <code>RunDirector</code> bank/apply seam</td><td><a href="progression.html">progression.html</a> is the source of record — its number tables, the OFFER-time gating rule, §05 the shopkeeper, the save-field table and the recipes. A new <code>MetaEffect</code> also needs its apply seam listed in §03; a new upgrade or locked weapon appears in the shopkeeper's tabs automatically (catalog-driven) — no prop to place. Save keys (upgrade <code>id</code>, weapon asset name) are player-owned progress — a rename orphans it, so it's a §06 concern too. Add the coverage to <code>RunDirectorTests</code>/<code>WeaponSystemTests</code>.</td></tr>
+    <tr><td>The build pipeline, the shipped executable name, product identity, or anything in <code>Tools/Steam</code></td><td><a href="publishing.html">publishing.html</a> + <code>Tools/Steam/README.md</code> (the terse runbook — the two must agree). Changing <code>BuildNaming.ExecutableName</code> also means updating the Steamworks launch option.</td></tr>
+    <tr><td>Added a whole new content type (new SO + category)</td><td>New section on the closest existing page, or a new page (§4). Add it to the <a href="extending.html">extending.html</a> worked-example list, the <a href="quickstart.html">quickstart.html</a> tables, and the index card grid.</td></tr>
+  </table>
+  </div>
+  <div class="note rule"><b>The one-commit rule:</b> the wiki edit rides in the same commit (or at worst the same PR) as the code change. Reviewers: a diff that touches a file named in a “Keep this page honest” box, without touching that page, is an incomplete diff.</div>
+</section>
+
+<section id="screenshots">
+  <h2><span class="num">03</span>Re-shooting the screenshots (one menu click)</h2>
+  <ol class="steps">
+    <li>Make sure the Unity editor is <b>visible on screen</b> (the capture photographs real screen pixels — a minimized editor captures garbage).</li>
+    <li>Run <span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span>. It opens each tool, positions it, waits for the repaint, and writes every PNG into <code>Documentation/Wiki/images/</code>. Takes a few seconds; the Console logs each capture and ends with <code>[WikiShots] all captures complete</code>.</li>
+    <li>Skim the PNGs (any image viewer). Commit them with your change.</li>
+  </ol>
+  <h3>Adding a new screenshot</h3>
+  <p>Open <code>Assets/_Game/Editor/WikiScreenshotTool.cs</code> and add one line inside <code>CaptureAll()</code>:</p>
+<pre><code><span class="c">// a workbench page (asset path + optional sub-tab index):</span>
+WorkbenchShot(<span class="s">"workbench-mything.png"</span>, <span class="s">"Assets/_Game/.../MyThing.asset"</span>, <span class="a">1</span>);
+
+<span class="c">// a prefab-stage scene view with gizmos (prefab path + ortho zoom):</span>
+PrefabStageShot(<span class="s">"tuner-mything.png"</span>, <span class="s">"Assets/.../MyThing.prefab"</span>, <span class="a">2.5f</span>);</code></pre>
+  <p class="dim">Sub-tab indices are the order of the tabs on that page, starting at 0 (so Melee: 0 Overview, 1 Swings, 2 Dash Attack; Enemies: 0 Overview, 1 Behavior, 2 Attacks, 3 Reactions, 4 Presentation). Reference the new PNG from a page with the standard figure block:</p>
+<pre><code>&lt;<span class="t">figure</span> <span class="a">class</span>=<span class="s">"shot"</span>&gt;
+  &lt;<span class="t">img</span> <span class="a">src</span>=<span class="s">"images/workbench-mything.png"</span> <span class="a">alt</span>=<span class="s">"What it shows"</span>&gt;
+  &lt;<span class="t">figcaption</span>&gt;&lt;<span class="t">b</span>&gt;Real capture.&lt;/<span class="t">b</span>&gt; One sentence saying what to look at.&lt;/<span class="t">figcaption</span>&gt;
+&lt;/<span class="t">figure</span>&gt;</code></pre>
+</section>
+
+<section id="newpage">
+  <h2><span class="num">04</span>Adding a page</h2>
+  <ol class="steps">
+    <li>Copy any domain page (this one is the canonical skeleton): same <code>&lt;head&gt;</code> with <code>wiki.css</code>, same <code>nav.wiki</code> block, <code>header.page</code> band, numbered <code>&lt;section&gt;</code>s, a “Keep this page honest” box, prev/next links, footer.</li>
+    <li>Add the page's link to <code>nav.wiki</code> <b>on every page</b> (it's the same block everywhere — a find-and-replace across <code>Documentation/Wiki/*.html</code>).</li>
+    <li>Add a card for it on <a href="index.html">index.html</a>'s page grid.</li>
+    <li>Fill the honest box with the real file list the page describes. If you can't name the files, the page isn't ready.</li>
+  </ol>
+  <div class="warn note"><b>Don't fork styling.</b> All look-and-feel lives in <code>wiki.css</code>. If a page needs a new component, add it to the stylesheet so the next page gets it for free.</div>
+</section>
+
+<section id="map">
+  <h2><span class="num">05</span>The documentation map — what is the source of record for what</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>Document</th><th>Role</th></tr>
+    <tr><td><b>This wiki</b> (<code>Documentation/Wiki/</code>)</td><td>The one-stop authoring source of truth for designers — browsable offline by anyone who clones the repo (just open <code>index.html</code>).</td></tr>
+    <tr><td><code>Documentation/GAME_TUNING_GUIDE.md</code></td><td>The deep markdown companion (greppable, diff-friendly). Wiki and guide must agree; the wiki carries the screenshots and recipes, the guide carries exhaustive prose.</td></tr>
+    <tr><td><code>Documentation/ROOM_STANDARDS.md</code> · <code>ENEMY_ATTACKS_AND_SUPER_ARMOR.md</code></td><td>Design standards referenced by <a href="levels.html">Levels</a> / <a href="enemies.html">Enemies</a>. Change the standard → change the doc → change the page.</td></tr>
+    <tr><td><code>Documentation/Wiki/state_machine_*.md</code></td><td>Framework sources summarized by <a href="framework.html">framework.html</a>.</td></tr>
+    <tr><td><code>Tools/Steam/README.md</code></td><td>The terse shipping runbook, mirrored in narrative form by <a href="publishing.html">Publishing</a>. Keep the commands identical in both.</td></tr>
+    <tr><td><code>HANDOVER.md</code></td><td>Session-to-session working state + known debts (§6.A0). Not designer-facing; the wiki links it, never duplicates it.</td></tr>
+    <tr><td><code>Documentation/History/</code></td><td>Archived plans of finished milestones. Read-only; never update.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="gates">
+  <h2><span class="num">06</span>Before you push</h2>
+  <ul>
+    <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> — 0 errors.</li>
+    <li><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> — green (<code>Logs/playmode_test_results.txt</code>).</li>
+    <li>Open the wiki page you touched in a browser once. Broken images and dead links are visible in five seconds.</li>
+    <li>The wiki edit is in the same commit as the change it documents (§2).</li>
+  </ul>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>The capture tool: <code>Assets/_Game/Editor/WikiScreenshotTool.cs</code> (menu path, helper signatures, output folder).</li>
+    <li>The stylesheet contract: <code>Documentation/Wiki/wiki.css</code>.</li>
+    <li>The doc map: the actual contents of <code>Documentation/</code> — if docs move or retire, §5 must follow.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="publishing.html"><span>← Previous</span>Publishing</a>
+  <a href="index.html"><span>Home</span>Wiki index →</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

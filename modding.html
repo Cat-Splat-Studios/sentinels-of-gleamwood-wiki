@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modding — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a class="on" href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Modding <span class="flame">Gleamwood</span></h1>
+  <p class="tag">No Unity, no compiler, no account — a plain text file dropped next to the game. This page is the five-minute version; the three domain pages are the deep dives. Everything here is a player-facing feature that ships in the build.</p>
+</header>
+
+<main>
+
+<section id="what">
+  <h2><span class="num">01</span>What you can change</h2>
+  <p class="lead">Gleamwood reads a <code>Mods/</code> folder that sits <b>beside the game's executable</b>. Anything in it is applied to a private copy each run, so your changes never touch the game's own files — delete the folder and everything is back to stock.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Folder</th><th>What a text file there can do</th><th>Deep dive</th></tr>
+    <tr><td><code>Mods/Enemies/</code></td><td>Retune any enemy's numbers, add a new creature from an existing one, or write a whole new behaviour graph — and bring your own artwork.</td><td><a href="enemies.html#modding">Enemies §10–12</a></td></tr>
+    <tr><td><code>Mods/Weapons/</code></td><td>Retune any weapon (per combo swing and the dash), or add a new weapon from an existing one — its own name, stats, icon and on-hit status.</td><td><a href="combat.html#modding">Combat §10</a></td></tr>
+    <tr><td><code>Mods/Dialogue/</code></td><td>Rewrite any character's lines, or translate the whole game, in the plain-text <code>.dlg</code> format.</td><td><a href="dialogue.html#modding">Dialogue §09</a></td></tr>
+    <tr><td><code>Mods/Player/</code></td><td>Reskin the player — your own sprite sheet over the game's moves. A <code>[PlayerSkin]</code> file names the clips (with a <code>slot</code> for the split-body run). Changes how the player LOOKS, never what it DOES.</td><td><a href="#player">§06 below</a></td></tr>
+  </table>
+  </div>
+  <div class="note rule"><b>You never start from a blank page.</b> Every build ships a <code>.templates</code> folder next to each mod folder, holding one file per shipped enemy, weapon and conversation — with the <b>real current values</b>, correctly spelled, <b>every line commented out</b>. Copy a template, delete the <code>;</code> in front of one line, change the number. That is the whole workflow.</div>
+</section>
+
+<section id="first">
+  <h2><span class="num">02</span>Your first mod, in five minutes</h2>
+  <p class="lead">Make the starting sword hit like a truck. Nothing to install.</p>
+  <ol class="steps">
+    <li><b>Find the game folder.</b> The one with <code>Gleamwood.exe</code> in it. Next to it is a <code>Mods/</code> folder (a build creates it empty) and a <code>Mods/Weapons.templates/</code> folder full of examples.</li>
+    <li><b>Copy a template.</b> Copy <code>Mods/Weapons.templates/DefaultSword.ini</code> into <code>Mods/Weapons/</code>. It is all comments, so on its own it changes nothing.</li>
+    <li><b>Uncomment one line.</b> Open your copy and find <code>; BaseDamage = 1</code>. Delete the <code>;</code> and the space, and change the number:
+<pre><code><span class="c">; before</span>
+; BaseDamage = <span class="a">1</span>
+<span class="c">; after</span>
+BaseDamage = <span class="a">25</span></code></pre></li>
+    <li><b>Run the game.</b> Start a run and swing. The sword now deals 25.</li>
+    <li><b>Check it loaded.</b> Open the player log (see §04) and find the <code>GLEAMWOOD WEAPON MOD REPORT</code> block — it says what loaded and, if you fat-fingered something, exactly which line and why.</li>
+  </ol>
+  <div class="note"><b>Made a typo?</b> A misspelled field or a value that is not a number is written to the log and then <b>ignored</b> — the weapon keeps its shipped value. One bad line can never break the game, and the report names it.</div>
+</section>
+
+<section id="new">
+  <h2><span class="num">03</span>Adding something new, not just retuning</h2>
+  <p class="lead">The same files can DECLARE new content, built from an existing thing so it always works. A new weapon is the same <i>type</i> as its donor (a bow stays a bow); a new enemy borrows a shipped creature's animations, so it can never get stuck on a move that was never drawn.</p>
+<pre><code><span class="c">; Mods/Weapons/frostbite.ini  — a new bow that sets things alight</span>
+[<span class="a">NewWeapon:Frostbite</span>]
+basedOn         = <span class="a">DefaultBow</span>
+weight          = <span class="a">1</span>              <span class="c">; how often a pedestal offers it</span>
+WeaponName      = <span class="a">Frostbite</span>
+BaseDamage      = <span class="a">14</span>
+StatusesToApply = <span class="a">Ignite</span>         <span class="c">; a status, named</span>
+icon            = <span class="a">frostbite.png</span>  <span class="c">; optional, from Mods/Weapons/sprites/</span>
+
+<span class="c">; Mods/Enemies/glass_hound.ini  — a fast, fragile hound</span>
+[<span class="a">NewEnemy:GlassHound</span>]
+basedOn   = <span class="a">CinderHoundDef</span>
+MaxHealth = <span class="a">3</span>
+tint      = <span class="a">#88ddff</span>
+weight    = <span class="a">2</span>
+
+[<span class="a">NewEnemy:GlassHound.state:chase</span>]
+SpeedMultiplier = <span class="a">1.8</span></code></pre>
+  <div class="note"><b>A declared enemy can go further than a variant.</b> The <code>[Graph:]</code> tier lets an enemy declare its own states, transitions and attack chains in text — a genuinely new behaviour, still safe because it plays from a clip set that reports an unknown animation loudly instead of freezing. Weapons have no state machine, so they stop at "new weapon". Both deep dives cover the full grammar: <a href="enemies.html#graph">Enemies §11</a>, <a href="combat.html#newweapon">Combat §10</a>.</div>
+</section>
+
+<section id="report">
+  <h2><span class="num">04</span>Did it work? Read the report</h2>
+  <p class="lead">Every launch, before the first room, the game writes a short block per mod folder to its log — silent only when you have no <code>Mods/</code> folder at all. It is the fastest answer to "is my mod loading".</p>
+<pre><code>======== GLEAMWOOD WEAPON MOD REPORT ========
+folder : ...\Gleamwood\Mods\Weapons
+enabled: True   (build — always on)
+retuned weapons : 1   [Weapon:...]
+declared weapons: 1   [NewWeapon:...]
+    OK  Frostbite            ranged, 14 dmg, icon, weight 1
+RESULT: OK — 1 declared, 1 retuned.
+=============================================</code></pre>
+  <p>Find the log at <code>%USERPROFILE%\AppData\LocalLow\Cat Splat Studios\Sentinels of Gleamwood\Player.log</code> (Windows). A line that starts <code>FAILED</code> or a message under <code>-- N message(s) --</code> tells you the file, the line and what was expected.</p>
+  <div class="note warn"><b>Only object <em>numbers, words and switches</em> are text-moddable.</b> You cannot name a sound, a projectile or an animation in a text file — there is no way to point at one — so those fields are not offered in the templates at all. Artwork is the exception with its own route: enemies can bring a sprite <b>sheet</b> their animations are cut from (<a href="enemies.html#art">Enemies §12</a>), and a new weapon can carry an <code>icon</code>.</div>
+</section>
+
+<section id="example">
+  <h2><span class="num">05</span>A worked example to copy</h2>
+  <p class="lead">The repo ships a small, friendly pack you can read end to end and drop in as-is.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Location</th><th>What it is</th></tr>
+    <tr><td><code>Documentation/ExampleMod/</code></td><td><b>A tasteful example.</b> A couple of retunes, a glass-cannon hound and a status-bow, each heavily commented to read as a tutorial. Copy its <code>Mods/</code> folder next to the game.</td></tr>
+    <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every tier at once, weighted to dominate, for proving the whole stack survived a change. Not fun to play — built to be obvious in a screenshot.</td></tr>
+  </table>
+  </div>
+  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them. In the editor, mod loading is behind <span class="kbd">Gleamwood ▸ Enemies / Weapons ▸ Simulate Mod Overrides</span> so authoring is never quietly beaten by a stray folder; in a shipped build it is always on.</p>
+</section>
+
+<section id="player">
+  <h2><span class="num">06</span>Reskin the player</h2>
+  <p class="lead">The player is moddable in exactly one way: its <b>look</b>. Drop your own sprite sheet over the game's moves. The states, the timing, the feel are the game's and stay compiled — a skin can only change which pixels play, which is the whole reason the player was moved onto the same clip system the enemies use.</p>
+<pre><code><span class="c">; Mods/Player/emberknight.ini</span>
+[<span class="a">PlayerSkin</span>]
+sprite = <span class="a">emberknight.png</span> 12x8    <span class="c">; your sheet in Mods/Player/sprites/, cols x rows</span>
+pivot  = <span class="a">2</span>                     <span class="c">; feet 2px above a cell's bottom</span>
+clips  = <span class="a">extend</span>                <span class="c">; keep the shipped art for clips you don't redraw</span>
+
+clip Idle      = <span class="a">0-18</span>  fps <span class="a">25</span>
+clip Run       = <span class="a">24-35</span> fps <span class="a">18</span> <span class="t">slot Legs</span>       <span class="c">; the legs, during the split run</span>
+clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <span class="t">slot UpperBody</span> pivot <span class="a">38,52</span>  <span class="c">; torso, pinned where it meets the legs</span></code></pre>
+
+  <div class="note rule"><b>The one player-specific thing is <code>slot</code>.</b> While running, the legs and torso animate on two separate renderers, so some clips carry <code>slot Legs</code> or <code>slot UpperBody</code>. Keep those exactly as the template lists them, or a frame shows on the wrong half of the body. Everything without a slot is the whole body on the main renderer. (That the grammar even <i>has</i> a slot is why enemies and the player share one reader — enemies simply never write it.)</div>
+
+  <div class="note"><b>Connecting the halves: pivot takes <code>x,y</code>.</b> The torso must sit exactly where it meets the hips, and on a sheet whose halves are not perfectly centred that is not the middle of the frame. <code>pivot = 2</code> sets the vertical only (x stays centred); <code>pivot = 38,52</code> sets both — <b>x pixels from the left, y pixels from the bottom</b>. Measure the connection point off your art. The same two-number form works for enemy art (<a href="enemies.html#art">§12</a>) and anywhere a sheet's centre is not its anchor.</div>
+
+  <p>You never start from a blank page here either: a build ships <code>Mods/Player.templates/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 9 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Refused / noted</th><th>Because</th></tr>
+    <tr><td>a clip name the player doesn't have</td><td>Reported and ignored — a typo can't blank the character. The template lists the real names so there's no guessing.</td></tr>
+    <tr><td>a frame past the sheet</td><td>The whole skin is refused (not partly applied) and the player keeps its shipped art — a half-loaded skin is worse than none.</td></tr>
+    <tr><td>changing what the player DOES</td><td>Not possible: a skin only supplies frames. Moves, timing and states are compiled. This is the deliberate ceiling — <code>Mods/Player/</code> has no behaviour tier the way enemies have <code>[Graph:]</code>.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Editor and build diverge like the rest: builds always load; the editor only under <span class="kbd">Gleamwood ▸ Player ▸ Simulate Mod Overrides</span>. The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log says what loaded.</p>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>This page is the player-facing umbrella over three deep dives — it must agree with all three: <a href="enemies.html#modding">enemies.html §10–12</a>, <a href="combat.html#modding">combat.html §10</a>, <a href="dialogue.html#modding">dialogue.html §09</a>.</li>
+    <li>Weapon loaders: <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>.</li>
+    <li>Enemy loaders: <code>Assets/_Game/Enemies/Code/Definitions/EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>; dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code>.</li>
+    <li>Player skin (§06): <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code>, hook in <code>Assets/_Game/Player/Code/Animation/PlayerAnimation.cs</code> (Awake); the shared clip reader is <code>ModClipSetBuilder.ParseClipLine</code>.</li>
+    <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="tuning.html"><span>← Previous</span>Tuning &amp; INI</a>
+  <a href="extending.html"><span>Next →</span>Extending</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

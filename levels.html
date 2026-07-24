@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Levels &amp; Rooms — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a class="on" href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Levels &amp; <span class="flame">Rooms</span></h1>
+  <p class="tag">How a run gets built: room prefabs with sockets, a seeded generator that butts them edge-to-edge, side dungeons, bypass doors, and a validator + reachability audit that refuse to ship a level the player cannot cross. Author rooms against the real movement numbers and the tools do the rest.</p>
+</header>
+
+<main>
+
+<section id="pipeline">
+  <h2><span class="num">01</span>From prefab to run — the pipeline in one glance</h2>
+  <p class="lead">Everything on this page is one chain. Know which link you're editing and you know which tool checks your work.</p>
+  <div class="grid c3">
+    <div class="card accent-ember">
+      <h4>1 · Room prefabs</h4>
+      <p>Tilemap-painted prefabs with a <code>RoomTemplate</code> on the root and door <b>sockets</b> on the edges. Live in <code>Assets/_Game/Biomes/Emberfall/</code> as <code>Room_Ember_*</code>.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>2 · Biome pools</h4>
+      <p>A <code>BiomeDefinition</code> owns a room pool, gen rules, spawn table, music and boss. Authored via <span class="kbd">Gleamwood ▸ Content Workbench</span> (Levels category) or the INI (§10).</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>3 · The run web</h4>
+      <p><code>RunPlan.asset</code> is a DAG of nodes — biomes, rests, forks, bypass edges. The generator assembles each biome from its pool, seeded, at scene load. Nothing is baked.</p>
+    </div>
+  </div>
+  <div class="note rule"><b>Two gates guard the chain:</b> <span class="kbd">Gleamwood ▸ Audit Room Reachability</span> proves every room is crossable, and <span class="kbd">Gleamwood ▸ Validate Run Content</span> proves the whole web is playable. The validator also runs as a <b>build preprocessor</b> — broken run content throws <code>BuildFailedException</code> and the build refuses to compile.</div>
+</section>
+
+<section id="anatomy">
+  <h2><span class="num">02</span>Room anatomy</h2>
+  <p>A room prefab is: a root GameObject carrying <code>RoomTemplate</code>, a child <code>Grid</code> with two role tilemaps — <code>Floors</code> (walkable tops and platforms) and <code>Walls</code> (walls, ceilings, cover) — both with a <code>TilemapCollider2D</code>. Grid cells are <b>1×1 unit</b>, origin at the bottom-left cell corner. Source: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code> and <code>Documentation/ROOM_STANDARDS.md</code>.</p>
+
+  <h3>RoomTemplate fields</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Type / default</th><th>What it really is</th></tr>
+    <tr><td><code>sizeInCells</code></td><td>Vector2Int, 16×10</td><td><b>Fallback only.</b> Rooms with painted tilemaps <i>calculate</i> their size; this field is auto-stamped in <code>OnValidate</code> to mirror the tiles and is only read at runtime when no tiles exist (test rigs / stand-ins).</td></tr>
+    <tr><td><code>SizeInCells</code> (property)</td><td>Vector2Int</td><td><b>The</b> footprint: the union of painted cells across every child Tilemap, else the serialized fallback. All generator, gate and validator math reads this.</td></tr>
+    <tr><td><code>sockets</code></td><td>List&lt;RoomSocket&gt;</td><td>Door sockets — open apertures per ROOM_STANDARDS §3. L/R cell = the aperture's <b>floor row</b>; U/D cell = its <b>leftmost column</b>.</td></tr>
+    <tr><td><code>tags</code></td><td>RoomTags flags, Combat</td><td>What the generator may use this room as (table below).</td></tr>
+    <tr><td><code>difficulty</code></td><td>int, 1</td><td>Relative difficulty within the pool — reserved for curve-based selection, not read yet.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Helpers: <code>FirstSocket(side)</code> returns the first socket on a side or null — multiple same-side sockets are allowed and the generator picks among them; <code>HasSocket(side)</code>. The painted-bounds scan is read-only (no <code>CompressBounds</code> — the shared prefab is never mutated). Gizmos draw an ember wire cube of the <b>live</b> bounds plus cyan socket apertures (3 tall for L/R, 3 wide for U/D, anchored at <code>s.cell</code>).</p>
+
+  <h3>Sockets</h3>
+  <p>A <code>RoomSocket</code> is just <code>side</code> (<code>Left=0, Right=1, Up=2, Down=3</code>) + <code>cell</code> (int). Apertures are <b>3 cells</b> and authored <b>open</b> — no tiles in the doorway. The generator butts rooms edge-to-edge and aligns L↔R apertures on the same floor row; there is no carving. <code>s.cell + 3</code> must stay inside the room bounds or the validator errors. Every socket must also be <b>cappable</b>: a straight 3-cell opening in a flat wall/floor/ceiling run, so the biome's <code>socketCap</code> prefab can seal it when unused.</p>
+  <div class="warn note"><b>Up sockets are a promise.</b> A Down socket is always traversable (you fall through it). An <b>Up</b> socket only counts as an exit if the room internally terraces up to it in ≤2&nbsp;u steps — that is the author's responsibility, and the reachability audit (§4) is what catches you when you break it.</div>
+
+  <h3>RoomTags</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Tag</th><th>Value</th><th>Meaning</th></tr>
+    <tr><td><code>Entry</code></td><td>1</td><td>Run starts here. Needs a Right socket and an <code>EntryPoint</code> named child.</td></tr>
+    <tr><td><code>Exit</code></td><td>2</td><td>Run leaves here. Needs a Left socket and a <code>BiomeExit</code> fixture.</td></tr>
+    <tr><td><code>Combat</code></td><td>4</td><td>Normal middle room (the default).</td></tr>
+    <tr><td><code>Traversal</code></td><td>8</td><td>Movement-focused middle.</td></tr>
+    <tr><td><code>Treasure</code></td><td>16</td><td>Branch terminal that pays out — gets the biome's <code>branchTreasure</code> spawned at room center.</td></tr>
+    <tr><td><code>Secret</code></td><td>32</td><td>Branch terminal that hides something — the <b>preferred home for the bypass door</b> (§7).</td></tr>
+    <tr><td><code>Boss</code></td><td>64</td><td>Arena inserted <b>before</b> the Exit. Needs L+R sockets, a <code>BossGate</code>, and exactly one <code>EnemySpawnMarker</code> with <code>isBossPoint</code>. Never used as a normal middle.</td></tr>
+    <tr><td><code>BossCorridor</code></td><td>128</td><td>The Mega-Man lead-in hallway inserted before the Boss arena. Needs L+R sockets. Never a normal middle.</td></tr>
+  </table>
+  </div>
+
+  <h3>Markers and fixtures inside a room</h3>
+  <ul>
+    <li><code>EnemySpawnMarker</code> — on floor cells with ≥3&nbsp;u clearance; red wire-sphere gizmo. Fields: <code>overrideTable</code> (e.g. a guaranteed elite), <code>deferToSequence</code>, <code>isBossPoint</code> (§8).</li>
+    <li><code>EntryPoint</code> — a <b>named child</b> in Entry rooms (and stand-in / rest layouts); the player teleports here.</li>
+    <li><code>BiomeExit</code> — the exit fixture in Exit rooms.</li>
+    <li><code>BossGate</code> / <code>BossDoor</code> — arena and corridor components (covered with the boss beat on <a href="enemies.html">Enemies &amp; Bosses</a>).</li>
+    <li><code>Hazard (Pit)</code> — an explicit trigger volume spanning a gap floor, ≥2&nbsp;u below the lip. There is no fall damage; a pit only kills because you put this volume there.</li>
+  </ul>
+
+  <div class="note"><b>The debug pool is not run content.</b> Anything under a path containing <code>/Debug/</code> is skipped by the reachability audit (<code>if (path.Contains("/Debug/")) continue;</code>), and the validator only walks content reachable from the RunPlan — so <code>Assets/_Game/Biomes/Debug/</code> (<code>Biome_DebugPool.asset</code>, <code>SpawnTable_Debug.asset</code>, <code>Room_Debug*</code>) never gates builds. Nothing in code references <code>Biome_DebugPool.asset</code>; it's a manual sandbox. Experiment there freely.</div>
+</section>
+
+<section id="recipe">
+  <h2><span class="num">03</span>Authoring a room — sized from the real movement numbers</h2>
+  <p class="lead">Room geometry is derived from the controller, not from taste. These are the measured numbers (from <code>PlayerSettings.asset</code> / <code>Player.prefab</code>) and the budget <code>Documentation/ROOM_STANDARDS.md</code> derives from them.</p>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Measured input</th><th>Value</th><th>Derived budget</th><th>Value</th></tr>
+    <tr><td>MoveSpeed</td><td>5 u/s</td><td>Full-hop horizontal reach</td><td>≈ 4 u</td></tr>
+    <tr><td>MaxJumpHeight (apex)</td><td>2 u</td><td>Jump-up ceiling</td><td>2 u</td></tr>
+    <tr><td>TimeToJumpApex</td><td>0.4 s (≈0.8 s full hop)</td><td>Dash-jump reach (advanced)</td><td>≈ 5–6 u</td></tr>
+    <tr><td>DashDistance</td><td>2 u / 0.4 s (i-frames)</td><td>Coyote forgiveness</td><td>≈ 1 u — do <b>not</b> design against it</td></tr>
+    <tr><td>Player collider</td><td>0.57 w × 1.33 h</td><td>Tile grid</td><td>1×1 u</td></tr>
+  </table>
+  </div>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Feature</th><th>Standard</th><th>Max</th><th>Notes</th></tr>
+    <tr><td>Gap width</td><td>2–3 u</td><td><b>3 u</b> main path</td><td>4–5 u only for dash-jump secrets — never the main path.</td></tr>
+    <tr><td>Ledge step-up</td><td>1 u</td><td><b>2 u</b> hard ceiling</td><td>Any up-travel beyond 2 u must terrace in 2 u steps with ≥2 u landings.</td></tr>
+    <tr><td>Drop height</td><td colspan="2">any</td><td>No fall damage. Pits kill only via explicit <code>Hazard (Pit)</code> volumes.</td></tr>
+    <tr><td>Corridor height</td><td>3 u</td><td>min 2 u squeeze</td><td>Avoid the squeeze.</td></tr>
+    <tr><td>Corridor width</td><td>≥2 u</td><td>min 1 u momentary</td><td>—</td></tr>
+    <tr><td>Cover wall</td><td colspan="2">1 u</td><td>—</td></tr>
+    <tr><td>Room size</td><td>16–30 wide typical</td><td>min <b>12 w × 8 h</b></td><td>Validator hard-errors below 8×8, warns middles under 12 wide. Entry/Exit may be 8×8.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Rules of thumb: the main path uses jump alone; dash is for combat spacing and secrets. If MoveSpeed, MaxJumpHeight, TimeToJumpApex, DashDistance or the collider ever change, re-derive the doc and re-run the validator over every pool.</p>
+
+  <h3>The recipe</h3>
+  <ol class="steps">
+    <li><b>Duplicate</b> an existing <code>Room_Ember_*</code> prefab in <code>Assets/_Game/Biomes/Emberfall/</code> — or build fresh: root GameObject + <code>RoomTemplate</code>, child <code>Grid</code> with <code>Floors</code> + <code>Walls</code> tilemaps, each with a <code>TilemapCollider2D</code>.</li>
+    <li><b>Paint greybox-first</b> with <code>Assets/_Game/Biomes/Greybox/Tile_GreyFloor</code> / <code>Tile_GreyWall</code> (full-cell <code>ColliderType.Grid</code> — the collider is exactly what you see). Painted content <b>must begin at cell (0,0)</b> and the tilemap grid must not be offset from the room root — both are validator errors. Art tilesets come later on a separate collider-less layer over the same greybox collision; never collide on art sprite shapes.</li>
+    <li>The footprint calculates itself from the paint; <code>sizeInCells</code> self-stamps in OnValidate. Nothing to type.</li>
+    <li><b>Add sockets</b> on the <code>RoomTemplate</code>: side + cell (L/R cell = floor row of the 3-tall aperture; U/D cell = leftmost column of the 3-wide one). Leave the doorway open — no tiles. Check the cyan gizmo lines up with the hole, and keep <code>cell + 3</code> inside bounds.</li>
+    <li><b>Tag it.</b> Entry ⇒ R socket + <code>EntryPoint</code> child. Exit ⇒ L socket + <code>BiomeExit</code>. Boss ⇒ L+R + <code>BossGate</code> + exactly one <code>isBossPoint</code> marker. BossCorridor ⇒ L+R. Branch pieces follow the grammar in §7: riser = Down+Up, corner = Down+Right, terminal = Left only — tag terminals <code>Treasure</code> (payout) or <code>Secret</code> (bypass-door home).</li>
+    <li><b>Place <code>EnemySpawnMarker</code>s</b> on floor cells with ≥3 u clearance.</li>
+    <li><b>Join the pool.</b> Normally the room name already matches the biome's INI glob (<code>roomPool = Room_Ember_*</code>) — just re-run <span class="kbd">Gleamwood ▸ Import Content INI</span>. Explicit pools (pyre-crown) need the name added by hand.</li>
+    <li><b>Prove it:</b> <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>, then <span class="kbd">Gleamwood ▸ Validate Run Content</span>. Both clean or the room isn't done.</li>
+  </ol>
+  <div class="rule note"><b>The fix-tile rule</b> (GAME_TUNING_GUIDE §6, verbatim): "When placing fix tiles: never within 2 columns above a platform edge that must stay mountable — the tile blocks the jump arc."</div>
+</section>
+
+<section id="reachability">
+  <h2><span class="num">04</span>The reachability guarantee</h2>
+  <p class="lead">Why it exists (the M6 "cinderway lesson", straight from the source comment): every socket aperture must reach every other socket aperture, or branch content behind them — including bypass doors to other biomes — <b>silently vanishes from runs</b>. The audit in <code>Assets/_Game/Editor/RoomReachability.cs</code> simulates the actual controller over your tiles.</p>
+
+  <h3>The exact movement model</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Rule</th><th>What the walker does</th></tr>
+    <tr><td><b>Solid</b></td><td>Every cell with a tile on any child Tilemap that has a <code>TilemapCollider2D</code>.</td></tr>
+    <tr><td><b>Fits (2-air-cell rule)</b></td><td>A feet cell is usable iff feet <b>and</b> head cells are air. The player is ~1.33 tall, so <b>a 1-cell gap is a wall</b>. In-room range is x,y ∈ [−1 .. size] — apertures sit on the edges.</td></tr>
+    <tr><td><b>Socket entry cells</b></td><td>Left = (0, cell); Right = (size.x−1, cell); Up/Down = the 3 cells spanning columns cell..cell+2 at the top/bottom row.</td></tr>
+    <tr><td><b>Flood</b></td><td>BFS from each socket's cells. Every socket must reach every other socket, <b>both directions</b>.</td></tr>
+    <tr><td><b>Walk + gravity settle</b></td><td>Step into the adjacent column, then fall until landing — any distance, no fall damage. If the walker fell, the original height cell is also flooded (airborne pass-through counts for aperture cells).</td></tr>
+    <tr><td><b>Jump = an arc, not an elevator</b></td><td>Only when grounded (solid below, or y==0). For dx in −2..2 (≠0), rise 0..2: the player may rise along <i>any</i> column in the span — launch, destination, or between — then drift at apex height to the target. The rise column needs <code>Fits</code> at every rise step; the apex row needs <code>Fits</code> from that column to the target column. Constants: <code>JumpRise = 2</code> (MaxJumpHeight 2 u = 2 cells), <code>JumpReach = 2</code> lateral cells during a rise.</td></tr>
+    <tr><td><b>Flat gap hops</b></td><td><code>rise 0</code> in the arc = hopping flat across 1–2 empty columns.</td></tr>
+    <tr><td><b>Pure vertical mounts</b></td><td>dx=0, rise 1..2 — requires a clear launch column; breaks at the first blocked cell.</td></tr>
+  </table>
+  </div>
+
+  <h3>Running the audit — and reading what it says</h3>
+  <ol class="steps">
+    <li>Run <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>. Scope: all prefabs under <code>Assets/_Game/Biomes</code> with a <code>RoomTemplate</code> and <b>≥2 sockets</b>, skipping <code>/Debug/</code>.</li>
+    <li>The Console prints <code>[Reach] &lt;roomName&gt;:</code> with indented failures per room, then a summary — <code>[Reach] every room fully traversable</code> or <code>[Reach] N room(s) with unreachable sockets</code>. Errors are <b>clickable</b>: the context object is the prefab, so a click pings the offending room.</li>
+    <li>Each failure reads <code>{fromSide}@{fromCell} cannot reach {toSide}@{toCell}</code> — e.g. <code>Left@2 cannot reach Up@6</code> means a walker entering the left door on floor row 2 can never exit the ceiling aperture at column 6. Direction matters: <code>Right@5 cannot reach Left@2</code> with the reverse passing means the room is one-way (a drop you can't climb back).</li>
+    <li>Diagnose against the model: a 1-cell gap somewhere (walls to the walker), a step-up over 2 u without terracing, an Up socket the room never terraces to, or a fix tile parked within 2 columns of a platform edge that killed the jump arc.</li>
+  </ol>
+  <div class="note"><b>You rarely run this alone.</b> The validator (§5) runs the same analysis on every pooled room with ≥2 sockets and turns each failure into a hard error: <code>Room 'X': {failure} (player cannot traverse - fix clearance/steps)</code>. The standalone menu item is for iterating on one room fast.</div>
+</section>
+
+<section id="validator">
+  <h2><span class="num">05</span>Validate Run Content — every check</h2>
+  <p class="lead"><span class="kbd">Gleamwood ▸ Validate Run Content</span> walks the RunPlan and everything reachable from it. Success line: <code>[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code> Any error also fails builds (<code>IPreprocessBuildWithReport</code>). Source: <code>Assets/_Game/Editor/RunContentValidator.cs</code>.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Area</th><th>Check</th><th>Severity</th></tr>
+    <tr><td rowspan="8">Plan / web</td><td>No <code>RunPlan</code> asset in Resources · web has 0 nodes ("the web is empty")</td><td>Error</td></tr>
+    <tr><td>No <code>gradeRubric</code></td><td>Warn</td></tr>
+    <tr><td>Per node: missing/empty <code>nodeId</code> · duplicate nodeId · missing <code>biome</code></td><td>Error</td></tr>
+    <tr><td>Node has <code>nextNodeIds</code> but <code>restAfter == null</code> — "the path doors live at the rest" · any <code>next</code> id that doesn't resolve</td><td>Error</td></tr>
+    <tr><td>Bypass: <code>bypassNextId</code> doesn't resolve · the node's biome has <code>calmRoomBeforeBoss</code> OFF ("the junction door has no room to live in") · no <code>BypassDoor</code> prefab in Resources</td><td>Error</td></tr>
+    <tr><td>Forking rests: widest fork a rest serves &gt; number of <code>PathDoor</code>s in its <code>layoutPrefab</code></td><td>Error</td></tr>
+    <tr><td><code>entryNodeId</code> doesn't resolve ("no run can start") · a node unreachable from entry · a <b>cycle</b> in the web ("runs must end")</td><td>Error</td></tr>
+    <tr><td>Biome <code>biomeId</code> missing or duplicated (saves need it)</td><td>Error</td></tr>
+    <tr><td rowspan="3">Per biome</td><td>No roomPool AND no standInLayout · stand-in layout missing <code>EntryPoint</code> child or <code>BiomeExit</code> · pool path missing <code>socketCap</code> ("unused apertures would stay open") · null pool entry</td><td>Error</td></tr>
+    <tr><td>Pool census: no Entry with R socket · no Exit with L socket · no middle with L+R · Boss room without both L+R · BossCorridor without both</td><td>Error</td></tr>
+    <tr><td>No Boss arena ("becomes an ERROR when M4's bosses land") · arena but no BossCorridor (Mega-Man beat missing) · arena but no <code>BossDefinition</code> (stand-in adds only)</td><td>Warn</td></tr>
+    <tr><td rowspan="4">Per room</td><td>Size under the 8×8 minimum (ROOM_STANDARDS §3)</td><td>Error</td></tr>
+    <tr><td><b>Reachability wired in:</b> rooms with ≥2 sockets run <code>RoomReachability.Analyze</code>; each failure → "player cannot traverse - fix clearance/steps"</td><td>Error</td></tr>
+    <tr><td>Painted bounds not starting at (0,0) · any tilemap grid offset from the room root · null socket · socket aperture leaving room bounds (<code>cell &lt; 0 || cell+3 &gt; extent</code>) · Entry tag without <code>EntryPoint</code> · Exit without <code>BiomeExit</code> · Boss without <code>BossGate</code> ("the arena wouldn't gate the exit")</td><td>Error</td></tr>
+    <tr><td>Non-Entry/Exit room under 12 wide</td><td>Warn</td></tr>
+    <tr><td rowspan="2">Boss (when set)</td><td>No <code>bossPrefab</code> · prefab without root <code>EnemyStateMachine</code> · no <code>dialogue</code> DialogueSet ("the encounter exchange is the story spine") · <code>addsTable</code> fails spawn-table checks</td><td>Error</td></tr>
+    <tr><td>Boss-tagged rooms: not exactly ONE <code>isBossPoint</code> marker (0 = "the boss has nowhere to arrive"; more than 1 also errors)</td><td>Error</td></tr>
+    <tr><td rowspan="2">Rest</td><td>No <code>layoutPrefab</code> · layout missing <code>EntryPoint</code> child, <code>RestSite</code> or <code>RestExit</code> · any <code>InteractZone</code> without an InputReader binding ("it can never be used" — soft-bricks heal/upgrade)</td><td>Error</td></tr>
+    <tr><td><code>forgeEnabled</code> but no <code>ForgeSite</code> in the layout</td><td>Warn</td></tr>
+    <tr><td rowspan="2">Spawn tables</td><td>Entry without a prefab · prefab without root <code>EnemyStateMachine</code> · no <code>EnemyDefinition</code> assigned · <b>magic FSM states</b>: <code>MaxHealth &gt; 0</code> but no state named <code>"dead"</code> ("it can never die")</td><td>Error</td></tr>
+    <tr><td>Empty table · no <code>"hitstun"</code> state ("normal hits won't stagger it")</td><td>Warn</td></tr>
+  </table>
+  </div>
+  <p class="dim">The same pass also validates the weapon catalog (defaultMelee/defaultRanged required; loot-table entries must resolve through the catalog) — that half is documented on <a href="combat.html">Combat &amp; Weapons</a>.</p>
+</section>
+
+<section id="biome">
+  <h2><span class="num">06</span>BiomeDefinition — the biome's knobs</h2>
+  <p class="lead">One asset per biome under <code>Assets/_Game/Biomes/</code> (create: <span class="kbd">Gleamwood/Biome Definition</span>, or let the INI create it for you — §10). Edit it in the Workbench's <b>Levels</b> category, which also checks the run plan references it.</p>
+
+  <figure class="shot">
+    <img src="images/workbench-biome.png" alt="Content Workbench, Levels category, editing Biome_pyre-crown: registration check, intro card, level music, structure, side dungeons, spawn table and boss links">
+    <figcaption><b>Real capture.</b> The whole biome on one page — note the [ok] run-plan registration check up top, the Structure block (min 12 / max 15 rooms, vertical jog 0.6) and the Side dungeons block (branch chance 0.5, max 2 branches) that drive the generator directly.</figcaption>
+  </figure>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+    <tr><td><code>biomeId</code></td><td>—</td><td>Stable kebab-case id written into save files (suspended runs). <b>NEVER rename once players have saves.</b> OnValidate warns when empty.</td></tr>
+    <tr><td><code>displayName</code> · <code>chapter</code> · <code>objective</code></td><td>chapter "CHAPTER I"</td><td>The intro card shown on biome entry.</td></tr>
+    <tr><td><code>roomPool</code></td><td>—</td><td>The RoomTemplate prefabs the generator draws from. Needs ≥1 Entry (R socket), ≥1 Exit (L socket), ≥1 middle (L+R). Empty pool ⇒ stand-in path.</td></tr>
+    <tr><td><code>genRules.minRooms</code> / <code>maxRooms</code></td><td>3 / 5</td><td>How many <b>middle</b> rooms between the Entry and Exit rooms (inclusive range).</td></tr>
+    <tr><td><code>genRules.verticalJogChance</code></td><td>0.35</td><td>[0..1] chance per step to prefer a room whose door row jogs vertically. Vertical variety emerges from the pool's socket rows, not from carving.</td></tr>
+    <tr><td><code>genRules.calmRoomBeforeBoss</code></td><td>true</td><td>Suppress enemy spawns in the room directly before the boss corridor. <b>Must be ON</b> for any node with a bypass (§7).</td></tr>
+    <tr><td><code>genRules.branchChance</code></td><td>0</td><td>[0..1] chance per fork candidate — a chain room with an unused UP socket — to grow a side dungeon.</td></tr>
+    <tr><td><code>genRules.maxBranches</code> / <code>branchRunMax</code></td><td>2 / 2</td><td>Cap on branches per level; most runner rooms inside one branch, between the corner and the terminal.</td></tr>
+    <tr><td><code>socketCap</code></td><td>—</td><td>Prefab spawned on every unused socket to seal its aperture (anchored at the aperture's floor/left cell).</td></tr>
+    <tr><td><code>spawnTable</code></td><td>—</td><td>Rolled at every <code>EnemySpawnMarker</code> in the layout (markers can override).</td></tr>
+    <tr><td><code>statScalePerStage</code></td><td>0.25</td><td>Spawned enemies get <code>1 + stageIndex × this</code> applied to their health — context-side, never the shared SO.</td></tr>
+    <tr><td><code>musicTrack</code></td><td>—</td><td>Looping music for this biome's levels (Music bus). Empty = the MusicSet's LevelTrack fallback. Full rules on <a href="audio.html">Audio</a>.</td></tr>
+    <tr><td><code>boss</code></td><td>—</td><td><code>BossDefinition</code> staging the arena. Empty = stand-in mode (arena adds only). Fields on <a href="enemies.html">Enemies &amp; Bosses</a>.</td></tr>
+    <tr><td><code>branchTreasure</code></td><td>—</td><td>Spawned in each Treasure-tagged branch terminal — the side dungeon's payout (heal orb v1).</td></tr>
+    <tr><td><code>standInLayout</code></td><td>—</td><td>Hand-authored fallback prefab with an <code>EntryPoint</code> child + <code>BiomeExit</code>; used when the pool is empty.</td></tr>
+  </table>
+  </div>
+
+  <h3>RestDefinition — the breather between biomes</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+    <tr><td><code>layoutPrefab</code></td><td>—</td><td>Hand-authored rest layout with an <code>EntryPoint</code> child, a <code>RestSite</code> trigger and a <code>RestExit</code>. <code>PathDoor</code>s pooled inside serve forks; <code>ForgeSite</code>s serve the forge.</td></tr>
+    <tr><td><code>healMissingFraction</code></td><td>0.4</td><td>Fraction of the player's <b>missing</b> health restored at the RestSite (decision M0.1: partial heal).</td></tr>
+    <tr><td><code>forgeEnabled</code></td><td>true</td><td>This rest offers ONE free weapon upgrade via the layout's ForgeSites. The stat curve is the WeaponCatalog's default track — global, because a per-rest curve could not survive resume.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Shipped: <code>Assets/_Game/Biomes/Rest_EmberTrail.asset</code> — heal 0.4, forge on, layout <code>Rest_Traversal.prefab</code>. Rests play the overworld theme (see <a href="audio.html">Audio</a>).</p>
+</section>
+
+<section id="web">
+  <h2><span class="num">07</span>The run web — nodes, branches, bypass doors, junctions</h2>
+  <p class="lead">The run is a tiered DAG authored in data. <code>RunPlan.asset</code> lives at <code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code> (loaded via <code>Resources.Load</code>); a straight chain of single-next nodes <b>is</b> the old linear run. All variety is data — the web is authored in <code>GameContent.ini</code> <code>[Node:…]</code> sections, never Build Settings.</p>
+
+  <h3>RunPlan &amp; BiomeNode fields</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>What it does</th></tr>
+    <tr><td><code>hubScene</code> / <code>biomeHostScene</code> / <code>restHostScene</code></td><td>"2.Hub" / "3.BiomeHost" / "4.RestHost".</td></tr>
+    <tr><td><code>nodes</code> · <code>entryNodeId</code> · <code>gradeRubric</code></td><td>The web, its entrance, and the run-clear grade rubric (death keeps "—").</td></tr>
+    <tr><td><code>BiomeNode.nodeId</code></td><td>Stable id written into save files. <b>NEVER rename once players have saves.</b></td></tr>
+    <tr><td><code>BiomeNode.biome</code></td><td>The BiomeDefinition this node plays.</td></tr>
+    <tr><td><code>BiomeNode.restAfter</code></td><td>Rest after this biome — <b>the choice doors live there</b>. Ignored on FINAL nodes.</td></tr>
+    <tr><td><code>BiomeNode.nextNodeIds</code></td><td>Exit edges. Empty = FINAL — clearing its biome ends the run.</td></tr>
+    <tr><td><code>BiomeNode.bypassNextId</code></td><td>M5 5C: the non-boss path — a junction door in the calm room slips out here, skipping boss, reward AND rest. Empty = no bypass (the boss is mandatory).</td></tr>
+  </table>
+  </div>
+
+  <h3>The shipped web</h3>
+<pre><code><span class="c">; three levels, one real choice, both path types — nodeIds are SAVE data, never rename shipped ones</span>
+entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
+   ├─ next ──────→ <span class="a">depths-2</span>  (emberfall-depths) ──→ <span class="a">crown-3</span>
+   └─ bypass ────→ <span class="a">cinder-2</span>  (cinderway)        ──→ <span class="a">crown-3</span>  (pyre-crown, FINAL)</code></pre>
+
+  <h3>Depth, salt, and why merges never get easier</h3>
+  <ul>
+    <li><code>DepthOf(nodeId)</code> = the <b>longest</b> path from entry (relaxation, guard NodeCount+1). Depth drives stat scaling and spawn-table <code>minStage</code> gating — "a lane merge never makes the game EASIER". Bypass edges count for depth too.</li>
+    <li><code>NodeSalt</code> = FNV-1a <code>StableHash(nodeId)</code> — two same-biome nodes generate <b>different</b> layouts. <code>string.GetHashCode</code> is explicitly not used; saves depend on stability.</li>
+    <li>The generator itself is pure and deterministic: <code>Generate(runSeed, stageIndex, biome)</code> with <code>System.Random(HashSeed(seed, stageIndex))</code> — same inputs, identical plan, forever. Suspend/resume <b>re-generates</b> instead of serializing layouts.</li>
+  </ul>
+
+  <h3>How the chain is assembled</h3>
+  <p>Entry at origin → middles → BossCorridor (only when an arena is also in the pool — "a corridor without an arena is never placed") → Boss arena → Exit. Each link picks the previous room's R socket and the next room's L socket (random among same-side sockets) and offsets so the floor rows align — rooms butt edge-to-edge, no carving. With probability <code>verticalJogChance</code> the generator prefers a middle whose L-socket row differs from the previous R row. When a boss is present and <code>calmRoomBeforeBoss</code> is on, the room directly before the first boss piece is the <b>calm room</b> (never the entry) — its spawn markers are deactivated at assembly.</p>
+
+  <h3>Side dungeons — the branch grammar</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Sockets</th><th>Role</th></tr>
+    <tr><td>Fork candidate</td><td>chain room with an <b>unused Up</b> socket</td><td>Rolls <code>branchChance</code>, up to <code>maxBranches</code>. Branches never fork off branches (v1).</td></tr>
+    <tr><td>Riser</td><td>Down + Up</td><td>0–1 placed above the fork — climbs.</td></tr>
+    <tr><td>Corner</td><td>Down + Right</td><td>Turns the climb sideways.</td></tr>
+    <tr><td>Runners</td><td>normal middles (L+R)</td><td>0..<code>branchRunMax</code> between corner and terminal.</td></tr>
+    <tr><td>Terminal</td><td><b>Left only</b> — no Right/Down/Up</td><td>"Treasure, secret, or the slip-away's home." Tag it <code>Treasure</code> or <code>Secret</code>.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Branch pieces come from <b>untagged</b> pool rooms (Entry/Exit/Boss/BossCorridor are excluded). Every placement is overlap-tested against everything already placed; a branch commits whole or is discarded whole — "fail-soft: fewer branches, never corruption". Branches append after the chain so chain indices (calm/boss/exit) never move. A pool without corners or terminals is quietly linear. Every unconsumed socket becomes a cap — including U/D sockets that never grew a branch. Branch links (fork ↔ riser ↔ corner) are the only vertical room connections; the main chain itself never links vertically.</p>
+
+  <h3>Junctions, bypass doors, and the coward's road</h3>
+  <ul>
+    <li><b>Placement preference</b> (BiomeHost, "the slip-away is earned"): a <b>Secret-tagged branch terminal</b> → any branch terminal → the calm room. None of those ⇒ Error "unreachable (validator flags this)". The door spawns at room center X on the anchor socket's floor row, labeled <code>Slip away → {title} (no rest, no spoils)</code>.</li>
+    <li><b>Rules:</b> <code>BypassTo</code> is legal only mid-biome and only to the current node's <code>bypassNextId</code>. Carried health is captured as-is — "no heal, no forge; the price of not fighting" — and you go straight to the next biome: "no rest on the coward's road".</li>
+    <li><b>At the rest:</b> a single next means a plain walk-over <code>RestExit</code>. A fork means RestHost hides the RestExit and assigns one pooled <code>PathDoor</code> per next id, labeled "→ {biome displayName}"; interacting calls <code>AdvanceTo(nodeId)</code>, validated against the current node's exits. Too few doors: loud error + fail-open (the RestExit stays on and the run continues down exit 0). Extra doors deactivate.</li>
+    <li><b>Saves:</b> the run is saved at the <b>entry of every room</b> (<code>SuspendAtRoomEntry</code>, both hosts; the RestSite re-saves after the heal). The save carries seed, nodeId, path, atRest, health, stats, weapons. Resume re-enters the room from scratch; pre-M5 saves invalidate by design — wipe, never migrate.</li>
+    <li><b>Treasure:</b> each Treasure-tagged branch terminal gets the biome's <code>branchTreasure</code> at room center, floor row + 0.6.</li>
+  </ul>
+  <div class="warn note"><b>The bypass triangle:</b> a node with <code>bypassNextId</code> needs (1) its id resolvable, (2) the biome's <code>calmRoomBeforeBoss</code> ON — otherwise "the junction door has no room to live in" — and (3) a <code>BypassDoor</code> prefab in Resources. The validator enforces all three; the audit (§4) keeps the branch terminals it prefers actually reachable.</div>
+</section>
+
+<section id="spawntables">
+  <h2><span class="num">08</span>Spawn tables</h2>
+  <p class="lead">Where enemies come from: the biome's <code>EnemySpawnTable</code> rolled at every active <code>EnemySpawnMarker</code>. Create tables via <span class="kbd">Gleamwood/Enemy Spawn Table</span>; the enemies themselves live on <a href="enemies.html">Enemies &amp; Bosses</a>.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Entry field</th><th>Default</th><th>Meaning</th></tr>
+    <tr><td><code>enemyPrefab</code></td><td>—</td><td>Prefab with <code>EnemyStateMachine</code> on the root (validator-enforced). <code>EnemyKillReporter</code> is also required by convention — the validator does <b>not</b> check it, so verify it by hand (missing = silent kill-count/arena-clear breakage).</td></tr>
+    <tr><td><code>weight</code></td><td>1 (Min 0)</td><td>Weighted roll among eligible entries.</td></tr>
+    <tr><td><code>minStage</code></td><td>0</td><td>Earliest stage index this enemy appears at — gated by node <b>depth</b>, so late-game lanes stay dangerous.</td></tr>
+  </table>
+  </div>
+  <ul>
+    <li><b>Determinism:</b> the spawner's RNG stream is <code>(h*397 ^ salt) ^ 0x5EED</code> — distinct from the layout roll, salted per node so two same-biome nodes roll differently. Markers are visited in hierarchy order; same seed spawns the same enemies.</li>
+    <li><b>Marker switches:</b> <code>overrideTable</code> (e.g. a guaranteed elite via <code>SpawnTable_EmberElite</code>), <code>deferToSequence</code> (the boss arena spawns these one by one — sequence RNG <code>^ 0x0B055</code>), <code>isBossPoint</code> (implies defer; exactly one per arena).</li>
+    <li><b>Inactive markers are skipped</b> — that's how the calm room mutes, and how a designer mutes a marker by hand.</li>
+    <li><b>Stat scale</b> = <code>1 + depth × statScalePerStage</code>, applied to the enemy <b>context</b>, never the shared SO. Feet snap to physics ground via a raycast on layer "Level" (8 u, no RNG).</li>
+  </ul>
+  <div class="scrollx">
+  <table>
+    <tr><th>Shipped table (<code>Assets/_Game/Biomes/Emberfall/</code>)</th><th>Contents / role</th></tr>
+    <tr><td><code>SpawnTable_Emberfall</code></td><td>ImpScout w1 s0 · CinderHound w1.5 s0 · VaultAcolyte w1 s1 · SootBomber w0.8 s1.</td></tr>
+    <tr><td><code>SpawnTable_Depths</code> · <code>SpawnTable_Cinderway</code> · <code>SpawnTable_Crown</code></td><td>Per-biome rosters for the other three lanes.</td></tr>
+    <tr><td><code>SpawnTable_EmberElite</code></td><td>Marker <code>overrideTable</code> — the guaranteed elite.</td></tr>
+    <tr><td><code>SpawnTable_ShepherdCall</code></td><td>CinderShepherd's <code>addsTable</code>.</td></tr>
+    <tr><td><code>Debug/SpawnTable_Debug</code></td><td>Sandbox only — never run content (§2).</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="minimap">
+  <h2><span class="num">09</span>Minimap notes</h2>
+  <p><code>MinimapController</code> (<code>Assets/_Game/UI/Code/HUD/MinimapController.cs</code>, UXML at <code>Assets/_Game/UI/Panels/Minimap/Minimap.uxml</code>) lives <b>only</b> in scene <code>Assets/_Scenes/3.BiomeHost.unity</code> — stand-in layouts and other scenes show nothing. It reads <code>BiomeHostController.Instance.LayoutPlan</code> (retrying every 0.5 s until the host builds), renders each placed room's bounds into <code>#minimap-rooms</code>, and rides the player dot on the same cell→panel mapping. The root <code>#minimap-root</code> starts <code>display:none</code> and is revealed on build.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>USS class</th><th>Applied to</th></tr>
+    <tr><td><code>.mini-room</code></td><td>Every room.</td></tr>
+    <tr><td><code>.mini-room--seen</code></td><td>Fog-of-war: added the first time the player <b>enters</b> the room.</td></tr>
+    <tr><td><code>.mini-room--junction</code></td><td>The calm room, when the node has a bypass — the junction telegraph.</td></tr>
+    <tr><td><code>.mini-room--boss</code></td><td>The arena <b>and</b> its BossCorridor.</td></tr>
+    <tr><td><code>.mini-room--exit</code> · <code>.mini-room--current</code></td><td>The exit room; the room you're in.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="ini">
+  <h2><span class="num">10</span>Authoring it all from the INI</h2>
+  <p class="lead">Everything above is authorable as plain text in <code>Assets/_Game/Content/GameContent.ini</code>, imported with <span class="kbd">Gleamwood ▸ Import Content INI</span> (the validator auto-runs after every import). The INI is <b>strictly one-way, editor-only</b>: it's the authoring source, the SO assets stay the runtime truth — the game never reads INI at runtime. Full syntax, all sections and every key: <a href="tuning.html">Tuning &amp; INI</a>. Below is the world-content mapping.</p>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Section</th><th>Keys</th><th>Maps onto</th></tr>
+    <tr><td><code>[Biome:&lt;biomeId&gt;]</code></td><td><code>displayName, chapter, objective, minRooms, maxRooms, verticalJogChance, calmRoomBeforeBoss, branchChance, maxBranches, branchRunMax, branchTreasure, statScalePerStage, roomPool, socketCap, spawnTable, boss, musicTrack, standInLayout</code></td><td><code>BiomeDefinition</code> fields (§6). Missing biome assets are <b>created</b> (<code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code>).</td></tr>
+    <tr><td><code>[Boss:&lt;assetName&gt;]</code></td><td><code>bossPrefab, dialogue, entranceDelay, addsTable, rewardPrefab, outroSpeaker, outroText, musicTrack, musicCueId</code></td><td><code>BossDefinition</code> fields (see <a href="enemies.html">Enemies &amp; Bosses</a>). Missing boss assets are created too. <code>musicCueId</code> is superseded by <code>musicTrack</code>; kept only so old INIs parse.</td></tr>
+    <tr><td><code>[Node:&lt;nodeId&gt;]</code></td><td><code>biome</code> (by biomeId) · <code>rest</code> (<code>-</code> = none) · <code>next</code> (<code>-</code> = FINAL, or comma list) · <code>bypass</code> (<code>-</code> = none)</td><td>Builds <code>plan.nodes</code> — the run web (§7).</td></tr>
+    <tr><td><code>[Plan]</code></td><td><code>entry, gradeRubric</code> (+ legacy <code>stages</code>/<code>restAfter</code> lists that synthesize a linear chain)</td><td><code>RunPlan</code> root fields.</td></tr>
+    <tr><td><code>[Rest:&lt;assetName&gt;]</code></td><td><code>healMissingFraction, forgeEnabled, layoutPrefab</code></td><td><code>RestDefinition</code> (§6). Rest definitions must <b>already exist</b> — layouts are prefabs; author the definition once in Unity.</td></tr>
+    <tr><td><code>[Enemy:&lt;assetName&gt;]</code></td><td><code>maxHealth, canBeJuggled</code> only</td><td>Enemy definitions must already exist — FSMs are authored in Unity; INI only tunes them.</td></tr>
+  </table>
+  </div>
+
+  <p>The shipped file, verbatim — one node and its biome and boss:</p>
+<pre><code><span class="t">[Node:emberfall-1]</span>
+biome = <span class="s">emberfall</span>
+rest = <span class="s">Rest_EmberTrail</span>
+next = <span class="s">depths-2</span>
+bypass = <span class="s">cinder-2</span>
+
+<span class="t">[Biome:emberfall]</span>
+displayName = <span class="s">The Emberfall Clearing</span>
+chapter = <span class="s">CHAPTER I</span>
+objective = <span class="s">Awaken, and carve a path through the burning grove.</span>
+minRooms = <span class="a">8</span>
+maxRooms = <span class="a">10</span>
+verticalJogChance = <span class="a">0.45</span>
+calmRoomBeforeBoss = <span class="a">true</span>
+branchChance = <span class="a">0.5</span>
+maxBranches = <span class="a">2</span>
+branchRunMax = <span class="a">1</span>
+branchTreasure = <span class="s">Reward_HealOrb</span>
+statScalePerStage = <span class="a">0.25</span>
+roomPool = <span class="s">Room_Ember_*</span>
+socketCap = <span class="s">SocketCap_Emberfall</span>
+spawnTable = <span class="s">SpawnTable_Emberfall</span>
+boss = <span class="s">Boss_Krag</span>
+
+<span class="t">[Boss:Boss_Krag]</span>
+bossPrefab = <span class="s">Krag</span>
+dialogue = <span class="s">Dlg_Krag</span>
+entranceDelay = <span class="a">0.8</span>
+addsTable = <span class="s">-</span>
+rewardPrefab = <span class="s">Reward_HealOrb</span>
+outroSpeaker = <span class="s">KRAG</span>
+outroText = <span class="s">The furnace... grows... cold.</span></code></pre>
+
+  <ul>
+    <li><b>Safety net:</b> an unresolvable asset name is an ERROR and the field is left <b>untouched</b> — "a typo in the INI must never silently wipe existing wiring". <code>-</code> is the explicit "clear this reference". Unknown sections/keys warn; last write wins within a section; <code>;</code> starts a comment; bools accept true/1/yes and false/0/no.</li>
+    <li><b><code>roomPool</code> values</b> are comma lists of exact prefab names and/or trailing-<code>*</code> prefix globs over RoomTemplate prefabs, resolved into a name-sorted set. An entry matching no prefab is an error.</li>
+    <li><b>Shipped tunables:</b> emberfall 8–10 rooms jog 0.45 · emberfall-depths 11–14 jog 0.45 · cinderway 14–17 jog 0.5 · ashen-vaults 14–17 jog 0.55 (not in the demo web) · pyre-crown 12–15 jog 0.6 with an <b>explicit</b> roomPool list that swaps in <code>Room_Crown_BossArena</code> ("the one with the dormant fire columns"). All: branchChance 0.5, maxBranches 2, branchRunMax 1, statScalePerStage 0.25.</li>
+  </ul>
+  <div class="rule note"><b>Re-glob with care:</b> pool ORDER feeds the seeded generator, so re-globbing <code>roomPool</code> can change layouts for old seeds; resumed runs re-generate from the current pool (acceptable per M2 — but know that it happens).</div>
+  <div class="warn note"><b>Known wart (real, as of 2026-07-19):</b> the shipped pyre-crown pool lists <code>Room_Ember_Arena</code>, but no such prefab exists (only <code>Room_Ember_BigArena</code> / <code>Room_Ember_BossArena</code>) — that entry errors on import and <code>Biome_pyre-crown.asset</code> holds 19 pool entries, not 20. Fix the name in the INI or delete the line; the field-left-untouched rule is why the biome still works.</div>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Room contract + audit: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code>, <code>Assets/_Game/Editor/RoomReachability.cs</code>, <code>Documentation/ROOM_STANDARDS.md</code> (movement budget + §3 standards).</li>
+    <li>Validation: <code>Assets/_Game/Editor/RunContentValidator.cs</code> — §5's table mirrors its checks one-for-one.</li>
+    <li>Generation + assembly: <code>Assets/_Game/Systems/Run/ProcGen/BiomeGenerator.cs</code>, <code>BiomeLayoutPlan.cs</code>, <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
+    <li>The web: <code>Assets/_Game/Systems/Run/RunPlan.cs</code>, <code>RunDirector.cs</code>, <code>BiomeDefinition.cs</code>, <code>RestDefinition.cs</code>, and the shipped <code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code>.</li>
+    <li>Spawning: <code>Assets/_Game/Systems/Run/ProcGen/EnemySpawnTable.cs</code>, <code>EnemySpawnMarker.cs</code>, <code>EnemySpawner.cs</code>.</li>
+    <li>INI: <code>Assets/_Game/Editor/ContentIniImporter.cs</code> + <code>Assets/_Game/Content/GameContent.ini</code> (§10's key lists are the importer's).</li>
+    <li>Minimap: <code>Assets/_Game/UI/Code/HUD/MinimapController.cs</code> + <code>Assets/_Game/UI/Panels/Minimap/Minimap.uxml</code>.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="dialogue.html"><span>← Previous</span>Dialogue</a>
+  <a href="audio.html"><span>Next →</span>Audio</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

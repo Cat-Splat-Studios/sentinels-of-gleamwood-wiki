@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Extending the Game — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a class="on" href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1><span class="flame">Extending</span> the Game</h1>
+  <p class="tag">The seam catalog: every place the codebase accepts new mechanics and content <b>without touching core code</b> — each attribute, registry, discovery hook and load contract, one worked example that ships a mechanic in a single file, and the recipes for adding seams that don't exist yet.</p>
+</header>
+
+<main>
+
+<section id="idea">
+  <h2><span class="num">01</span>How this game grows — attributes declare, editors discover</h2>
+  <p class="lead">The extensibility thesis is one sentence: <b>you declare, the editors discover.</b> New content types tag themselves with an attribute; the Content Workbench, the F1 panel, and the validated dropdowns find them by reflection and grow their own UI. You never register anything by hand and you never edit the tools.</p>
+  <div class="grid c3">
+    <div class="card accent-ember">
+      <h4>Declare</h4>
+      <p>Put <code>[WorkbenchCategory]</code> on a class, <code>[WorkbenchField]</code> on a field, <code>[Tunable]</code> on a number. Attributes are markers — zero runtime cost.</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Discover</h4>
+      <p><code>TypeCache</code> and reflection sweeps find your declarations. Only three consumer surfaces exist — the Workbench, <code>TunableTabs</code>, and the two dropdown drawers — and only they ever need edits, and only for genuinely new <i>kinds</i> of seams.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Validate</h4>
+      <p>Every content contract that would fail silently at runtime — magic state names, catalog registration, reachability — has a validator check that runs from the menu, after every INI import, and as a build gate.</p>
+    </div>
+  </div>
+
+  <h3>The map — every seam, one row each</h3>
+  <p>Find what you want to add on the left; the rest of the page is the detail.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>You want to add…</th><th>The seam</th><th>The hook</th><th>Detail</th></tr>
+    <tr><td>A zero-code Content Workbench tab for a new content type</td><td><code>[WorkbenchCategory]</code> on the SO class</td><td><code>TypeCache</code> sweep in <code>WorkbenchCategoryRegistry.Discover()</code></td><td><a href="#attributes">§02</a></td></tr>
+    <tr><td>A curated form — sections, notes, tooltips</td><td><code>[WorkbenchField]</code> per field</td><td><code>WorkbenchGenericForm.Draw</code> curated mode</td><td><a href="#attributes">§02</a></td></tr>
+    <tr><td>A <b>rich, code-driven</b> Workbench tab (sub-tabs, checks, cross-asset forms)</td><td>implement <code>IWorkbenchCategory</code> on a <code>WorkbenchForm</code></td><td><code>TypeCache.GetTypesDerivedFrom</code> — the built-in tabs are the examples</td><td><a href="#attributes">§02</a></td></tr>
+    <tr><td>A live slider/toggle on the F1 debug panel</td><td><code>[Tunable]</code> + <code>TunableRegistry.Register</code></td><td><code>TunableTabs.Build</code> reflection</td><td><a href="#attributes">§02</a></td></tr>
+    <tr><td>A validated animator-state picker on a string field</td><td><code>[AnimatorStateRef]</code></td><td><code>AnimatorStateRefDrawer</code></td><td><a href="#attributes">§02</a></td></tr>
+    <tr><td>A validated FSM next-state picker</td><td><code>[EnemyStateNameRef]</code></td><td><code>EnemyStateNameRefDrawer</code></td><td><a href="#attributes">§02</a></td></tr>
+    <tr><td>A hook that runs when a state config is created</td><td>implement <code>IStateMachineAssetPostProcessor</code></td><td><code>TypeCache.GetTypesDerivedFrom</code> — no registration; fired by the workbench's <b>+ Create State</b></td><td><a href="#discovery">§03</a></td></tr>
+    <tr><td>An asset the game loads with no scene wiring</td><td>a <code>Resources/</code> folder + <code>static Load()</code></td><td>the <code>Resources.Load</code> contract table</td><td><a href="#discovery">§03</a></td></tr>
+    <tr><td>A weapon players can actually find</td><td><code>WeaponCatalog.weapons</code> + a <code>LootTable</code> entry</td><td><code>Resolve()</code> by asset name; Workbench <code>[ok]</code> badges</td><td><a href="#registries">§04</a></td></tr>
+    <tr><td>An enemy that spawns in rooms</td><td><code>EnemySpawnTable</code> entry (+ per-marker overrides)</td><td>seeded <code>Roll(rng, stageIndex)</code></td><td><a href="#registries">§04</a></td></tr>
+    <tr><td>A new biome / node on the run web</td><td><code>RunPlan.nodes</code> — or <code>[Biome:]</code>/<code>[Node:]</code> in the INI</td><td><code>RunPlan.Load()</code> from Resources</td><td><a href="#registries">§04</a></td></tr>
+    <tr><td>A new creatable asset type</td><td><code>[CreateAssetMenu]</code></td><td>the project Create menu — full path list</td><td><a href="#types">§05</a></td></tr>
+    <tr><td>A no-code FSM transition condition</td><td>a <code>DynamicCondition</code> asset</td><td>compiled expression-tree predicate</td><td><a href="#types">§05</a></td></tr>
+    <tr><td>A new execution or status gate</td><td><code>ExecutionDefinition</code> + <code>CombatStatusDefinition</code></td><td><code>WeaponDefinition.StatusesToApply</code> on hit</td><td><a href="#types">§05</a></td></tr>
+    <tr><td>A rule new content must obey</td><td>a <code>ValidateX</code> method in <code>RunContentValidator</code></td><td>menu + post-INI-import + build preprocess</td><td><a href="#pipeline">§07</a></td></tr>
+    <tr><td>A text-file authoring key</td><td>a <code>case</code> in <code>ContentIniImporter</code></td><td><span class="kbd">Gleamwood ▸ Import Content INI</span></td><td><a href="#pipeline">§07</a></td></tr>
+    <tr><td>A new impact / death / reward FX</td><td>a prefab + one of the <code>HitEffect</code>/<code>DeathEffect</code> fields</td><td><code>Instantiate</code> at the impact point</td><td><a href="#fx">§08</a></td></tr>
+    <tr><td>Music for a biome or boss</td><td><code>MusicSet</code> slots / <code>musicTrack</code> fields</td><td><code>MusicDirector</code> 1.5s crossfade</td><td><a href="#fx">§08</a></td></tr>
+    <tr><td>Drag-handle tuning for a new box or ring</td><td><code>PlayerCombatRangePreview</code> / <code>EnemyRangePreview</code></td><td>scene handles that write to the definition assets</td><td><a href="combat.html">Combat</a> / <a href="enemies.html">Enemies</a></td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="attributes">
+  <h2><span class="num">02</span>The attribute catalog</h2>
+  <p class="lead">Seven attribute classes exist in the whole project — this list is complete, not a sample. Five are your extension surface; two are internal.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Attribute</th><th>Lives in</th><th>What it extends</th></tr>
+    <tr><td><code>[WorkbenchCategory]</code></td><td><code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code></td><td>Class marker on a ScriptableObject → its own Content Workbench rail tab</td></tr>
+    <tr><td><code>[WorkbenchField]</code></td><td><code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code></td><td>Field marker → curates the workbench's generic form</td></tr>
+    <tr><td><code>[Tunable]</code> <span style="white-space:nowrap">(namespace <code>RuntimeDebugUI</code>)</span></td><td><code>Assets/_Framework/DebugUI/TunableAttribute.cs</code></td><td>Field or property → live slider/toggle on the F1 debug panel</td></tr>
+    <tr><td><code>[AnimatorStateRef]</code></td><td><code>Assets/_Game/Combat/Code/AnimatorStateRefAttribute.cs</code></td><td>String field → validated dropdown of real animator states</td></tr>
+    <tr><td><code>[EnemyStateNameRef]</code></td><td><code>Assets/_Game/Enemies/Code/Definitions/EnemyStateNameRefAttribute.cs</code></td><td>String field → dropdown of the containing EnemyDefinition's state ids</td></tr>
+    <tr><td><code>[ReadOnly]</code></td><td><code>Assets/_Game/Systems/Utils/CustomAttributes.cs</code></td><td>Bare inspector read-only marker — internal utility</td></tr>
+    <tr><td><code>[Description]</code></td><td><code>Assets/_Framework/StateMachine/Editor/StateMachineGraphData.cs</code></td><td>Internal to state-machine graph tooling — not a designer seam</td></tr>
+  </table>
+  </div>
+
+  <h3>[WorkbenchCategory] — a whole Workbench tab from one line</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td>Usage</td><td><code>[AttributeUsage(AttributeTargets.Class)]</code> — on a <code>ScriptableObject</code> subclass</td></tr>
+    <tr><td>Ctor</td><td><code>WorkbenchCategoryAttribute(string name)</code> — types sharing a category name share one tab</td></tr>
+    <tr><td><code>Accent</code></td><td>Optional HTML color string <code>"#RRGGBB"</code> for the tab; empty = neutral teal</td></tr>
+    <tr><td>Discovery</td><td><code>WorkbenchCategoryRegistry.Discover()</code> runs <code>TypeCache.GetTypesWithAttribute&lt;WorkbenchCategoryAttribute&gt;()</code>, filters to ScriptableObjects, groups by name, wraps each in an <code>AttributeWorkbenchCategory</code></td></tr>
+    <tr><td>Placement</td><td>Optional <code>Order</code> field sets the rail slot (built-ins hold 0–5); designer types default to 100, sorted after them by name. There is no hard-coded tab list — <b>every</b> tab, built-in included, is a discovered category</td></tr>
+    <tr><td>Asset listing</td><td><code>AssetDatabase.FindAssets("t:" + type.Name)</code> across the whole <code>Assets/</code> folder</td></tr>
+    <tr><td>Bonus</td><td>Tagged types get the <span class="kbd">Assets ▸ Open in Content Workbench</span> right-click item for free — the menu validates via the same attribute</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Runtime cost: none.</b> It's a marker — the game never looks at it. All discovery is editor-side.</div>
+
+  <h3>[WorkbenchField] — curate the generic form</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td>Usage</td><td><code>[AttributeUsage(AttributeTargets.Field)]</code></td></tr>
+    <tr><td>Ctor</td><td><code>WorkbenchFieldAttribute(string section = "General")</code> — fields group under section headers <b>in declaration order</b></td></tr>
+    <tr><td><code>Label</code></td><td>Display name; empty = the nicified field name</td></tr>
+    <tr><td><code>Tooltip</code></td><td>Hover text</td></tr>
+    <tr><td><code>Note</code></td><td>Contextual hint rendered under the field — the "= deals N damage" style you see all over the shipped forms</td></tr>
+  </table>
+  </div>
+  <p>Behavior of the generic form (<code>WorkbenchGenericForm.Draw</code>) switches on whether you curated:</p>
+  <ul>
+    <li><b>Any field tagged</b> → curated mode: <b>only</b> attributed fields draw (reflection over public and non-public instance fields), grouped by section. Untagged fields hide — that's your "internal scratch fields stay invisible" lever.</li>
+    <li><b>No fields tagged</b> → every serialized field draws, with a footer tip suggesting you add <code>[WorkbenchField]</code>.</li>
+    <li><code>AudioClip</code> fields always render as a sound row with a preview <b>Play</b> button, both modes.</li>
+    <li>Property drawers on your fields — <code>[AnimatorStateRef]</code>, <code>[EnemyStateNameRef]</code> — apply automatically, because the form goes through <code>EditorGUILayout.PropertyField</code>.</li>
+  </ul>
+
+  <h3>[Tunable] — F1 debug panel by declaration</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td>Usage</td><td><code>[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]</code> — properties work; use a clamping setter for validation</td></tr>
+    <tr><td>Ctor</td><td><code>TunableAttribute(string tab, float min = 0f, float max = 1f)</code> — a new tab name creates the tab on demand</td></tr>
+    <tr><td><code>Section</code></td><td>Header within the tab</td></tr>
+    <tr><td><code>Label</code> / <code>Tooltip</code></td><td>Display name / hover text</td></tr>
+    <tr><td><code>Save</code></td><td>Persist via the DebugUI JSON; key = <code>tab.field</code>, so renames auto-invalidate stale values</td></tr>
+    <tr><td><code>OnChanged</code></td><td>Method name on the declaring type, invoked (no args) after every change; a missing or non-parameterless method logs a warning</td></tr>
+    <tr><td>Types</td><td><code>bool</code> → toggle; <code>float</code>/<code>int</code> → slider (int rounds). Anything else logs <code>unsupported type</code> — float/int/bool only</td></tr>
+    <tr><td>Builder</td><td><code>TunableTabs.Build(params object[] targets)</code> in <code>Assets/_Framework/DebugUI/TunableTabs.cs</code>; same-named tabs merge across targets in the order given</td></tr>
+    <tr><td>Registry</td><td><code>TunableRegistry.Register(this)</code> / <code>Unregister</code> — register in <code>Awake</code>/<code>OnEnable</code>; the panel snapshots the registry when it configures its tabs</td></tr>
+    <tr><td>Consumer</td><td><code>DebugUI.AddTabsFrom(...)</code> = your targets + <code>TunableRegistry.Targets</code> → <code>TunableTabs.Build</code></td></tr>
+  </table>
+  </div>
+  <p>Two live shapes to copy:</p>
+<pre><code><span class="c">// PlayerContext.cs — a field:</span>
+[<span class="a">Tunable</span>(<span class="s">"Movement"</span>, <span class="a">0f</span>, <span class="a">20f</span>, Save = <span class="k">true</span>, Tooltip = <span class="s">"Base movement speed of the player"</span>)]
+<span class="k">public float</span> MoveSpeed;
+
+<span class="c">// KinematicMover2D.cs — a property with a clamping setter:</span>
+[<span class="a">RuntimeDebugUI.Tunable</span>(<span class="s">"Movement"</span>, <span class="a">0.001f</span>, <span class="a">0.05f</span>, Section = <span class="s">"Mover (Collision)"</span>, Save = <span class="k">true</span>)]
+<span class="k">public float</span> SkinWidth { <span class="k">get</span>; <span class="k">set</span>; }  <span class="c">// setter clamps — the slider can't push it out of range</span></code></pre>
+  <div class="warn note"><b>Save-key gotcha.</b> A hand-built control that changes its default must bump its save key (<code>LookAheadTriggerSpeedV2</code>-style) or a stale persisted value silently wins. <code>[Tunable]</code>-declared controls dodge this automatically — the key derives from tab + field name, so renaming the field invalidates the old save.</div>
+  <div class="note"><b>The pattern boundary:</b> <code>PlayerDebugUI.ConfigureTabs()</code> builds Movement/Jump/Dash/Wall Slide 100% from declarations, but the Camera and Debug Info tabs stay hand-built — they bind scene components and read-only lambdas, which declarations can't express. Full panel docs on <a href="tuning.html">Tuning &amp; INI</a>.</div>
+
+  <h3>[AnimatorStateRef] — a string field that can't drift from the animator</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td>Ctor</td><td><code>AnimatorStateRefAttribute(int layer = 0, string emptyLabel = "default")</code> — the field stays a plain string at runtime</td></tr>
+    <tr><td>Drawer</td><td><code>Assets/_Game/Editor/Combat/AnimatorStateRefDrawer.cs</code> — sorted dropdown of the real states on <code>controller.layers[layer]</code></td></tr>
+    <tr><td>Empty entry</td><td>First entry <code>({EmptyLabel})</code> = empty string, i.e. "use the default"</td></tr>
+    <tr><td>Create flow</td><td>Last entry <b>"Create New State..."</b> opens a window that creates an empty 12fps AnimationClip next to the controller, adds a wired animator state on the requested layer, assigns the field and pings the clip</td></tr>
+    <tr><td>Bad values</td><td>Values not on the layer show red <code>[MISSING]</code> but stay selectable; a <code>[T]</code> mini-toggle switches to raw-text editing</td></tr>
+    <tr><td>Controller resolution</td><td>If the asset is an <code>EnemyDefinition</code> → the matching enemy prefab's Animator (scanned from <code>Assets/_Game/Enemies/Prefabs</code>); otherwise the Player prefab's controller</td></tr>
+  </table>
+  </div>
+  <p class="dim">Applied at: <code>MeleeAttackConfig.CustomPlayerAnimationState</code>, <code>DashAttackConfig.CustomPlayerAnimationState</code>, the three <code>RangedWeaponDefinition</code> draw/hold/release states (hold and release live on layer 1), and <code>AnimatorStateName</code> on both <code>EnemyStateConfig</code> and <code>PlayerStateConfig</code>. Any string field you add gets the same treatment by tagging it.</p>
+
+  <h3>[EnemyStateNameRef] — FSM state-id dropdown</h3>
+  <p>No ctor args. Drawer: <code>Assets/_Game/Editor/Enemies/EnemyStateNameRefDrawer.cs</code>. Options are the containing EnemyDefinition's <code>States[].StateId</code> <b>plus</b> <code>Executions[].ExecutionConfig.StateName</code>, distinct and sorted — same red <code>[MISSING]</code> flag and <code>[T]</code> raw toggle. No create-flow here: new FSM states are config sub-assets, made via the State Machine tools (see <a href="framework.html">Framework</a>).</p>
+  <p class="dim">Applied on every next-state string in the enemy toolbox: <code>EnemyAttackPhaseConfig</code>, <code>EnemyHazardPhaseConfig</code>, <code>EnemyProjectileAttackConfig</code>, <code>EnemyRelocateConfig</code>, <code>EnemySummonConfig</code> (<code>NextStateName</code>), and <code>EnemyHitConfig.FallbackStateName</code>.</p>
+</section>
+
+<section id="discovery">
+  <h2><span class="num">03</span>Discovery machinery &amp; load contracts</h2>
+
+  <h3>The TypeCache sites</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Site</th><th>Sweep</th><th>What it means for you</th></tr>
+    <tr><td><code>WorkbenchCategoryRegistry.Discover</code></td><td><code>GetTypesDerivedFrom&lt;IWorkbenchCategory&gt;()</code> <b>and</b> <code>GetTypesWithAttribute&lt;WorkbenchCategoryAttribute&gt;()</code></td><td>Implement <code>IWorkbenchCategory</code> for a rich tab, or tag a SO class for a zero-code one → either way it's a Workbench tab. See §02.</td></tr>
+    <tr><td><code>WorkbenchStates.RunPostProcessors</code> (and the Creator's own)</td><td><code>TypeCache.GetTypesDerivedFrom&lt;IStateMachineAssetPostProcessor&gt;()</code></td><td>Implement the interface anywhere in an Editor assembly → it runs after each state config is created, including from the workbench's <b>+ Create State</b>.</td></tr>
+  </table>
+  </div>
+<pre><code><span class="c">// Any Editor assembly. Concrete class, parameterless ctor (Activator.CreateInstance).</span>
+<span class="c">// Discovered by TypeCache — there is no registration call. Exceptions are caught and logged per-processor.</span>
+<span class="k">public class</span> <span class="t">MyConfigStamp</span> : <span class="t">IStateMachineAssetPostProcessor</span>
+{
+    <span class="k">public void</span> OnConfigCreated(<span class="t">ScriptableObject</span> config, <span class="t">ScriptableObject</span> definition)
+    {
+        <span class="c">// runs once per config asset the Creator writes — stamp defaults, wire refs, log, whatever</span>
+    }
+}</code></pre>
+
+  <h3>Other reflection seams (not TypeCache)</h3>
+  <ul>
+    <li><code>TunableTabs.Build</code> — reflects fields and read-write properties for <code>[Tunable]</code> (§02).</li>
+    <li><code>WorkbenchGenericForm.Draw</code> — reflects fields for <code>[WorkbenchField]</code> (§02).</li>
+    <li><code>RunContentValidator.ValidateSpawnTable</code> — reads the private <code>EnemyStateMachine.enemyDefinition</code> via <code>FieldInfo</code> to check prefab wiring.</li>
+    <li><code>WorkbenchModel.PreviewClip</code> — reflects into <code>UnityEditor.AudioUtil</code> for the Play buttons.</li>
+    <li><code>DynamicCondition.CreatePredicate&lt;T&gt;</code> — compiles expression trees against context <b>property</b> names (§05).</li>
+  </ul>
+
+  <h3>The Resources.Load contract — the complete list</h3>
+  <p class="lead">These are all the game-side loads. Each row is a name-based contract: drop a same-named replacement asset into the Resources folder and content swaps with zero code changes.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Resources key</th><th>Type</th><th>Loaded by</th><th>Backing asset</th></tr>
+    <tr><td><code>"RunPlan"</code></td><td>RunPlan</td><td><code>RunPlan.Load()</code></td><td><code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code></td></tr>
+    <tr><td><code>"WeaponCatalog"</code></td><td>WeaponCatalog</td><td><code>WeaponCatalog.Load()</code></td><td><code>Assets/_Game/Systems/Run/Resources/WeaponCatalog.asset</code></td></tr>
+    <tr><td><code>"BootConfig"</code></td><td>BootConfig</td><td><code>BootConfig.Load()</code></td><td><code>Assets/_Game/Systems/Boot/Resources/BootConfig.asset</code></td></tr>
+    <tr><td><code>"MusicSet"</code></td><td>MusicSet</td><td><code>MusicDirector.Awake</code></td><td><code>Assets/_Game/Audio/Resources/MusicSet.asset</code></td></tr>
+    <tr><td><code>"GameAudioMixer"</code></td><td>AudioMixer</td><td>MusicDirector, GameAudio, UIAudio, GameSettings</td><td><code>Assets/_Game/Audio/Resources/GameAudioMixer.mixer</code></td></tr>
+    <tr><td><code>"BypassDoor"</code></td><td>GameObject</td><td><code>BiomeHostController</code> (validator-checked)</td><td><code>Assets/_Game/Systems/Run/Resources/BypassDoor.prefab</code></td></tr>
+    <tr><td><code>"PlayerSettings"</code></td><td>PlayerContext</td><td><code>PlayerStateMachine</code></td><td><code>Assets/_Game/Player/Resources/PlayerSettings.asset</code></td></tr>
+    <tr><td><code>"Weapons/DefaultSword"</code></td><td>MeleeWeaponDefinition</td><td><code>PlayerStateMachine</code> (fallback loadout)</td><td><code>Assets/_Game/Player/Resources/Weapons/DefaultSword.asset</code></td></tr>
+    <tr><td><code>"Weapons/DefaultBow"</code></td><td>RangedWeaponDefinition</td><td><code>PlayerStateMachine</code></td><td><code>Assets/_Game/Player/Resources/Weapons/DefaultBow.asset</code></td></tr>
+    <tr><td><code>"UISfx/ui_move"</code> · <code>ui_submit</code> · <code>ui_cancel</code> · <code>ui_tab</code> · <code>ui_tick</code></td><td>AudioClip</td><td><code>UIAudio</code> static helpers</td><td><code>Assets/_Game/Audio/Resources/UISfx/*.wav</code></td></tr>
+    <tr><td><code>"UI/ember_glow"</code>, <code>"UI/vignette"</code>, <code>"UI/ui_arrow"</code>, <code>"UI/ember_dot"</code></td><td>Sprite</td><td>Title / HUD / Settings / MenuScreen</td><td><code>Assets/_Game/UI/Resources/UI/...</code></td></tr>
+    <tr><td><code>"Glyphs/&lt;key&gt;"</code> (e.g. <code>key_enter</code>, <code>gp_buttonSouth</code>; <code>sony_</code>/<code>switch_</code>/<code>gp_</code> brand prefixes)</td><td>Sprite</td><td><code>InputGlyphs</code></td><td><code>Assets/_Game/UI/Resources/Glyphs/*.png</code></td></tr>
+  </table>
+  </div>
+  <div class="rule note"><b>The seam rule cuts both ways.</b> Swapping a same-named asset is free — but moving or renaming any of these keys is a <b>silent</b> runtime break: most loaders null-tolerate, so you get silence or a blank, not an error. Treat the key column as shipped API.</div>
+</section>
+
+<section id="registries">
+  <h2><span class="num">04</span>Registries &amp; data tables — where content gets wired in</h2>
+  <p class="lead">A new asset that isn't in a registry doesn't exist as far as a run is concerned. These are the tables that make content reachable.</p>
+
+  <h3>WeaponCatalog — <code>Assets/_Game/Systems/Run/Weapons/WeaponCatalog.cs</code></h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td><code>defaultMelee</code> / <code>defaultRanged</code></td><td>The starting loadout; implicitly resolvable even if omitted from <code>weapons</code></td></tr>
+    <tr><td><code>weapons</code></td><td><code>WeaponDefinition[]</code> — every findable weapon must be here</td></tr>
+    <tr><td><code>defaultTrack</code></td><td>The shared <code>UpgradeTrack</code> (forge stat curve)</td></tr>
+  </table>
+  </div>
+  <p><code>Resolve(string weaponId)</code> matches by <b>asset name</b> (<code>def.name == weaponId</code>). That makes weapon filenames save data: <b>stable once shipped — renaming breaks player saves</b>, and the validator guards the list.</p>
+
+  <h3>LootTable — <code>Assets/_Game/Systems/Run/Weapons/LootTable.cs</code></h3>
+  <p>Entries are <code>{ WeaponDefinition weapon; float weight = 1 }</code>. <code>Roll(rng, exclude)</code> is weighted and exclusion-aware; a null result = an empty pedestal. Convention: keep a table single-type — one melee pool, one bow pool. The validator hard-errors any loot entry the catalog can't resolve ("picks would not survive suspend/resume").</p>
+
+  <h3>EnemySpawnTable + EnemySpawnMarker</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td><code>EnemySpawnTable.entries</code></td><td><code>{ GameObject enemyPrefab; float weight = 1; int minStage = 0 }</code> — prefab root must carry <code>EnemyStateMachine</code> (+ <code>EnemyKillReporter</code>); <code>minStage</code> gates by run depth</td></tr>
+    <tr><td><code>Roll(rng, stageIndex)</code></td><td>Seeded run RNG — same seed, same spawns</td></tr>
+    <tr><td>Consumers</td><td><code>EnemySpawner</code> per <code>EnemySpawnMarker</code>; <code>BossArenaSequence</code> for adds (marker override → else <code>boss.addsTable</code> → else biome table)</td></tr>
+    <tr><td><code>EnemySpawnMarker.overrideTable</code></td><td>Roll THIS table here instead of the biome's — the "guaranteed elite" seam, per room</td></tr>
+    <tr><td><code>deferToSequence</code> / <code>isBossPoint</code></td><td>Boss arenas: skip at assembly / the boss stand-in — exactly one <code>isBossPoint</code> per arena (validated)</td></tr>
+  </table>
+  </div>
+
+  <h3>UpgradeTrack — the forge curve</h3>
+  <p><code>maxLevel = 3</code>, <code>damagePerLevel = 0.25</code>, <code>jugglePerLevel = 0.15</code>, <code>executionPerLevel = 0.15</code>. Level 0 is <b>always</b> exactly the definition's values — the track multiplies, it never replaces. One shared default track hangs off the WeaponCatalog; per-weapon tracks are deferred.</p>
+
+  <h3>RunPlan — the run web</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td><code>nodes[].nodeId</code></td><td><b>Stable id written into save files. NEVER rename once players have saves.</b></td></tr>
+    <tr><td><code>nodes[].biome</code> / <code>restAfter</code></td><td>The BiomeDefinition, and the rest stop after it (path doors live at the rest)</td></tr>
+    <tr><td><code>nodes[].nextNodeIds</code></td><td>Array of successor nodeIds (comma-list only in the INI's <code>[Node:]</code> <code>next</code> key); empty = FINAL node</td></tr>
+    <tr><td><code>nodes[].bypassNextId</code></td><td>The non-boss path; empty = the boss is mandatory</td></tr>
+    <tr><td><code>entryNodeId</code>, <code>gradeRubric</code></td><td>Where runs start; how they're graded</td></tr>
+    <tr><td>Host scenes</td><td><code>hubScene = "2.Hub"</code>, <code>biomeHostScene = "3.BiomeHost"</code>, <code>restHostScene = "4.RestHost"</code> — stamped here <i>and</i> matched by name in music routing (§08)</td></tr>
+  </table>
+  </div>
+  <p class="dim">Tooling notes: <code>InvalidateCaches()</code> is the hook to call after mutating nodes from editor code or an importer; <code>DepthOf(nodeId)</code> is the longest path from entry and drives enemy stat scaling.</p>
+
+  <h3>TunableRegistry</h3>
+  <p>The runtime opt-in list for the F1 panel — <code>TunableRegistry.Register(this)</code> in <code>Awake</code>/<code>OnEnable</code>, <code>Unregister</code> on teardown. Details in §02 under <code>[Tunable]</code>.</p>
+</section>
+
+<section id="types">
+  <h2><span class="num">05</span>Creatable content types — the CreateAssetMenu map</h2>
+  <p class="lead">Everything a designer can mint from <span class="kbd">Assets ▸ Create</span>. A new SO type joins this list with one <code>[CreateAssetMenu]</code> line — pair it with <code>[WorkbenchCategory]</code> and it gets an editing surface too.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Family</th><th>Menu path → class</th></tr>
+    <tr><td rowspan="3">Gleamwood content</td><td><code>Gleamwood/Run Plan</code> → RunPlan · <code>Gleamwood/Biome Definition</code> → BiomeDefinition · <code>Gleamwood/Boss Definition</code> → BossDefinition · <code>Gleamwood/Rest Definition</code> → RestDefinition</td></tr>
+    <tr><td><code>Gleamwood/Enemy Spawn Table</code> → EnemySpawnTable · <code>Gleamwood/Loot Table</code> → LootTable · <code>Gleamwood/Weapon Catalog</code> → WeaponCatalog · <code>Gleamwood/Upgrade Track</code> → UpgradeTrack</td></tr>
+    <tr><td><code>Gleamwood/Grade Rubric</code> → GradeRubric · <code>Gleamwood/Music Set</code> → MusicSet · <code>Gleamwood/Dialogue Set</code> → DialogueSet</td></tr>
+    <tr><td>Combat</td><td><code>Combat/Weapon/Melee Weapon</code> → MeleeWeaponDefinition · <code>Combat/Weapon/Ranged Weapon</code> → RangedWeaponDefinition · <code>Combat/Status Definition</code> → CombatStatusDefinition · <code>Combat/Execution Definition</code> → ExecutionDefinition</td></tr>
+    <tr><td>Player</td><td><code>Player/Player Definition</code> → PlayerDefinition · <code>Reactive Context/Player Settings</code> → PlayerContext · <code>StateMachine/Player/States/...</code> → Idle / Run / Jump / Fall / Dash / Dash Attack / Melee Attack / Bow Aim / WallSlide configs</td></tr>
+    <tr><td>Enemies</td><td><code>Enemies/Enemy Definition</code> → EnemyDefinition · <code>Enemies/States/...</code> → Attack Phase, BowExecution, Chase, DashExecution, Death, Explosive Execution Config, Float Chase, Hazard Phase, Hit, Idle, Juggled, Projectile Attack, Relocate, Summon · <code>Enemies/Transitions/</code> Distance / Angle / Combat Status Condition</td></tr>
+    <tr><td>Framework / system</td><td><code>StateMachine/Dynamic Condition</code> → DynamicCondition · <code>Game/Input Reader</code> → InputReader · <code>Game/Boot Config</code> → BootConfig · <code>Build System/Build Configuration</code> · <code>Build System/Build Info</code></td></tr>
+  </table>
+  </div>
+  <div class="note"><b>The menu path self-registers for generated types.</b> The State Machine Creator's code generator stamps new state configs with <code>menuName = "{namespace}/States/{stateName}"</code> and new conditions with <code>"{menuRoot}/Transitions/{conditionName}"</code> — code-gen an enemy verb and its Create menu entry comes with it.</div>
+
+  <h3>DynamicCondition — the no-code transition seam</h3>
+  <p>One asset (<span class="kbd">Assets ▸ Create ▸ StateMachine ▸ Dynamic Condition</span>) gates a transition on any context value: set <code>PropertyName</code> (a property on the Context type), a <code>DynamicOperator</code> (Equal, NotEqual, Greater, Less, GreaterOrEqual, LessOrEqual, IsTrue, IsFalse), and a <code>FloatValue</code> or <code>BoolValue</code>. It compiles to a cached expression-tree predicate at runtime; a compile failure logs an error and the condition returns always-false.</p>
+  <div class="warn note"><b>Gotcha:</b> <code>PropertyName</code> must be a <b>property</b> on the context type, not a field. A field name compiles to nothing and the transition just never fires.</div>
+
+  <h3>Executions &amp; statuses — the combat gate seam</h3>
+  <p><code>ExecutionDefinition</code> (menu <code>Combat/Execution Definition</code>) gates finishers on <code>RequiredDamageType</code>, <code>MustBeAirborne</code>/<code>MustBeGrounded</code>, and <code>RequiredStatus</code> + <code>MinStatusCount</code> + <code>ConsumeStatusOnTrigger</code>. The status pipeline: <code>WeaponDefinition.StatusesToApply</code> puts a <code>CombatStatusDefinition</code> (StatusName, <code>DecayTime = 5</code>, <code>MaxStacks = 10</code>) on the target on hit, and that stack count then gates executions and FSM transitions. A new mechanic that says "do X when the target has 3 Ignite" is pure assets — no code.</p>
+</section>
+
+<section id="worked">
+  <h2><span class="num">06</span>Worked example — ship a mechanic in one file</h2>
+  <p class="lead">This is the canonical pattern from <a href="../GAME_TUNING_GUIDE.md"><code>GAME_TUNING_GUIDE.md</code></a> §2b. The <code>HazardDefinition</code> class is illustrative, but the exact pattern <b>ships today</b> on <code>CombatStatusDefinition</code> (<code>Assets/_Game/Combat/Code/CombatStatusDefinition.cs</code>) — that's the Statuses tab below, drawn entirely from these attributes with no editor code.</p>
+<pre><code><span class="c">// One file, anywhere under Assets/_Game/. No other edits — no tool code, no registration.</span>
+[<span class="a">WorkbenchCategory</span>(<span class="s">"Hazards"</span>, Accent = <span class="s">"#4dd2ff"</span>)]
+[<span class="a">CreateAssetMenu</span>(menuName = <span class="s">"Gleamwood/Hazard Definition"</span>)]
+<span class="k">public class</span> <span class="t">HazardDefinition</span> : <span class="t">ScriptableObject</span>
+{
+    [<span class="a">WorkbenchField</span>(<span class="s">"Feel"</span>, Tooltip = <span class="s">"Seconds between pulses"</span>, Note = <span class="s">"0 = single burst"</span>)]
+    <span class="k">public float</span> PulseInterval = <span class="a">0.5f</span>;
+
+    [<span class="a">WorkbenchField</span>(<span class="s">"Impact"</span>)]
+    <span class="k">public int</span> Damage = <span class="a">1</span>;
+
+    [<span class="a">WorkbenchField</span>(<span class="s">"Presentation"</span>)]
+    <span class="k">public</span> <span class="t">AudioClip</span> TriggerSound;   <span class="c">// renders as a sound row with a preview Play button — automatic</span>
+
+    <span class="k">public float</span> internalCache;      <span class="c">// NOT attributed → hidden (curated mode shows tagged fields only)</span>
+}</code></pre>
+  <h3>What each line buys</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Line</th><th>What you get, for free</th></tr>
+    <tr><td><code>[WorkbenchCategory("Hazards", Accent = "#4dd2ff")]</code></td><td>A "Hazards" rail tab in the Content Workbench with a cyan accent, the asset list for the type, the banner, the save model with Auto-Save, and the <span class="kbd">Assets ▸ Open in Content Workbench</span> right-click item</td></tr>
+    <tr><td><code>[CreateAssetMenu(...)]</code></td><td>The <span class="kbd">Assets ▸ Create ▸ Gleamwood ▸ Hazard Definition</span> entry — designers can mint instances without you</td></tr>
+    <tr><td><code>[WorkbenchField("Feel", ... Note = ...)]</code></td><td>Curated form: a "Feel" section header, tooltip on hover, and the inline note under the field ("= deals N damage" style)</td></tr>
+    <tr><td><code>public AudioClip TriggerSound</code></td><td>A sound row with a preview <b>Play</b> button — AudioClip fields always get this</td></tr>
+    <tr><td>the untagged <code>internalCache</code></td><td>Invisible. Once any field is tagged, only tagged fields draw — scratch state stays out of designers' way</td></tr>
+  </table>
+  </div>
+
+  <figure class="shot">
+    <img src="images/workbench-status.png" alt="Content Workbench, Statuses category, Ignite selected — a small sectioned form with decay time, max stacks, and an inline usage note">
+    <figcaption><b>Real capture — and it IS attribute-driven.</b> The Statuses tab is <code>CombatStatusDefinition</code>'s <code>[WorkbenchCategory]</code> at work: the "Identity"/"Behavior" sections are <code>[WorkbenchField]</code>, the note under Max Stacks is a field <code>Note</code>, and the untagged <code>Description</code>/<code>Icon</code> are hidden. No editor code — the exact surface the <code>HazardDefinition</code> above would get.</figcaption>
+  </figure>
+
+  <p>Want more? Each escalation is one more declaration:</p>
+  <ul>
+    <li><b>Live F1 sliders</b> — add <code>[Tunable("Hazards", min, max)]</code> to the fields on the runtime behaviour and <code>TunableRegistry.Register(this)</code> in its <code>Awake</code>/<code>OnEnable</code>. Division of labor: <b>workbench = authored values, F1 panel = runtime experimentation.</b></li>
+    <li><b>Scene-free loading</b> — follow the RunPlan pattern: put the asset in a <code>Resources/</code> folder and add <code>static Load() =&gt; Resources.Load&lt;T&gt;("Name")</code>. Then add your row to the §03 table — the table is the contract.</li>
+    <li><b>INI authoring / validation / build-gating</b> — recipes 5 and 4 in <a href="#recipes">§09</a>.</li>
+  </ul>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">07</span>The validator &amp; the INI importer — reference for the edit points</h2>
+
+  <h3>RunContentValidator — <code>Assets/_Game/Editor/RunContentValidator.cs</code></h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td>Menu</td><td><span class="kbd">Gleamwood ▸ Validate Run Content</span> — target: 0 errors</td></tr>
+    <tr><td>API</td><td><code>static int Validate()</code> returns the error count — callable from any editor tooling</td></tr>
+    <tr><td>Build gate</td><td>A private nested <code>BuildCheck : IPreprocessBuildWithReport</code> (callbackOrder 0) throws <code>BuildFailedException</code> when <code>Validate() &gt; 0</code> — builds refuse to ship broken run content</td></tr>
+    <tr><td>Auto-run</td><td>Also runs automatically at the end of every <span class="kbd">Gleamwood ▸ Import Content INI</span></td></tr>
+    <tr><td>Structure</td><td><code>Validate()</code> builds local <code>Error(string, Object)</code> / <code>Warn(string, Object)</code> closures and delegates to private statics — <code>ValidateWeaponCatalog</code>, <code>ValidateRest</code>, <code>ValidateBiome</code>, <code>ValidateBoss</code>, <code>ValidateRoom</code>, <code>ValidateSpawnTable</code> — each taking <code>(…, error, warn)</code> actions. <b>Your new check is one more static in this file</b> (recipe 4, §09)</td></tr>
+  </table>
+  </div>
+  <p>What it currently enforces — these are the fixture and naming contracts <i>your</i> new content must satisfy:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Domain</th><th>Checks</th></tr>
+    <tr><td>Run web</td><td>Unique non-empty <code>nodeId</code>s · every non-final node needs <code>restAfter</code> (the path doors live at the rest) · next/bypass ids resolve · bypass requires <code>calmRoomBeforeBoss</code> ON + a <code>BypassDoor</code> prefab in Resources · forking rests need ≥ fan-out <code>PathDoor</code>s · entry resolves · all nodes reachable · DAG (no cycles)</td></tr>
+    <tr><td>Biomes</td><td>Unique non-empty <code>biomeId</code> · pool mode requires <code>socketCap</code> · ≥1 Entry room with R socket, ≥1 Exit with L, ≥1 middle with L+R · Boss/BossCorridor rooms need both sockets · corridor lead-in and arena BossDefinition (warns)</td></tr>
+    <tr><td>Rooms</td><td>≥8×8 cells · <code>RoomReachability.Analyze</code> on any room with ≥2 sockets ("player cannot traverse — fix clearance/steps"; constants <code>JumpRise = 2</code>, <code>JumpReach = 2</code> in <code>Assets/_Game/Editor/RoomReachability.cs</code>; standalone menu <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>) · tiles start at cell (0,0), grid at local zero · middle rooms ≥12 wide (warn) · socket 3-cell aperture inside bounds · <code>EntryPoint</code>/<code>BiomeExit</code>/<code>BossGate</code> children per room role</td></tr>
+    <tr><td>Rests</td><td><code>layoutPrefab</code> with <code>EntryPoint</code>, <code>RestSite</code>, <code>RestExit</code> · <code>forgeEnabled</code> wants a <code>ForgeSite</code> (warn) · every <code>InteractZone</code> must have <code>HasInputBinding</code> ("it can never be used")</td></tr>
+    <tr><td>Bosses</td><td><code>bossPrefab</code> with <code>EnemyStateMachine</code> on root · <code>dialogue</code> REQUIRED (error) · adds table validated · exactly one <code>isBossPoint</code> marker per arena</td></tr>
+    <tr><td>Spawn tables</td><td>Prefab + <code>EnemyStateMachine</code> + assigned EnemyDefinition · MaxHealth &gt; 0 requires a state named <code>"dead"</code> (error: "it can never die") · missing <code>"hitstun"</code> warns ("normal hits won't stagger it")</td></tr>
+    <tr><td>WeaponCatalog</td><td>Defaults present · unique weapon asset names · every LootTable entry resolves through the catalog</td></tr>
+  </table>
+  </div>
+  <div class="rule note"><b>The magic state-name registry.</b> <code>"dead"</code> (auto-set by EnemyDeathConfig), <code>"juggled"</code> (EnemyJuggledConfig, used when <code>CanBeJuggled</code>), <code>"hitstun"</code> (EnemyHitConfig) — plus the <code>"idle"</code>/<code>"chase"</code>/<code>"summon"</code> next-state conventions. These names fail <b>silently</b> at runtime; the validator is where they get caught. Executions jump to <code>GetState("dead")</code> directly — a new enemy without it is unkillable.</div>
+  <p class="dim">The Workbench mirrors a few of these live as <code>[ok]</code>/<code>[!!]</code> badges — weapon-in-catalog, weapon-in-loot-table, enemy-in-a-spawn-table, biome-referenced-by-run-plan — all via an <code>AssetDatabase.GetDependencies</code> reverse lookup.</p>
+
+  <h3>ContentIniImporter — <code>Assets/_Game/Editor/ContentIniImporter.cs</code></h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Piece</th><th>Contract</th></tr>
+    <tr><td>Source file</td><td><code>Assets/_Game/Content/GameContent.ini</code> — menu <span class="kbd">Gleamwood ▸ Import Content INI</span></td></tr>
+    <tr><td>Direction</td><td><b>Strictly one-way, editor-only.</b> The INI is the authoring source, the SO assets stay the runtime truth — the game never reads INI at runtime</td></tr>
+    <tr><td>Syntax</td><td><code>;</code> comments · <code>[Section]</code> headers · <code>key = value</code> (last write wins per section) · <code>-</code> clears a reference · lists are comma-separated · <code>roomPool</code> entries ending in <code>*</code> glob RoomTemplate prefabs by name prefix, <b>sorted by name</b> (pool order feeds the seeded generator — re-globbing can change layouts for old seeds)</td></tr>
+    <tr><td>Error model</td><td>Unknown keys/sections <b>warn</b> (old files survive schema growth) · unresolvable asset names <b>error and leave the field untouched</b> — a typo can never silently wipe existing wiring · malformed lines warn-skip · resolution is <code>AssetDatabase.FindAssets("{name} t:{Type}")</code> matched by exact asset name</td></tr>
+  </table>
+  </div>
+  <p>Sections and their key→field mapping — a hand-written <code>switch</code> per section, which is exactly the mechanism you extend (recipe 5, §09):</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Section</th><th>Create-on-missing?</th><th>Keys</th></tr>
+    <tr><td><code>[Biome:&lt;biomeId&gt;]</code></td><td>Yes — created at <code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code></td><td><code>displayName, chapter, objective, minRooms, maxRooms, verticalJogChance, calmRoomBeforeBoss, branchChance, maxBranches, branchRunMax, branchTreasure, statScalePerStage, roomPool, socketCap, spawnTable, boss, musicTrack, standInLayout</code></td></tr>
+    <tr><td><code>[Boss:&lt;assetName&gt;]</code></td><td>Yes — created at <code>Assets/_Game/Biomes/&lt;name&gt;.asset</code></td><td><code>bossPrefab, dialogue, entranceDelay, addsTable, rewardPrefab, outroSpeaker, outroText, musicTrack, musicCueId</code> (musicCueId superseded by musicTrack; kept for old INIs)</td></tr>
+    <tr><td><code>[Enemy:&lt;assetName&gt;]</code></td><td>No — enemy FSMs are authored in Unity; INI only tunes them</td><td><code>maxHealth, canBeJuggled</code> — that's the whole surface, on purpose</td></tr>
+    <tr><td><code>[Rest:&lt;assetName&gt;]</code></td><td>No</td><td><code>healMissingFraction, forgeEnabled, layoutPrefab</code></td></tr>
+    <tr><td><code>[Node:&lt;nodeId&gt;]</code></td><td>Gathered, applied in the <code>[Plan]</code> pass</td><td><code>biome</code> (by biomeId) · <code>rest</code> (asset name; <code>-</code> = none) · <code>next</code> (comma list; <code>-</code> = FINAL) · <code>bypass</code> (nodeId; <code>-</code> = none)</td></tr>
+    <tr><td><code>[Plan]</code></td><td>—</td><td><code>entry, gradeRubric</code> + legacy <code>stages</code>/<code>restAfter</code> (synthesize a linear chain, nodeId = biomeId)</td></tr>
+  </table>
+  </div>
+  <p class="dim">Full key-by-key semantics live on <a href="tuning.html">Tuning &amp; INI</a>; this page cares about the <i>edit points</i>. Current live content for orientation: 4 nodes, 5 biomes, 3 bosses, 8 <code>[Enemy:]</code> tuning blocks, 1 rest.</p>
+</section>
+
+<section id="fx">
+  <h2><span class="num">08</span>FX &amp; music seams</h2>
+
+  <h3>FX prefabs — plain GameObject fields, instantiated at the impact</h3>
+  <p>The FX library lives at <code>Assets/_Game/Combat/FX/</code>: <code>FX_HitSpark</code>, <code>FX_ArrowHit</code>, <code>FX_DeathBurst_S</code>/<code>_M</code>/<code>_L</code>. Every wiring point is a plain <code>GameObject</code> reference, spawned via <code>Instantiate</code> at the impact or body position (no pooling):</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Spawned</th><th>Call site</th></tr>
+    <tr><td><code>MeleeAttackConfig.HitEffect</code></td><td>At the target on hit</td><td><code>PlayerMeleeAttackState.cs:256</code></td></tr>
+    <tr><td><code>DashAttackConfig.HitEffect</code></td><td>At the target on hit</td><td><code>PlayerDashAttackState.cs:208</code></td></tr>
+    <tr><td><code>RangedWeaponDefinition.HitEffect</code></td><td>At <code>hit.point</code></td><td><code>PlayerBowAimState.cs:273</code></td></tr>
+    <tr><td><code>EnemyDeathConfig.DeathEffect</code></td><td>At the body</td><td><code>EnemyDeathState.cs:25</code></td></tr>
+    <tr><td><code>BossDefinition.rewardPrefab</code></td><td>At the boss point on victory</td><td><code>BossArenaSequence</code></td></tr>
+    <tr><td><code>BiomeDefinition.branchTreasure</code></td><td>In Treasure branch terminals (heal orb v1: <code>Reward_HealOrb</code>)</td><td>branch assembly</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Audio rides the FX prefab.</b> <code>FX_HitSpark</code> and <code>FX_ArrowHit</code> carry their own AudioSources — swap the clip on the prefab and everything referencing it follows. To make a new impact FX: build a prefab (particle + AudioSource), run <span class="kbd">Gleamwood ▸ Audio ▸ Create + Route Game Audio Mixer</span> (idempotent — it sweeps every prefab AudioSource onto the SFX bus), then drop it into any field above via the Workbench.</div>
+
+  <h3>Music — slots, per-biome, per-boss</h3>
+  <p><code>MusicDirector</code> auto-boots (<code>[RuntimeInitializeOnLoadMethod]</code>, DontDestroyOnLoad) and crossfades between two sources over 1.5s on the Music bus. Every seam is "drop a clip in" — an empty slot is silence, no errors:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Seam</th><th>Where</th><th>Rule</th></tr>
+    <tr><td><code>MenuTrack</code></td><td><code>MusicSet.asset</code> (<code>Assets/_Game/Audio/Resources/</code>)</td><td>Boot/title; hub fallback</td></tr>
+    <tr><td><code>HubTrack</code></td><td><code>MusicSet.asset</code></td><td>Hub AND RestHost scenes — rests are a breather mid-run, the overworld theme plays</td></tr>
+    <tr><td><code>LevelTrack</code></td><td><code>MusicSet.asset</code></td><td>Fallback for BiomeHost / IntroLevel scenes</td></tr>
+    <tr><td>Per-biome</td><td><code>BiomeDefinition.musicTrack</code></td><td>BiomeHost pushes it on level assembly via <code>PlayLevelTrack</code>; null keeps the LevelTrack fallback; cleared when a menu-side scene loads; rests keep it</td></tr>
+    <tr><td>Per-boss</td><td><code>BossDefinition.musicTrack</code></td><td><code>StopForBossIntro()</code> fades to silence over 0.8s for the walk-in and dialogue; at fight-on the boss theme erupts via <code>PlayBossTrack</code>, or <code>ResumeSceneMusic()</code> restores level music if the slot is empty</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Scene routing is name-based.</b> <code>IsLevelScene</code> means the scene name contains <code>"BiomeHost"</code> or <code>"IntroLevel"</code>; <code>"RestHost"</code> and <code>"Hub"</code> have their own checks. Renaming a host scene breaks music routing — and those names are also stamped on the RunPlan. Full audio architecture on <a href="audio.html">Audio</a>.</div>
+</section>
+
+<section id="recipes">
+  <h2><span class="num">09</span>Meta-recipes — adding a NEW seam</h2>
+  <p class="lead">Verified end-to-end. Recipes 1–3 are declaration-only; 4–6 are the only places you edit tool code, and each is a single file.</p>
+
+  <h3>Recipe 1 — new content type with full workbench support</h3>
+  <ol class="steps">
+    <li>Create the SO class anywhere under <code>Assets/_Game/</code> with <code>[CreateAssetMenu(menuName = "Gleamwood/&lt;Thing&gt; Definition")]</code> + <code>[WorkbenchCategory("&lt;TabName&gt;", Accent = "#RRGGBB")]</code> — the §06 file, renamed.</li>
+    <li>Done. Rail tab, asset list, banner, save model with Auto-Save, AudioClip preview buttons, and drawer support are all free. Optionally curate with <code>[WorkbenchField("Section", ...)]</code> — remember untagged fields hide once any field is tagged.</li>
+    <li>Want live F1 sliders too? <code>[Tunable]</code> fields + <code>TunableRegistry.Register(this)</code> in Awake/OnEnable on the runtime behaviour.</li>
+    <li>Runs must load it without scene wiring? Follow the RunPlan pattern: asset in a <code>Resources/</code> folder + <code>static Load() =&gt; Resources.Load&lt;T&gt;("Name")</code>.</li>
+    <li>INI-authorable or build-gated? Recipes 5 and 4 below.</li>
+  </ol>
+
+  <h3>Recipe 2 — new Workbench tab</h3>
+  <p>For a simple type, Recipe 1 step 1 is the whole recipe (see <code>CombatStatusDefinition</code> — one attribute, real). For a rich tab that needs sub-tabs, registration checks or cross-asset forms, implement <code>IWorkbenchCategory</code> and compose the page from <code>WorkbenchForm</code> primitives (<code>form.Section</code>, <code>form.SubTabs</code>, <code>form.SoundRow</code>, <code>form.Registration</code>…). The seven built-in tabs in <code>Assets/_Game/Editor/Workbench/WorkbenchCategories.cs</code> are the worked examples — the <code>DialogueCategory</code> is a good one to copy, editing three levels of nested arrays (beat → encounter → line).</p>
+  <div class="rule note"><b>Never edit <code>ContentWorkbench.cs</code> for a new type.</b> The window is a shell that discovers categories — it has no per-type code. A new tab is a new <code>[WorkbenchCategory]</code> class or a new <code>IWorkbenchCategory</code> implementation; the window finds it automatically.</div>
+
+  <h3>Recipe 3 — new F1 tunable tab</h3>
+  <p>Name a new tab string in any <code>[Tunable("MyMechanic", min, max)]</code> — tabs create on demand. If the object isn't already passed to <code>DebugUI.AddTabsFrom</code>, also call <code>TunableRegistry.Register(this)</code> before the panel configures (Awake/OnEnable).</p>
+
+  <h3>Recipe 4 — new validator check</h3>
+  <ol class="steps">
+    <li>Open <code>Assets/_Game/Editor/RunContentValidator.cs</code> and add a static next to its siblings:
+<pre><code><span class="k">static void</span> ValidateHazard(<span class="t">HazardDefinition</span> h,
+    <span class="t">System.Action</span>&lt;<span class="k">string</span>, <span class="t">Object</span>&gt; error, <span class="t">System.Action</span>&lt;<span class="k">string</span>, <span class="t">Object</span>&gt; warn)
+{
+    <span class="k">if</span> (h.Damage &lt;= <span class="a">0</span>) warn(h.name + <span class="s">": damage 0 - hazard never hurts."</span>, h);
+}</code></pre></li>
+    <li>Call it from <code>Validate()</code> — or from <code>ValidateBiome</code> if your asset is reachable through a biome.</li>
+    <li>There is no step 3. It now runs from <span class="kbd">Gleamwood ▸ Validate Run Content</span>, after every INI import, <i>and</i> as the build gate — no extra wiring.</li>
+  </ol>
+
+  <h3>Recipe 5 — new INI key or section</h3>
+  <ol class="steps">
+    <li><b>New key on an existing section:</b> add a <code>case "myKey":</code> to the relevant <code>Apply*</code> switch in <code>Assets/_Game/Editor/ContentIniImporter.cs</code>, using the existing helpers — <code>ParseInt</code>/<code>ParseFloat</code>/<code>ParseBool</code> for values, <code>AssignRef</code> for asset references (it errors and leaves the field untouched on a typo). The default branch already warns on unknown keys, so old INI files stay compatible.</li>
+    <li><b>New section type:</b> add a <code>section.name.StartsWith("MyThing:")</code> branch in <code>Import()</code> pass 1 plus an <code>ApplyMyThing(IniSection)</code> method — copy the <code>ApplyRest</code> shape: <code>FindAssetByName&lt;T&gt;</code>, per-key switch, <code>EditorUtility.SetDirty</code>.</li>
+    <li>Should the asset auto-create on import? Copy the <code>ApplyBiome</code>/<code>ApplyBoss</code> create path: <code>ScriptableObject.CreateInstance</code> + <code>AssetDatabase.CreateAsset</code> into your content folder.</li>
+    <li>Extend the validator to cover it (recipe 4) — the importer already re-validates after every import, so your check fires immediately.</li>
+    <li>Document the key on <a href="tuning.html">Tuning &amp; INI</a>'s key table. The table is the contract.</li>
+  </ol>
+
+  <h3>Recipe 6 — new FX seam</h3>
+  <ol class="steps">
+    <li>Build the prefab: particle + AudioSource, saved next to its siblings in <code>Assets/_Game/Combat/FX/</code>.</li>
+    <li>Run <span class="kbd">Gleamwood ▸ Audio ▸ Create + Route Game Audio Mixer</span> — the idempotent sweep routes your prefab's AudioSource onto the SFX bus.</li>
+    <li>Existing hook? Drop it into any §08 field via the Workbench. New hook? Add a plain <code>public GameObject MyEffect;</code> field to the config and <code>Instantiate</code> it at the impact point in the state — copy the <code>PlayerMeleeAttackState</code> call site.</li>
+  </ol>
+
+  <h3>Recipe 7 — new enemy state verb</h3>
+  <p>A new <code>EnemyStateConfig</code> subclass with <code>CreateState()</code> — the existing toolbox is Idle, Chase, FloatChase, AttackPhase, ProjectileAttack, Summon, Relocate, HazardPhase, Hit, Juggled, Death, plus the Bow/Dash/Explosive executions. You inherit <code>EnterSound</code> from the base class for free; put <code>[EnemyStateNameRef]</code> on any next-state string and <code>[AnimatorStateRef]</code> behavior comes via <code>AnimatorStateName</code>. The <span class="kbd">Cat Splat State Machine ▸ Tools ▸ State Machine Creator</span> can code-gen the boilerplate (with a self-registering menu path), and <code>IStateMachineAssetPostProcessor</code> implementations hook the creation (§03). Details on <a href="framework.html">Framework</a> and <a href="enemies.html">Enemies &amp; Bosses</a>.</p>
+
+  <h3>Recipe 8 — new spawn / loot content</h3>
+  <p><b>Enemy:</b> prefab into an <code>EnemySpawnTable</code> entry — root needs <code>EnemyStateMachine</code> + <code>EnemyKillReporter</code>, and the definition needs the <code>"dead"</code> and <code>"hitstun"</code> states. <b>Weapon:</b> into <code>WeaponCatalog.weapons</code> AND a <code>LootTable</code>. The Workbench Overview tab shows <code>[ok]</code>/<code>[!!]</code> registration badges for both, and the validator hard-errors loot-table weapons the catalog can't resolve.</p>
+</section>
+
+<section id="safety">
+  <h2><span class="num">10</span>The safety rules — what keeps seams from becoming wounds</h2>
+  <p class="lead">Six rules, stamped in code comments and enforced by tests and the validator. The first three are the ones that eat save files and playtests when broken.</p>
+  <div class="grid c2">
+    <div class="card accent-red">
+      <h4>Never mutate shared SOs at runtime</h4>
+      <p>A mutated SO silently persists in-editor. Scale and modify <b>context-side</b>: <code>EnemyStateMachine.ApplyStatScale</code> scales the instance's context health, never the shared EnemyDefinition; RoomTemplate caches are <code>[NonSerialized]</code>; the F1 panel edits a <b>clone</b> of PlayerSettings — keepers must be transcribed into the asset. <code>EnemySpawnerTests</code> asserts the definition stays untouched.</p>
+    </div>
+    <div class="card accent-red">
+      <h4>Ids are save data — never rename shipped ones</h4>
+      <p><code>BiomeNode.nodeId</code>, <code>BiomeDefinition.biomeId</code>, <code>DialogueSet.dialogueId</code>, and weapon <b>asset filenames</b> (the catalog resolves by <code>def.name</code>). All carry "NEVER rename once players have saves" tooltips; the INI repeats it.</p>
+    </div>
+    <div class="card accent-ember">
+      <h4>Stamp values on assets, not compiled defaults</h4>
+      <p>The game reads assets only — C# field initializers are just fresh-asset defaults. The INI import writes into the SOs (<code>SetDirty</code> + <code>SaveAssets</code>); the same logic is why DebugUI save keys get a <code>...V2</code> bump when a default changes.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>The INI is one-way</h4>
+      <p>Editor-only import, never read at runtime. <code>AssignRef</code> errors and leaves the field untouched on a typo — the INI can never silently wipe wiring — and unknown keys warn, so old files survive schema growth.</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Fail loud, or get validated</h4>
+      <p>Magic state names and animator state names are silent no-ops in game — hence the dropdown drawers, the red <code>[MISSING]</code> flags, and the validator. An unreachable socket silently deletes the branch behind it — hence reachability analysis. The build gate refuses broken content.</p>
+    </div>
+    <div class="card accent-green">
+      <h4>Attributes declare, editors discover</h4>
+      <p>Extending the workbench, F1 panel, or dropdowns is declaration-only. Only three consumer surfaces exist — <code>ContentWorkbench</code>, <code>TunableTabs</code>, the two drawers — and they only change for genuinely new <i>kinds</i> of seams.</p>
+    </div>
+  </div>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Attributes: <code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code> · <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code> · <code>Assets/_Game/Combat/Code/AnimatorStateRefAttribute.cs</code> · <code>Assets/_Game/Enemies/Code/Definitions/EnemyStateNameRefAttribute.cs</code></li>
+    <li>Workbench category system: <code>Assets/_Game/Editor/ContentWorkbench.cs</code> (the shell) · <code>Assets/_Game/Editor/Workbench/WorkbenchCategory.cs</code> (<code>IWorkbenchCategory</code>, <code>WorkbenchCategoryRegistry.Discover</code>, <code>AttributeWorkbenchCategory</code>) · <code>WorkbenchForm.cs</code> (primitives + <code>WorkbenchGenericForm</code> + <code>WorkbenchModel</code>) · <code>WorkbenchCategories.cs</code> (the seven built-in tabs, incl. the grouped-dialogue editor) · <code>CombatStatusDefinition.cs</code> (the shipped zero-code example)</li>
+    <li>Other discovery &amp; consumers: <code>Assets/_Framework/DebugUI/TunableTabs.cs</code> (incl. <code>TunableRegistry</code>) · <code>Assets/_Game/Editor/Combat/AnimatorStateRefDrawer.cs</code> · <code>Assets/_Game/Editor/Enemies/EnemyStateNameRefDrawer.cs</code> · <code>Assets/_Framework/StateMachine/Editor/IStateMachineAssetPostProcessor.cs</code></li>
+    <li>Registries: <code>Assets/_Game/Systems/Run/Weapons/WeaponCatalog.cs</code> · <code>LootTable.cs</code> · <code>UpgradeTrack.cs</code> · <code>Assets/_Game/Systems/Run/ProcGen/EnemySpawnTable.cs</code> · <code>EnemySpawnMarker.cs</code> · <code>Assets/_Game/Systems/Run/RunPlan.cs</code></li>
+    <li>Pipeline: <code>Assets/_Game/Editor/ContentIniImporter.cs</code> · <code>Assets/_Game/Editor/RunContentValidator.cs</code> · <code>Assets/_Game/Editor/RoomReachability.cs</code> · <code>Assets/_Game/Content/GameContent.ini</code></li>
+    <li>FX &amp; music seams: <code>Assets/_Game/Combat/FX/</code> · <code>Assets/_Game/Systems/Audio/MusicDirector.cs</code> · <code>Assets/_Game/Editor/AudioMixerBootstrap.cs</code></li>
+    <li>The deep companion: <code>Documentation/GAME_TUNING_GUIDE.md</code> (its <code>HazardDefinition</code> is a doc-only worked example — no such class exists in code yet; if someone ships one, update §06).</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="tuning.html"><span>← Previous</span>Tuning &amp; INI</a>
+  <a href="framework.html"><span>Next →</span>Framework</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

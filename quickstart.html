@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Start — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a class="on" href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Quick <span class="flame">Start</span></h1>
+  <p class="tag">Two things you'll do constantly: add content to what already exists, and add whole new mechanics. Here's the fast path for both — and the one rule that keeps you from breaking what already works.</p>
+</header>
+
+<main>
+
+<section id="orient">
+  <h2><span class="num">01</span>Sixty-second orientation</h2>
+  <p class="lead">Everything in Gleamwood is <b>data on ScriptableObjects</b>, edited through tools, guarded by validators. Three rules make it all safe to touch:</p>
+  <div class="grid c3">
+    <div class="card accent-ember"><h4>Add, don't mutate</h4><p>New content is a <b>new asset</b>. You almost never edit code or existing assets — and never at runtime. This is the whole reason adding things doesn't break old things.</p></div>
+    <div class="card accent-cyan"><h4>Declare, don't wire</h4><p>An attribute grows the tools: <code>[WorkbenchCategory]</code> a workbench tab, <code>[Tunable]</code> an F1 slider. You never maintain editor glue.</p></div>
+    <div class="card accent-green"><h4>Validate before you trust</h4><p><span class="kbd">Gleamwood ▸ Validate Run Content</span> and the 350-test suite catch unreachable rooms, unregistered weapons and broken wiring <b>before</b> a run does.</p></div>
+  </div>
+  <div class="note">Where you'll work: <span class="kbd">Gleamwood ▸ Content Workbench</span> for authoring, the <b>Scene view</b> for hitboxes/ranges, <span class="kbd">F1</span> in play mode for live feel, and <code>Assets/_Game/Content/GameContent.ini</code> for the run's shape. Full tours are one click away on every page above.</p></div>
+</section>
+
+<section id="add-content">
+  <h2><span class="num">02</span>Guide A — add content to a system that exists</h2>
+  <p class="lead">The 90% case: another weapon, enemy, biome or status. It's always the same shape — <b>duplicate a working asset, retune it, register it, validate</b> — and it's inherently non-breaking because you're only adding.</p>
+
+  <h3>The universal recipe</h3>
+  <ol class="steps">
+    <li><b>Duplicate the closest working asset.</b> In the Project window, <span class="kbd">Ctrl+D</span> an existing one (e.g. <code>DefaultSword.asset</code> → your new blade). Starting from a known-good asset means every required field is already sane.</li>
+    <li><b>Open it in the workbench.</b> Right-click ▸ <i>Open in Content Workbench</i>. Retune only the live fields it shows — the tool hides the dead ones on purpose.</li>
+    <li><b>Register it where the game looks.</b> This is the step that makes it real. The workbench tells you if you missed it — a red <code>[!!]</code> row at the top of the Overview tab.</li>
+    <li><b>Tune hitboxes/ranges in the Scene view</b> if it fights — drag handles, don't type. (Player for weapons, the enemy prefab for enemies.)</li>
+    <li><b>Validate.</b> <span class="kbd">Gleamwood ▸ Validate Run Content</span> → 0 errors, then <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → green.</li>
+  </ol>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Adding a…</th><th>Register it in…</th><th>Deep dive</th></tr>
+    <tr><td><b>Weapon</b> (melee or ranged)</td><td><code>WeaponCatalog.weapons</code> (so a saved run can restore it) <b>and</b> a <code>LootTable</code> (so a pedestal offers it)</td><td><a href="combat.html">Combat &amp; Weapons</a></td></tr>
+    <tr><td><b>Enemy</b></td><td>An <code>EnemySpawnTable</code> — otherwise it never spawns. Needs a prefab with <code>EnemyStateMachine</code> + its definition + a <code>dead</code> state</td><td><a href="enemies.html">Enemies &amp; Bosses</a></td></tr>
+    <tr><td><b>Boss</b></td><td>A <code>BossDefinition</code> pointing <code>bossPrefab</code> at the prefab, and a biome's <code>boss</code> slot. Bosses do <b>not</b> use spawn tables</td><td><a href="enemies.html">Enemies &amp; Bosses</a></td></tr>
+    <tr><td><b>Biome / level</b></td><td>A <code>RunPlan</code> node (so a run visits it). Its room pool + spawn table + boss are fields on the biome</td><td><a href="levels.html">Levels &amp; Rooms</a></td></tr>
+    <tr><td><b>Status effect</b></td><td>Nothing to register — reference it from a weapon's <i>Statuses On Hit</i> or an execution's <code>RequiredStatus</code></td><td><a href="extending.html">Extending</a></td></tr>
+    <tr><td><b>Room</b></td><td>The biome's <code>roomPool</code>. Must pass the reachability audit (every socket reaches every other)</td><td><a href="levels.html">Levels &amp; Rooms</a></td></tr>
+  </table>
+  </div>
+  <div class="note rule"><b>Prefer INI for the world layer.</b> Biomes, bosses and the run web can be authored as text in <code>Assets/_Game/Content/GameContent.ini</code> and imported with <span class="kbd">Gleamwood ▸ Import Content INI</span> (the validator runs automatically). See <a href="tuning.html">Tuning &amp; INI</a> for the full key reference.</div>
+</section>
+
+<section id="add-mechanic">
+  <h2><span class="num">03</span>Guide B — add a brand-new mechanic</h2>
+  <p class="lead">A mechanic that doesn't exist yet — a hazard, a pickup, a trap. The pattern: <b>data SO → runtime behaviour that reads it → let the tools find it by declaration</b>. One new file gets you the full authoring surface.</p>
+
+  <h3>Step 1 — the data</h3>
+  <p>Create the ScriptableObject that holds the mechanic's tunable numbers. Tag the class and designers get a Content Workbench tab for free — no editor code:</p>
+<pre><code><span class="c">// Anywhere under Assets/_Game/. This one file is the entire authoring surface.</span>
+[<span class="a">WorkbenchCategory</span>(<span class="s">"Hazards"</span>, Accent = <span class="s">"#4dd2ff"</span>)]   <span class="c">// → a "Hazards" rail tab</span>
+[<span class="a">CreateAssetMenu</span>(menuName = <span class="s">"Gleamwood/Hazard Definition"</span>)]  <span class="c">// → Assets ▸ Create entry</span>
+<span class="k">public class</span> <span class="t">HazardDefinition</span> : <span class="t">ScriptableObject</span>
+{
+    [<span class="a">WorkbenchField</span>(<span class="s">"Feel"</span>, Note = <span class="s">"0 = single burst"</span>)]  <span class="k">public float</span> PulseInterval = <span class="a">0.5f</span>;
+    [<span class="a">WorkbenchField</span>(<span class="s">"Impact"</span>)]                          <span class="k">public int</span>   Damage = <span class="a">1</span>;
+    [<span class="a">WorkbenchField</span>(<span class="s">"Presentation"</span>)]                    <span class="k">public</span> <span class="t">AudioClip</span> TriggerSound;
+}</code></pre>
+  <p class="dim"><code>CombatStatusDefinition</code> ships exactly this pattern today — the real Statuses tab, drawn from nothing but these attributes.</p>
+
+  <h3>Step 2 — the behaviour</h3>
+  <p>A <code>MonoBehaviour</code> that <b>reads</b> the definition and acts. The golden discipline: read the shared asset, never write it (see §04).</p>
+<pre><code><span class="k">public class</span> <span class="t">Hazard</span> : <span class="t">MonoBehaviour</span>
+{
+    [<span class="a">SerializeField</span>] <span class="t">HazardDefinition</span> def;   <span class="c">// authored data, drag it in the inspector</span>
+    <span class="k">float</span> _t;
+    <span class="k">void</span> Update()
+    {
+        _t += Time.deltaTime;
+        <span class="k">if</span> (_t &gt;= def.PulseInterval) { _t = <span class="a">0</span>; Pulse(def.Damage); }
+    }
+}</code></pre>
+
+  <h3>Step 3 — reach the rest of the toolbox (optional)</h3>
+  <div class="grid c2">
+    <div class="card accent-green"><h4>Live tuning</h4><p>Want to feel it in play mode? Put <code>[Tunable("Hazards", 0f, 5f)]</code> on a runtime field and call <code>TunableRegistry.Register(this)</code> in <code>Awake</code> — it becomes an <span class="kbd">F1</span> slider. → <a href="tuning.html">Tuning</a></p></div>
+    <div class="card accent-gold"><h4>Text authoring</h4><p>Want it INI-driven? Add a key to the importer's mapping. The pattern is mechanical once the SO is flat data. → <a href="tuning.html">Tuning &amp; INI</a></p></div>
+    <div class="card accent-violet"><h4>A rich workbench tab</h4><p>Need sub-tabs, checks or derived values instead of the plain form? Implement <code>IWorkbenchCategory</code>. → <a href="workbench.html#iworkbenchcategory">Workbench</a></p></div>
+    <div class="card accent-red"><h4>Animation / audio hooks</h4><p>Animator-state strings become validated dropdowns with <code>[AnimatorStateRef]</code>; sounds are just <code>AudioClip</code> fields (auto preview button). → <a href="extending.html">Extending</a></p></div>
+  </div>
+  <p>Every one of these is <b>declaration only</b> — you never touch the workbench, the F1 panel, or the importer's core. The complete seam catalog and meta-recipes live on <a href="extending.html">Extending</a>.</p>
+</section>
+
+<section id="dont-break">
+  <h2><span class="num">04</span>The one rule — add, don't mutate</h2>
+  <p class="lead">Adding content is safe by construction; <b>changing shared state is where old features break</b>. Internalise these and you can author fearlessly.</p>
+  <div class="grid c2">
+    <div class="card accent-red">
+      <h4>Never mutate a shared SO at runtime</h4>
+      <p>Definitions are shared by every instance. A run's upgrades ride a <b>per-run copy</b> (the player weapon is a <code>WeaponInstance</code>; the runtime player is an <code>Instantiate</code>d clone of <code>PlayerSettings</code>). If you write to the asset in play mode, you've edited the game for everyone — and on disk. Read the definition; keep mutable state on the component.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>nodeIds and shipped ids are save data</h4>
+      <p>Suspended runs store node ids by name. <b>Renaming a shipped <code>nodeId</code> breaks existing saves.</b> Add new nodes; don't rename old ones. (Renaming a <code>biomeId</code> instead breaks the INI's <code>[Node] biome =</code> references at import — also additive-only.)</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Register, don't replace</h4>
+      <p>Add your weapon to the catalog's list; don't repurpose an existing entry. Add a spawn-table row; don't retune the shared enemy other biomes use. New row = new behaviour, isolated. Editing a shared row changes every user of it.</p>
+    </div>
+    <div class="card accent-violet">
+      <h4>Stamp values on the asset, not the code default</h4>
+      <p>Runtime reads the <b>asset</b>, not the C# field initializer. A new field defaults to 0 on existing assets until you set it. After adding a field, open the affected assets in the workbench and give them real values — don't rely on the compiled default.</p>
+    </div>
+    <div class="card accent-green">
+      <h4>Widen enums, don't reorder them</h4>
+      <p>Serialized assets store enum values by index. <b>Append</b> new enum members; never reorder or delete, or every asset silently shifts to the wrong value.</p>
+    </div>
+    <div class="card accent-ember">
+      <h4>Let the validators be your safety net</h4>
+      <p>Unreachable branch? Unregistered weapon? Missing <code>dead</code> state? <span class="kbd">Validate Run Content</span> makes them build-breaking errors. If it's green and the suite is green, your addition didn't break the wiring.</p>
+    </div>
+  </div>
+  <div class="warn note"><b>Why this works:</b> the game reads definitions, never hardcode. New definitions are invisible to old systems until something references them — so a new enemy, weapon or mechanic literally cannot affect an existing run it isn't wired into. The only ways to break the past are the six above: mutating shared state, renaming saved ids, or trusting a default you never stamped.</div>
+</section>
+
+<section id="preflight">
+  <h2><span class="num">05</span>Pre-flight — before you commit</h2>
+  <ol class="steps">
+    <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> — 0 errors. (Rooms: also <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>.)</li>
+    <li><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> — 350 green (<code>Logs/playmode_test_results.txt</code>).</li>
+    <li>Play it. New content only counts once it's shown up in an actual run.</li>
+    <li>Touched a system a wiki page documents? Update that page in the same commit — see <a href="maintaining.html">Maintaining</a>.</li>
+  </ol>
+  <div class="note">New to a specific system? Jump straight in: <a href="combat.html">Combat &amp; Weapons</a> · <a href="enemies.html">Enemies &amp; Bosses</a> · <a href="levels.html">Levels &amp; Rooms</a> · <a href="audio.html">Audio</a> · <a href="tuning.html">Tuning &amp; INI</a> · <a href="extending.html">Extending</a>.</div>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Registration targets: <code>Assets/_Game/Systems/Run/Weapons/WeaponCatalog.cs</code> · <code>LootTable.cs</code> · <code>Assets/_Game/Systems/Run/ProcGen/EnemySpawnTable.cs</code> · <code>Assets/_Game/Systems/Run/RunPlan.cs</code>.</li>
+    <li>The "don't mutate" facts: per-run copies in <code>WeaponInstance</code> + <code>PlayerStateMachine</code> (Instantiate of <code>PlayerSettings</code>); save ids in <code>Assets/_Game/Systems/Save/SaveSlot.cs</code>.</li>
+    <li>Gates: <code>Assets/_Game/Editor/RunContentValidator.cs</code> · <code>RoomReachability.cs</code> · the PlayMode suite. This page mirrors the recipes in <code>GAME_TUNING_GUIDE.md</code> — keep them in step.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="index.html"><span>← Home</span>Wiki index</a>
+  <a href="workbench.html"><span>Next →</span>The Content Workbench</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

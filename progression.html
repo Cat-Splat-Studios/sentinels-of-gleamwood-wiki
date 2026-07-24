@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Progression &amp; Economy — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a class="on" href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Progression &amp; the <span class="flame">Gleam</span> Economy</h1>
+  <p class="tag">The Hades-style spine: a run earns <b>Gleam</b>, death or victory <b>banks</b> it, and between runs it buys <b>permanent</b> kit upgrades and weapon unlocks. This page is the map of every number, seam and save field in that loop — and the one rule that keeps a locked weapon from bricking a saved run.</p>
+</header>
+
+<main>
+
+<section id="loop">
+  <h2><span class="num">01</span>The loop in one picture</h2>
+  <p class="lead">Every run makes permanent progress — that is the whole reason to replay. Currency accrues <i>during</i> the run, and is banked into the permanent profile <b>whether you clear or die</b>.</p>
+  <div class="scrollx">
+  <svg viewBox="0 0 980 210" xmlns="http://www.w3.org/2000/svg" style="min-width:840px; width:100%;">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8b91a0"/></marker>
+    </defs>
+    <g font-family="Segoe UI, sans-serif" font-size="13">
+      <rect x="12" y="70" width="170" height="72" rx="9" fill="#22262e" stroke="#ff6b29"/>
+      <text x="97" y="99" fill="#ff6b29" text-anchor="middle" font-weight="600">THE RUN</text>
+      <text x="97" y="119" fill="#8b91a0" text-anchor="middle" font-size="11">kill trickle · depth bonus</text>
+
+      <rect x="240" y="70" width="170" height="72" rx="9" fill="#22262e" stroke="#ffc740"/>
+      <text x="325" y="93" fill="#ffc740" text-anchor="middle" font-weight="600">EndRun(died)</text>
+      <text x="325" y="112" fill="#8b91a0" text-anchor="middle" font-size="11">banks Gleam —</text>
+      <text x="325" y="128" fill="#8b91a0" text-anchor="middle" font-size="11">clear OR death</text>
+
+      <rect x="468" y="70" width="180" height="72" rx="9" fill="#22262e" stroke="#4dd2f0"/>
+      <text x="558" y="93" fill="#4dd2f0" text-anchor="middle" font-weight="600">MetaProgress</text>
+      <text x="558" y="112" fill="#8b91a0" text-anchor="middle" font-size="11">currency · upgradeIds</text>
+      <text x="558" y="128" fill="#8b91a0" text-anchor="middle" font-size="11">unlockIds · survives death</text>
+
+      <rect x="706" y="70" width="180" height="72" rx="9" fill="#22262e" stroke="#b78aff"/>
+      <text x="796" y="93" fill="#b78aff" text-anchor="middle" font-weight="600">The Shopkeeper</text>
+      <text x="796" y="112" fill="#8b91a0" text-anchor="middle" font-size="11">buy kit upgrades</text>
+      <text x="796" y="128" fill="#8b91a0" text-anchor="middle" font-size="11">unlock weapons</text>
+
+      <line x1="182" y1="106" x2="236" y2="106" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="410" y1="106" x2="464" y2="106" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="648" y1="106" x2="702" y2="106" stroke="#8b91a0" marker-end="url(#arr)"/>
+
+      <!-- feedback edge: upgrades apply to the NEXT run -->
+      <path d="M796,142 L796,180 L97,180 L97,144" fill="none" stroke="#73d95c" stroke-dasharray="5 4" marker-end="url(#arr)"/>
+      <text x="446" y="174" fill="#73d95c" text-anchor="middle" font-size="11">bought upgrades apply at the NEXT StartRun (stronger kit)</text>
+    </g>
+  </svg>
+  </div>
+  <div class="note">One owner, one choke point. <code>RunDirector</code> (static) owns run state; <code>EndRun(bool died)</code> is the <b>single</b> run-over path — death anywhere and the Results screen after a clear both route through it, so banking can never be skipped. All slot writes go through its private <code>WriteSlot</code> funnel.</div>
+</section>
+
+<section id="currency">
+  <h2><span class="num">02</span>The currency — one file, four numbers</h2>
+  <p class="lead">Everything about <i>how much</i> a run earns lives in <code>Assets/_Game/Systems/Run/Economy.cs</code> — a static tuning class, so the curve is read and changed in one place.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Constant</th><th>Value</th><th>Meaning</th></tr>
+    <tr><td><code>CurrencyName</code></td><td><b>"Gleam"</b></td><td>Display name everywhere. Rename here to re-theme the whole economy.</td></tr>
+    <tr><td><code>PerKill</code></td><td><b>2</b></td><td>Awarded per enemy felled inside a biome — the moment-to-moment trickle (<code>RunDirector.ReportKill</code>).</td></tr>
+    <tr><td><code>PerDepth</code></td><td><b>20</b></td><td>Run-end bonus per depth tier reached — rewards pushing deeper.</td></tr>
+    <tr><td><code>ClearBonus</code></td><td><b>100</b></td><td>Extra on a full clear, over a death at the same depth.</td></tr>
+  </table>
+  </div>
+  <p>The run-end lump is <code>RunEndBonus(depth, clear) = max(0, depth) × 20 + (clear ? 100 : 0)</code>, added on top of the accumulated per-kill trickle. The <b>same</b> function feeds the run-over screen's "+N Gleam" line and the actual bank, so the number the player sees is exactly what is credited.</p>
+  <div class="grid c3">
+    <div class="card accent-ember">
+      <h4>Earned — during the run</h4>
+      <p>Each kill inside a biome adds <code>PerKill</code> to <code>RunDirector.RunCurrency</code> (the in-run wallet). It is written into the suspended-run blob (<code>RunSave.runCurrency</code>) at every room entry, so quitting mid-run never loses it.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Banked — at run end</h4>
+      <p><code>EndRun</code> adds <code>RunCurrency + RunEndBonus(depth, clear)</code> to <code>MetaProgress.currency</code>. On a <b>death too</b> — that is the Hades promise: no run is wasted.</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Shown — on the run-over screens</h4>
+      <p>The Death and Results screens read <code>BuildStats().currencyEarned</code> and show "+N Gleam". <code>RunDirector.CurrencyBalance</code> reads the banked total for the hub (reads disk — call it on hub entry, not per frame).</p>
+    </div>
+  </div>
+  <div class="note">Want the curve authored live instead of in code? Promote these four constants to <code>[Tunable]</code> fields or a small ScriptableObject — the seam is called out in <code>Economy.cs</code>'s own summary. Until then, it is deliberately one file.</div>
+</section>
+
+<section id="upgrades">
+  <h2><span class="num">03</span>Permanent kit upgrades</h2>
+  <p class="lead">Between runs, Gleam buys stacking, permanent boosts — Hades' "Mirror of Night". The catalog is one shipped asset, <code>Assets/_Game/Systems/Run/Resources/MetaUpgradeCatalog.asset</code>, loaded by name; three upgrades ship today.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Upgrade</th><th>Effect</th><th>Per level</th><th>Max</th><th>Cost curve</th><th>Applies at (seam)</th></tr>
+    <tr><td><b>Vigor</b></td><td><code>MaxHp</code></td><td>+1 max health</td><td>5</td><td>80 · 140 · 200 · 260 · 320</td><td><code>PlayerStateMachine.Awake</code>, before <code>ResetProperties</code></td></tr>
+    <tr><td><b>Might</b></td><td><code>DamagePercent</code></td><td>+6% weapon damage</td><td>5</td><td>120 · 210 · 300 · 390 · 480</td><td><code>WeaponInstance.DamageScale</code> (every hit site)</td></tr>
+    <tr><td><b>Honed Edge</b></td><td><code>WeaponStartLevel</code></td><td>Weapons start +1 level</td><td>2</td><td>150 · 350</td><td><code>WeaponInstance</code> ctor at <code>EquipDefaults</code></td></tr>
+  </table>
+  </div>
+  <p>Cost of the <i>n</i>th level is <code>baseCost + (n−1) × costGrowth</code>; the magnitude owned is <code>level × perLevel</code>. At <code>StartRun</code> / resume, <code>RunDirector</code> reads the slot's owned levels through <code>MetaUpgradeCatalog.TotalBonus</code> and caches the three totals (<code>MetaMaxHpBonus</code>, <code>MetaDamageMult</code>, <code>MetaWeaponStartLevel</code>) — so the per-hit / per-scene consumers read a cheap value and never touch disk. Off a run every total is a clean no-op (damage ×1, +0 HP), so the sandbox is unaffected.</p>
+  <div class="note"><b>Why the apply lives where it does.</b> The player's <code>context</code> is re-cloned for every biome, so max-HP is re-stamped in <code>Awake</code> each scene rather than once. Damage rides the per-run <code>WeaponInstance</code> (shared weapon SOs are never mutated — see the <a href="combat.html">Combat</a> page's instance rule). One effect → one seam; new effects arrive as new mechanics land.</p></div>
+  <div class="note"><b>Deferred by design:</b> dash-charge and forge-charge upgrades are drafted but <i>not</i> shipped — the player has a single cooldown-gated dash (no charge pool) and the forge is a per-rest boolean (not a count). Both need a charge mechanic before the <code>MetaEffect</code> can apply, so they are intentionally absent rather than dead.</div>
+</section>
+
+<section id="unlocks">
+  <h2><span class="num">04</span>Weapon unlocks</h2>
+  <p class="lead">A weapon can be held back until it is bought at the hub — the "new weapon" carrot. Two ship locked: the <b>Solar Greatsword</b> (300 Gleam) and the <b>Dagger Unseen</b> (250 Gleam).</p>
+  <p>Any <code>WeaponDefinition</code> carries an optional lock, authored in the inspector (or the <a href="workbench.html">Workbench</a>):</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td><code>lockedUntilUnlocked</code></td><td>When true, the weapon is <b>not offered</b> in loot rolls / hub pedestals until its unlock is owned on the active slot.</td></tr>
+    <tr><td><code>unlockCost</code></td><td>Gleam price to permanently unlock it. The unlock is keyed by the weapon <b>asset name</b> and appended to <code>MetaProgress.unlockIds</code>.</td></tr>
+  </table>
+  </div>
+  <p><code>RunDirector.IsWeaponUnlocked(def)</code> answers "may this be offered?" — true for any non-locked weapon, and for a locked one whose id is on the slot. <code>TryUnlockWeapon(def)</code> is the buy: it checks the weapon is locked, unbought and affordable, debits the Gleam and records the unlock. Off a save slot (sandbox) locked weapons simply stay hidden.</p>
+  <div class="rule note"><b>The one rule — gate at OFFER time, never at RESOLVE time.</b> The unlock check lives in exactly one predicate: <code>LootTable.Qualifies</code>, the filter every roll and pedestal offer passes through. A locked weapon <b>stays in the catalog and the loot tables</b>; it is only kept out of the <i>offer</i>. That is deliberate — <code>WeaponCatalog.Resolve</code> turns saved weapon ids back into definitions when a suspended run resumes, so gating there would brick a saved run that already holds the weapon. Add unlock logic to <code>Qualifies</code>; never to <code>Resolve</code>.</div>
+</section>
+
+<section id="hub">
+  <h2><span class="num">05</span>The shopkeeper</h2>
+  <p class="lead">All spending happens at ONE hub NPC — the <b>Shopkeeper</b> in <code>2.Hub</code> — that opens a full-screen <b>tabbed menu</b>. This replaced the old per-item greybox altars: because both tabs read the catalogs, a new upgrade or a newly-locked weapon appears automatically with nothing to place in the world.</p>
+  <div class="grid c2">
+    <div class="card accent-violet">
+      <h4>ShopkeeperNPC — the world trigger</h4>
+      <p><code>Assets/_Game/Systems/Run/Weapons/ShopkeeperNPC.cs</code>. An <code>InteractZone</code> (so it shares the device-aware <span class="kbd">interact</span> glyph). Its only job: on interact, <code>MenuRouter.Get&lt;ShopScreen&gt;()?.Open()</code>. One NPC, placed on the path between the spawn and the weapon pedestals.</p>
+    </div>
+    <div class="card accent-ember">
+      <h4>ShopScreen — the tabbed menu</h4>
+      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). <b>Kit Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapon Unlocks</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>. Rows show level/cost + your balance; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); owned/mastered rows read UNLOCKED/MASTERED and can't be re-bought.</p>
+    </div>
+  </div>
+  <div class="note">Opened from the world, so — unlike Settings, whose opener already froze the game — the shop pushes <code>MenuState</code> itself (freeze + UI input map), like Pause/Death. Owned/affordable state is snapshot on open and after each buy, never polled per-frame (those reads hit the save file). The weapon <b>pedestals</b> (§00) stay separate: the shop is where you <i>unlock</i> a weapon permanently; the pedestals are the per-run random pick from what you've unlocked.</div>
+</section>
+
+<section id="save">
+  <h2><span class="num">06</span>What is saved</h2>
+  <p class="lead">All progression lives on <code>MetaProgress</code> (the survives-death profile) and the suspended <code>RunSave</code>. JsonUtility has no dictionaries, so maps are parallel arrays; the format is <b>wiped, not migrated</b> — new fields are safe with no version bump.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>On</th><th>Role</th></tr>
+    <tr><td><code>currency</code></td><td>MetaProgress</td><td>Banked Gleam. The spendable balance.</td></tr>
+    <tr><td><code>upgradeIds[]</code> · <code>upgradeLevels[]</code></td><td>MetaProgress</td><td>Owned level per kit upgrade (parallel arrays). <code>Get/SetUpgradeLevel</code> grow them in place.</td></tr>
+    <tr><td><code>unlockIds[]</code></td><td>MetaProgress</td><td>Weapon unlocks bought (asset names). Appended, never removed. <code>HasUnlock/AddUnlock</code>.</td></tr>
+    <tr><td><code>runCurrency</code></td><td>RunSave</td><td>The in-run wallet, written at every room entry so a quit mid-run keeps the Gleam earned so far.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Ids are save data.</b> An upgrade <code>id</code> and a weapon asset <b>name</b> are the keys players own progress by — renaming one silently orphans everything bought under the old name. Treat them like a database primary key. (The tooltip on <code>MetaUpgrade.id</code> says exactly this.)</div>
+</section>
+
+<section id="recipes">
+  <h2><span class="num">07</span>Recipes</h2>
+
+  <h3>Retune the reward curve</h3>
+  <p>Edit the four constants in <code>Economy.cs</code>. Everything downstream — trickle, run-end bonus, the "+N Gleam" display — recomputes from them. Re-run <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>; <code>RunDirectorTests</code> asserts the earn/bank math.</p>
+
+  <h3>Add a kit upgrade (existing effect)</h3>
+  <ol>
+    <li>Open <code>Resources/MetaUpgradeCatalog.asset</code> (inspector or Workbench) and add an entry: a stable <code>id</code>, <code>displayName</code>, <code>description</code>, an <code>effect</code> from the <code>MetaEffect</code> enum, <code>perLevel</code>, <code>maxLevel</code>, <code>baseCost</code>, <code>costGrowth</code>.</li>
+    <li>That's it — the shopkeeper's Kit Upgrades tab reads the catalog, so the new row appears automatically. No prop to place, no wiring; the apply seam for that <code>MetaEffect</code> already exists.</li>
+  </ol>
+
+  <h3>Add a kit upgrade (NEW effect)</h3>
+  <ol>
+    <li>Add a value to the <code>MetaEffect</code> enum.</li>
+    <li>In <code>RunDirector.RecomputeMetaBonuses</code>, cache its total; expose a read-only property.</li>
+    <li>Read that property at the ONE place the effect applies (mirroring the max-HP / damage / start-level seams). Add a test to <code>RunDirectorTests</code>.</li>
+  </ol>
+
+  <h3>Lock a weapon behind an unlock</h3>
+  <ol>
+    <li>On the <code>WeaponDefinition</code>, set <code>lockedUntilUnlocked = true</code> and an <code>unlockCost</code>. Keep it in the <code>WeaponCatalog</code> + its loot table — the offer gate handles the rest.</li>
+    <li>Done. It hides from offers until bought, resumes cleanly if a saved run already holds it, AND appears in the shopkeeper's Weapon Unlocks tab automatically (that tab is <code>WeaponCatalog.LockedWeapons()</code>).</li>
+  </ol>
+</section>
+
+<section id="tests">
+  <h2><span class="num">08</span>How it's guarded</h2>
+  <p class="lead">The whole loop is headless-testable — no scenes needed — because <code>RunDirector</code> is a static service over a real save slot.</p>
+  <ul>
+    <li><b><code>RunDirectorTests</code></b> covers the earn/bank/survive-death currency math, suspend/resume of the in-run wallet, buying upgrades (debit, cap, unaffordable), the applied bonuses at <code>StartRun</code> and their reset at the hub, weapon unlock/hide, and the <code>LootTable</code> offer gate — locked out until bought, offered after.</li>
+    <li>Part of the <b>350-test</b> PlayMode suite. Run it with <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code>.</li>
+  </ul>
+  <p class="dim">Source of record: <code>Assets/_Game/Systems/Run/</code> (<code>RunDirector</code>, <code>Economy</code>, <code>MetaUpgradeCatalog</code>, <code>ShopkeeperNPC</code>) and <code>Assets/_Game/Systems/Save/SaveSlot.cs</code> (<code>MetaProgress</code>). The shop UI is <code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>; weapon lock fields live on <code>Assets/_Game/Combat/Code/Definitions/WeaponDefinition.cs</code>.</p>
+</section>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · <code>Documentation/Wiki/progression.html</code><br>
+  The Hades-style replay spine: earn Gleam, bank it on any run-over, spend it on permanent power.
+</footer>
+
+</body>
+</html>

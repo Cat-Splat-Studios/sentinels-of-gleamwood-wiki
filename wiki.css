@@ -1,0 +1,99 @@
+/* Sentinels of Gleamwood — living wiki shared stylesheet.
+   Every page in Documentation/Wiki links this file. Palette + components are the
+   design system from the original ContentGuide; extend here, never per-page. */
+
+:root {
+  --bg: #16181d; --bg2: #1d2026; --card: #22262e; --line: #2e333d;
+  --text: #d8dbe2; --dim: #8b91a0; --ember: #ff6b29; --gold: #ffc740;
+  --cyan: #4dd2f0; --green: #73d95c; --red: #ff5347; --violet: #b78aff;
+  --mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font: 16px/1.65 "Segoe UI", system-ui, sans-serif; }
+a { color: var(--cyan); text-decoration: none; } a:hover { text-decoration: underline; }
+code { font-family: var(--mono); font-size: .88em; background: #14161a; border: 1px solid var(--line); border-radius: 4px; padding: .1em .35em; color: var(--gold); }
+pre { background: #14161a; border: 1px solid var(--line); border-left: 3px solid var(--ember); border-radius: 6px; padding: 14px 16px; overflow-x: auto; margin: 14px 0; }
+pre code { background: none; border: none; padding: 0; color: #cfd6e4; font-size: .84em; line-height: 1.55; }
+.k { color: var(--violet); } .t { color: var(--cyan); } .s { color: var(--green); } .c { color: #6a7180; } .a { color: var(--gold); }
+
+/* wiki-wide top navigation — identical on every page; .on marks the current page */
+nav.wiki { position: sticky; top: 0; z-index: 20; background: rgba(22,24,29,.96); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); padding: 0 18px; display: flex; gap: 2px; justify-content: center; flex-wrap: wrap; font-size: .86rem; }
+nav.wiki a { color: var(--dim); padding: 10px 11px; border-bottom: 2px solid transparent; }
+nav.wiki a:hover { color: var(--ember); text-decoration: none; }
+nav.wiki a.on { color: var(--text); border-bottom-color: var(--ember); }
+nav.wiki a.home { color: var(--gold); font-weight: 600; }
+
+/* compact per-page hero band (index.html uses header.hero instead) */
+header.page { background: radial-gradient(ellipse 120% 150% at 50% -40%, #3a2418 0%, var(--bg) 70%); border-bottom: 1px solid var(--line); padding: 40px 24px 30px; text-align: center; }
+header.page h1 { font-size: 2rem; letter-spacing: .02em; }
+header.page h1 .flame { color: var(--ember); }
+header.page p.tag { color: var(--dim); font-size: 1.02rem; max-width: 760px; margin: 8px auto 0; }
+
+/* full hero, index only */
+header.hero { background: radial-gradient(ellipse 120% 90% at 50% -10%, #3a2418 0%, var(--bg) 62%); border-bottom: 1px solid var(--line); padding: 76px 24px 54px; text-align: center; }
+.hero h1 { font-size: 2.6rem; letter-spacing: .02em; }
+.hero h1 .flame { color: var(--ember); }
+.hero p.tag { color: var(--dim); font-size: 1.15rem; max-width: 720px; margin: 14px auto 0; }
+.hero .pillrow { margin-top: 28px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.pill { border: 1px solid var(--line); background: var(--card); color: var(--dim); border-radius: 999px; padding: 6px 16px; font-size: .85rem; }
+.pill b { color: var(--text); font-weight: 600; }
+
+main { max-width: 1080px; margin: 0 auto; padding: 24px; }
+section { margin: 52px 0; }
+h2 { font-size: 1.65rem; margin-bottom: 6px; padding-bottom: 8px; border-bottom: 2px solid; border-image: linear-gradient(90deg, var(--ember), transparent 70%) 1; }
+h2 .num { color: var(--ember); font-family: var(--mono); font-size: 1.05rem; margin-right: 10px; }
+h3 { margin: 26px 0 8px; font-size: 1.15rem; color: var(--gold); }
+h4 { font-size: 1rem; }
+p { margin: 10px 0; } p.dim { color: var(--dim); }
+ul, ol { margin: 10px 0 10px 24px; } li { margin: 4px 0; }
+.lead { color: var(--dim); font-size: 1.02rem; margin-bottom: 18px; }
+
+.grid { display: grid; gap: 14px; margin: 18px 0; }
+.grid.c2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.grid.c3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+.card h4 { margin-bottom: 6px; } .card p { color: var(--dim); font-size: .92rem; margin: 4px 0; }
+.card.accent-ember { border-top: 3px solid var(--ember); } .card.accent-gold { border-top: 3px solid var(--gold); }
+.card.accent-cyan { border-top: 3px solid var(--cyan); } .card.accent-green { border-top: 3px solid var(--green); }
+.card.accent-red { border-top: 3px solid var(--red); } .card.accent-violet { border-top: 3px solid var(--violet); }
+a.card { display: block; color: var(--text); } a.card:hover { text-decoration: none; border-color: var(--ember); }
+
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: .92rem; }
+th, td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+th { background: var(--bg2); color: var(--gold); font-weight: 600; }
+td code { white-space: nowrap; }
+.scrollx { overflow-x: auto; }
+
+.note { border-left: 3px solid var(--cyan); background: rgba(77,210,240,.06); border-radius: 0 8px 8px 0; padding: 12px 16px; margin: 14px 0; font-size: .94rem; }
+.warn { border-left-color: var(--gold); background: rgba(255,199,64,.06); }
+.rule { border-left-color: var(--ember); background: rgba(255,107,41,.06); }
+
+/* real screenshots of the real tools */
+figure.shot { margin: 18px 0; }
+figure.shot img { width: 100%; display: block; border: 1px solid var(--line); border-radius: 10px; }
+figure.shot figcaption { color: var(--dim); font-size: .86rem; margin-top: 8px; padding-left: 4px; }
+figure.shot figcaption b { color: var(--text); }
+.shotgrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); margin: 18px 0; }
+.shotgrid figure.shot { margin: 0; }
+
+.kbd { font-family: var(--mono); background: var(--bg2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 7px; font-size: .82em; color: var(--text); white-space: nowrap; }
+
+/* recipe steps */
+ol.steps { counter-reset: step; margin-left: 0; list-style: none; }
+ol.steps > li { counter-increment: step; position: relative; padding: 8px 0 8px 46px; margin: 0; }
+ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 8px; width: 30px; height: 30px; border-radius: 50%; background: var(--card); border: 1px solid var(--ember); color: var(--ember); font-family: var(--mono); font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: .9rem; }
+
+/* "keep this page honest" footer box — every domain page ends with one */
+.honest { border: 1px dashed var(--gold); border-radius: 10px; background: rgba(255,199,64,.04); padding: 16px 20px; margin: 44px 0 10px; font-size: .92rem; }
+.honest h4 { color: var(--gold); margin-bottom: 8px; }
+.honest h4::before { content: "⚖ "; }
+.honest ul { margin-bottom: 0; } .honest li { color: var(--dim); } .honest code { white-space: nowrap; }
+
+/* prev / next page links */
+.pn { display: flex; justify-content: space-between; gap: 14px; margin: 30px 0 10px; flex-wrap: wrap; }
+.pn a { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 10px 18px; color: var(--text); }
+.pn a:hover { border-color: var(--ember); text-decoration: none; }
+.pn a span { display: block; color: var(--dim); font-size: .78rem; }
+
+footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 28px 24px 46px; text-align: center; color: var(--dim); font-size: .85rem; }

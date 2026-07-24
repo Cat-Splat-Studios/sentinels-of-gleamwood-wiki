@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sentinels of Gleamwood — The Living Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home on" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="hero">
+  <h1>Sentinels of <span class="flame">Gleamwood</span></h1>
+  <p class="tag">The living wiki — the one-stop source of truth for authoring <b>anything</b> in this game: content, mechanics, levels, audio, and the seams to add what doesn't exist yet. Local, offline, in the repo. If it isn't here, it isn't authored.</p>
+  <div class="pillrow">
+    <span class="pill"><b>Unity 6</b> · 2D URP · controller-first</span>
+    <span class="pill">run-based roguelite · <b>Dead Cells × Hades</b></span>
+    <span class="pill"><b>350</b> playmode tests · 2 content validators</span>
+    <span class="pill">data-first · <b>INI-configurable</b></span>
+    <span class="pill">screenshots captured from the <b>real tools</b></span>
+  </div>
+</header>
+
+<main>
+
+<section id="philosophy">
+  <h2><span class="num">01</span>Three rules make everything editable</h2>
+  <p class="lead">Every system in Gleamwood follows the same contract, which is why a designer can reach any knob — and why this wiki can promise to cover all of them:</p>
+  <div class="grid c3">
+    <div class="card accent-ember">
+      <h4>Data first</h4>
+      <p>Behavior lives on <b>ScriptableObject definitions</b> — weapons, enemies, bosses, biomes, statuses, player settings. Code reads data; shared definitions are never mutated at runtime (upgrades ride per-run instances).</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Declare, don't wire</h4>
+      <p>Attributes grow the tools: <code>[WorkbenchCategory]</code> adds a workbench tab, <code>[Tunable]</code> adds an F1 slider, <code>[AnimatorStateRef]</code> turns a string into a validated dropdown. Nobody maintains glue.</p>
+    </div>
+    <div class="card accent-green">
+      <h4>Validated, loudly</h4>
+      <p>Two validators + a 350-test suite gate every change. Unreachable rooms and unregistered weapons are <b>build-breaking errors</b>; missing animation states flag red in the Workbench and every <code>[AnimatorStateRef]</code> dropdown.</p>
+    </div>
+  </div>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">02</span>The content pipeline at a glance</h2>
+  <p class="lead">One flow, whatever you're making. Text config feeds assets, assets feed tools, validators guard the door.</p>
+  <div class="scrollx">
+  <svg viewBox="0 0 980 190" xmlns="http://www.w3.org/2000/svg" style="min-width:820px; width:100%;">
+    <defs>
+      <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#8b91a0"/></marker>
+    </defs>
+    <g font-family="Segoe UI, sans-serif" font-size="13">
+      <rect x="10" y="55" width="150" height="72" rx="9" fill="#22262e" stroke="#ffc740"/>
+      <text x="85" y="84" fill="#ffc740" text-anchor="middle" font-weight="600">GameContent.ini</text>
+      <text x="85" y="104" fill="#8b91a0" text-anchor="middle" font-size="11">biomes · bosses · run web</text>
+
+      <rect x="220" y="55" width="160" height="72" rx="9" fill="#22262e" stroke="#ff6b29"/>
+      <text x="300" y="84" fill="#ff6b29" text-anchor="middle" font-weight="600">SO Definitions</text>
+      <text x="300" y="104" fill="#8b91a0" text-anchor="middle" font-size="11">weapons · enemies · levels</text>
+
+      <rect x="440" y="12" width="170" height="62" rx="9" fill="#22262e" stroke="#4dd2f0"/>
+      <text x="525" y="38" fill="#4dd2f0" text-anchor="middle" font-weight="600">Content Workbench</text>
+      <text x="525" y="56" fill="#8b91a0" text-anchor="middle" font-size="11">author every live field</text>
+
+      <rect x="440" y="108" width="170" height="62" rx="9" fill="#22262e" stroke="#b78aff"/>
+      <text x="525" y="134" fill="#b78aff" text-anchor="middle" font-weight="600">Scene Tuners</text>
+      <text x="525" y="152" fill="#8b91a0" text-anchor="middle" font-size="11">drag hitboxes &amp; ranges</text>
+
+      <rect x="670" y="55" width="140" height="72" rx="9" fill="#22262e" stroke="#73d95c"/>
+      <text x="740" y="80" fill="#73d95c" text-anchor="middle" font-weight="600">Validators</text>
+      <text x="740" y="98" fill="#8b91a0" text-anchor="middle" font-size="11">content · reachability</text>
+      <text x="740" y="114" fill="#8b91a0" text-anchor="middle" font-size="11">350-test suite</text>
+
+      <rect x="860" y="55" width="110" height="72" rx="9" fill="#2a1c14" stroke="#ff6b29" stroke-width="2"/>
+      <text x="915" y="95" fill="#ff6b29" text-anchor="middle" font-weight="700" font-size="15">THE RUN</text>
+
+      <line x1="160" y1="91" x2="216" y2="91" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="380" y1="80" x2="436" y2="48" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="380" y1="103" x2="436" y2="132" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="610" y1="48" x2="666" y2="80" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="610" y1="132" x2="666" y2="103" stroke="#8b91a0" marker-end="url(#arr)"/>
+      <line x1="810" y1="91" x2="856" y2="91" stroke="#8b91a0" marker-end="url(#arr)"/>
+    </g>
+  </svg>
+  </div>
+  <div class="note">Know which of the <b>three tuning surfaces</b> you're on: the <b>Workbench</b> edits authored assets (the source of truth), <b>scene tuners</b> edit those same assets visually, and the <b>F1 panel</b> edits the <i>runtime copy</i> in play mode — transcribe keepers back into the asset.</div>
+</section>
+
+<section id="pages">
+  <h2><span class="num">03</span>The wiki</h2>
+  <p class="lead">Thirteen pages, each the complete story of one surface — with screenshots captured from the actual editor, field-by-field references, and step-by-step recipes. New here? Start with Quick Start.</p>
+  <div class="grid c3">
+    <a class="card accent-ember" href="quickstart.html"><h4>Quick Start ⚡</h4><p>Start here. Two hands-on guides: add content to a system that exists, and add a whole new mechanic — plus the one rule that keeps additions from breaking what already works.</p></a>
+    <a class="card accent-cyan" href="workbench.html"><h4>The Content Workbench</h4><p>The designer cockpit: every category, every sub-tab, the save model, the validated dropdowns — a full guided tour in real screenshots.</p></a>
+    <a class="card accent-ember" href="combat.html"><h4>Combat &amp; Weapons</h4><p>Melee swings, ranged, dash attacks, statuses — every live field and the scene tuners that let you drag hitboxes instead of typing them.</p></a>
+    <a class="card accent-red" href="enemies.html"><h4>Enemies &amp; Bosses</h4><p>The zero-code enemy recipe: FSM states as data, phases, super armor, reactions — and the full boss staging kit with doors, music and dialogue.</p></a>
+    <a class="card accent-cyan" href="dialogue.html"><h4>Dialogue</h4><p>One asset per speaker, beats keyed by trigger, encounters that rotate per save — plus an honest list of which triggers actually fire in game today.</p></a>
+    <a class="card accent-gold" href="levels.html"><h4>Levels &amp; Rooms</h4><p>Rooms from tiles to sockets, the reachability guarantee, biome definitions, and the run web with branches and side dungeons.</p></a>
+    <a class="card accent-green" href="progression.html"><h4>Progression &amp; Economy</h4><p>The Hades-style spine: earn Gleam per run, bank it on death or victory, spend it on permanent kit upgrades and weapon unlocks — every number, seam and save field.</p></a>
+    <a class="card accent-violet" href="audio.html"><h4>Audio</h4><p>Three buses, the music director's scene rules, the boss-intro hush, every SFX seam, and the house sound style.</p></a>
+    <a class="card accent-green" href="tuning.html"><h4>Live Tuning &amp; INI</h4><p>The self-building F1 panel, [Tunable], settings, and the INI story: GameContent.ini today, content packs tomorrow.</p></a>
+    <a class="card accent-ember" href="modding.html"><h4>Modding</h4><p>The player-facing story: a text file beside the game retunes or adds enemies, weapons and dialogue — no Unity. Five-minute quick start over three deep dives.</p></a>
+    <a class="card accent-cyan" href="extending.html"><h4>Extending the Game</h4><p>The seam catalog — every extension point in one place — plus meta-recipes for adding new seams when the catalog isn't enough.</p></a>
+    <a class="card accent-violet" href="framework.html"><h4>Framework &amp; Architecture</h4><p>The state machine under everything, boot/services, signals — condensed, with pointers to the full API references.</p></a>
+    <a class="card accent-red" href="publishing.html"><h4>Publishing to Steam</h4><p>Build → upload → set live, in three commands. Who can play an unreleased app, the pinned-executable contract, and the traps that make a good build refuse to start.</p></a>
+    <a class="card accent-gold" href="maintaining.html"><h4>Maintaining this Wiki</h4><p>The dummy-proof part: the update matrix, one-click screenshot regeneration, and how to add pages. Read once, never wonder again.</p></a>
+  </div>
+</section>
+
+<section id="reference">
+  <h2><span class="num">04</span>Reference card</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>I want to…</th><th>Go to</th><th>Wiki page</th></tr>
+    <tr><td>Edit any weapon / enemy / boss / biome / status / player setting</td><td><span class="kbd">Gleamwood ▸ Content Workbench</span></td><td><a href="workbench.html">Workbench</a></td></tr>
+    <tr><td>Write what a boss says (and when)</td><td><span class="kbd">Content Workbench ▸ Dialogue</span></td><td><a href="dialogue.html">Dialogue</a></td></tr>
+    <tr><td>Tune hitboxes and ranges visually</td><td>Select the Player or an enemy prefab in a scene</td><td><a href="combat.html">Combat</a></td></tr>
+    <tr><td>Tune movement live while playing</td><td><span class="kbd">F1</span> (then transcribe keepers to PlayerSettings)</td><td><a href="tuning.html">Tuning</a></td></tr>
+    <tr><td>Author the run web / biomes / bosses in text</td><td><code>GameContent.ini</code> → <span class="kbd">Gleamwood ▸ Import Content INI</span></td><td><a href="tuning.html">Tuning</a></td></tr>
+    <tr><td>Tune Gleam rewards, add a kit upgrade, or lock a weapon</td><td><code>Economy.cs</code> · <code>MetaUpgradeCatalog.asset</code> · a <code>WeaponDefinition</code>'s lock</td><td><a href="progression.html">Progression</a></td></tr>
+    <tr><td>Verify content before calling it done</td><td><span class="kbd">Gleamwood ▸ Validate Run Content</span></td><td><a href="levels.html">Levels</a></td></tr>
+    <tr><td>Check room traversability alone</td><td><span class="kbd">Gleamwood ▸ Audit Room Reachability</span></td><td><a href="levels.html">Levels</a></td></tr>
+    <tr><td>Run the test suite</td><td><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code></td><td><a href="maintaining.html">Maintaining</a></td></tr>
+    <tr><td>Rebuild / re-route the audio mixer</td><td><span class="kbd">Gleamwood ▸ Audio ▸ Create + Route Game Audio Mixer</span></td><td><a href="audio.html">Audio</a></td></tr>
+    <tr><td>Re-capture the wiki screenshots</td><td><span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span></td><td><a href="maintaining.html">Maintaining</a></td></tr>
+    <tr><td>Add a whole new mechanic / content type</td><td>One SO class + attributes</td><td><a href="extending.html">Extending</a></td></tr>
+  </table>
+  </div>
+  <p class="dim">Deep markdown companions: <code>Documentation/GAME_TUNING_GUIDE.md</code> · <code>ROOM_STANDARDS.md</code> · <code>ENEMY_ATTACKS_AND_SUPER_ARMOR.md</code> · <code>HANDOVER.md</code> (repo root) — the <a href="maintaining.html">documentation map</a> says which is the source of record for what.</p>
+</section>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · <code>Documentation/Wiki/index.html</code><br>
+  Clone the repo, open this file, and you have the whole authoring manual — offline, no server, no accounts.
+</footer>
+
+</body>
+</html>

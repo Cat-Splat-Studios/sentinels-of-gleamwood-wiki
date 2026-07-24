@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publishing to Steam — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a class="on" href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Publishing to <span class="flame">Steam</span></h1>
+  <p class="tag">Getting a build into your testers' hands: the build → upload → set-live loop, who can actually play an unreleased app, and the handful of contracts that quietly break everything if you change them.</p>
+</header>
+
+<main>
+
+<section id="ids">
+  <h2><span class="num">01</span>The constants</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>Thing</th><th>Value</th><th>Why it matters</th></tr>
+    <tr><td>App ID</td><td><code>2953370</code></td><td>The product on Steam.</td></tr>
+    <tr><td>Windows depot</td><td><code>2953371</code></td><td>The file container testers download.</td></tr>
+    <tr><td>Executable</td><td><code>sentinels-of-gleamwood.exe</code></td><td>Pinned. This exact string is the Steamworks launch option — §3.</td></tr>
+    <tr><td>Identity</td><td><code>Cat Splat Studios</code> / <code>sentinels-of-gleamwood</code></td><td>Saves live at <code>AppData/LocalLow/Cat Splat Studios/sentinels-of-gleamwood</code> — §3.</td></tr>
+    <tr><td>Tooling</td><td><code>Tools/Steam/</code></td><td>Build scripts + the upload script. <code>Tools/Steam/README.md</code> is the terse runbook.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="loop">
+  <h2><span class="num">02</span>The loop — build, upload, set live</h2>
+  <p class="lead">Three steps, every time. The upload script only <b>finds</b> a build; it never runs Unity, so you always build first.</p>
+  <ol class="steps">
+    <li><b>Build.</b> <span class="kbd">Build System ▸ Build Manager</span> → build Windows. Output lands at <code>Builds/StandaloneWindows64/&lt;version&gt;/sentinels-of-gleamwood.exe</code>. The version bumps automatically.</li>
+    <li><b>Upload.</b> From <code>Tools/Steam</code>: <code>.\Upload-SteamBuild.ps1 -Preview</code> first (uploads nothing, writes a manifest so you can check the file list), then <code>.\Upload-SteamBuild.ps1</code> for real.</li>
+    <li><b>Set it live.</b> Partner site → <b>SteamPipe ▸ Builds</b> → find the build → <i>Preview Change</i> → <b>Set Build Live Now</b>. Immediate; no review, no store approval.</li>
+  </ol>
+
+<pre><code><span class="c"># one time per machine - your Steam LOGIN NAME, not email, not password</span>
+setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW terminal</span>
+
+<span class="k">cd</span> Tools\Steam
+.\Upload-SteamBuild.ps1 -Preview             <span class="c"># dry run</span>
+.\Upload-SteamBuild.ps1                      <span class="c"># real upload</span></code></pre>
+
+  <p>The script picks the newest folder under <code>Builds/StandaloneWindows64</code> that contains an exe, stamps the git sha into the build description (so a build in SteamPipe traces back to a commit), excludes Unity's <code>_BurstDebugInformation_DoNotShip</code> folder and <code>.pdb</code>s, and hands off to steamcmd.</p>
+
+  <div class="rule note"><b>Credentials never touch this repo.</b> The script passes only your account <i>name</i>. steamcmd prompts for the password and Steam Guard itself, then caches the session locally — that cache is what stops it asking every time. Never put a Steam password in the repo, an environment variable, or the command line.</div>
+
+  <h3>steamcmd — no PATH setup</h3>
+  <p>Unzip the Steamworks SDK into <code>Tools/Steam/sdk/</code> and you're done. Resolution order is <code>-SteamCmd</code> → <code>$env:STEAMCMD</code> → <b>anything named <code>steamcmd.exe</code> at any depth under <code>Tools/Steam/</code></b> → common install spots → PATH. If the zip extracts into its own versioned folder, that still works. When it can't find steamcmd, the error lists every location it checked.</p>
+  <p class="dim">The SDK folders are gitignored — it's large, and this repo already carries history bloat from vendored binaries. First steamcmd run self-updates for a minute or two; that's normal, not a hang.</p>
+</section>
+
+<section id="contracts">
+  <h2><span class="num">03</span>Two contracts you must not casually change</h2>
+  <div class="grid c2">
+    <div class="card accent-red">
+      <h4>The executable name is pinned</h4>
+      <p>Steam's launch option is a <b>fixed path</b> — it names one executable and never re-resolves it. Builds used to emit <code>{productName}-{version}.exe</code>, which would have broken the launch option on <i>every single upload</i> (installs fine, then refuses to start).</p>
+      <p>The version now lives in the build <b>folder</b>; the exe name is pinned by <code>BuildNaming.ExecutableName</code>. It is deliberately <b>not</b> derived from <code>productName</code>, so a marketing rename can't silently break shipping. Change it and you must update Steamworks ▸ General Installation Settings to match, on every OS.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Identity decides where saves live</h4>
+      <p>Unity derives <code>Application.persistentDataPath</code> from <code>companyName</code> / <code>productName</code>. Change either after testers have played and <b>every save is orphaned</b> — which matters here because suspended runs store <code>nodeId</code>s.</p>
+      <p>Settled as <code>Cat Splat Studios</code> / <code>sentinels-of-gleamwood</code>. Treat it as frozen. (Unity holds Project Settings in memory until you save the project — if an identity edit seems not to stick, save the project and re-check <code>ProjectSettings.asset</code>.)</p>
+    </div>
+  </div>
+</section>
+
+<section id="firsttime">
+  <h2><span class="num">04</span>One-time partner-site setup</h2>
+  <p class="lead">Skip these and the upload succeeds while the game still won't run — the most confusing possible failure.</p>
+  <ol class="steps">
+    <li><b>General Installation Settings</b> → add a launch option pointing at <code>sentinels-of-gleamwood.exe</code>. Without one, the build installs and does nothing.</li>
+    <li><b>SteamPipe ▸ Depots</b> → depot 2953371: OS <i>Windows</i>, Architecture <i>64-bit</i>, Language <i>[All]</i>.</li>
+    <li><b>Publish</b> the config. Depot and launch-option changes do nothing until published.</li>
+  </ol>
+  <div class="warn note"><b>"Unpublished" means two different things.</b> The <i>app's release state</i> can stay unreleased indefinitely — testers still play. But <i>unpublished config changes</i> (depots, launch options) are simply not in effect. Don't let the first word fool you into skipping the Publish step.</div>
+</section>
+
+<section id="access">
+  <h2><span class="num">05</span>Who can actually play it</h2>
+  <p class="lead">Uploading grants nobody anything. Access is a separate axis, and it is the step people forget.</p>
+  <p><b>For a small internal team: add them as Steamworks users.</b> Partner site → <i>Add/Manage Users</i>, invite by email; <code>Visibility Only</code> permission is enough. They land in the "Everyone" group, which auto-grants the <b>Developer Comp</b> package — and its contents are <i>"immediately playable regardless of the Release State."</i> No keys, no waiting. An admin approves the invite within 7 days; the tester should restart Steam afterwards.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Route</th><th>Use when</th><th>Catch</th></tr>
+    <tr><td><b>Steamworks users</b> (Dev Comp autogrant)</td><td>People you employ or trust — the default for internal testing</td><td>They gain partner-site visibility, so scope permissions deliberately</td></tr>
+    <tr><td><b>Release State Override keys</b></td><td>Testers outside the partner group; press</td><td>First-time developers must wait <b>three weeks after AppID creation</b> before requesting keys. Normal release keys do <i>not</i> unlock a pre-release app — you need the override type</td></tr>
+    <tr><td><b>Steam Playtest</b></td><td>Wide public playtests</td><td>Wrong tool internally: public-facing, no NDA, needs capsule art and a review pass — it announces the game exists</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>The gotcha that looks like a broken build:</b> adding a <b>new depot</b> does not automatically add it to the Developer Comp package, and testers just get download failures. Valve: <i>"Just because you have added a new depot… doesn't mean you can test it."</i> Verify with <code>Steam.exe -dev</code> → Console → <code>licenses_for_app 2953370</code>.</div>
+</section>
+
+<section id="branches">
+  <h2><span class="num">06</span>Branches — when you need a private track</h2>
+  <p class="lead">Pre-release you don't need one. The <code>default</code> branch is only reachable by accounts holding a license, and pre-release the only licenses that exist are the ones you handed out — so default <i>is</i> your private track.</p>
+  <p>Reach for a named branch when you want <b>hands-off uploads</b> (the script can publish automatically), a place to test something risky without disturbing the build the team is playing, or external testers who shouldn't see work-in-progress.</p>
+  <ol class="steps">
+    <li><b>SteamPipe ▸ Builds → Create new app branch.</b> Name it without spaces (e.g. <code>testing</code>); the description is what testers see.</li>
+    <li><b>Set the password before putting a build live on it</b> — otherwise the branch is briefly public. A passworded branch hides even its name.</li>
+    <li>Upload with <code>-Branch testing</code> and the script publishes automatically — no partner-site clicks.</li>
+    <li>Testers: right-click the game → <b>Properties ▸ Game Versions &amp; Betas</b> (older clients say just "Betas") → enter the access code → <i>Check Code</i> → pick the branch.</li>
+  </ol>
+  <div class="note"><b><code>SetLive</code> cannot target <code>default</code></b> — Valve blocks it deliberately, and the script refuses <code>-Branch default</code> too. Promoting to default is always a manual <i>Set Build Live Now</i>. Once the game is <b>released</b>, that also requires a Steam Mobile Authenticator or SMS confirmation, and it auto-updates every owner instantly — so before you flip to released, make sure default holds a build you'd be happy shipping.</div>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §2 in step).</li>
+    <li>The pinned exe: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildNaming.cs</code>, consumed by <code>BuildManagerWindow.GetBuildPath</code>. Identity lives in <code>ProjectSettings/ProjectSettings.asset</code>.</li>
+    <li>Valve's rules (branches, Dev Comp autogrant, key waiting periods) come from the Steamworks partner docs and <b>do drift</b> — re-verify against <code>partner.steamgames.com/doc/</code> before trusting a detail that costs you an afternoon.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="framework.html"><span>← Previous</span>Framework</a>
+  <a href="maintaining.html"><span>Next →</span>Maintaining</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>
