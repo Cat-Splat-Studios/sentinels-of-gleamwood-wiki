@@ -114,7 +114,7 @@ RESULT: OK — 1 declared, 1 retuned.
     <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every tier at once, weighted to dominate, for proving the whole stack survived a change. Not fun to play — built to be obvious in a screenshot.</td></tr>
   </table>
   </div>
-  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them. In the editor, mod loading is behind <span class="kbd">Gleamwood ▸ Enemies / Weapons ▸ Simulate Mod Overrides</span> so authoring is never quietly beaten by a stray folder; in a shipped build it is always on.</p>
+  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them. In the editor, mod loading is behind <span class="kbd">Gleamwood ▸ Enemies / Weapons ▸ Simulate Mod Overrides</span> so authoring is never quietly beaten by a stray folder; in a shipped build it is always on.</p>
 </section>
 
 <section id="player">
@@ -134,7 +134,7 @@ clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <spa
 
   <div class="note"><b>Connecting the halves: pivot takes <code>x,y</code>.</b> The torso must sit exactly where it meets the hips, and on a sheet whose halves are not perfectly centred that is not the middle of the frame. <code>pivot = 2</code> sets the vertical only (x stays centred); <code>pivot = 38,52</code> sets both — <b>x pixels from the left, y pixels from the bottom</b>. Measure the connection point off your art. The same two-number form works for enemy art (<a href="enemies.html#art">§12</a>) and anywhere a sheet's centre is not its anchor.</div>
 
-  <p>You never start from a blank page here either: a build ships <code>Mods/Player.templates/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 9 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
+  <p>You never start from a blank page here either: a build ships <code>Mods/Player.templates/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 9 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
 
   <div class="scrollx">
   <table>

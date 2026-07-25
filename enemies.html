@@ -384,7 +384,7 @@ StrikeRange = <span class="a">2.5</span></code></pre>
   </table>
   </div>
 
-  <p>The templates are <b>generated, not authored</b> — there is no hand-written source for them, and generating from the live definitions means a modder gets the real numbers, correctly spelled and correctly addressed, and the template can never drift from the build because it <i>is</i> the build. Every line ships commented out, so copying a whole file and changing one number is safe. Regenerate them any time with <span class="kbd">Gleamwood ▸ Enemies ▸ Generate Mod Templates</span> (writes to <code>Documentation/EnemyTemplates/</code>, which is gitignored).</p>
+  <p>The templates are <b>generated, not authored</b> — there is no hand-written source for them, and generating from the live definitions means a modder gets the real numbers, correctly spelled and correctly addressed, and the template can never drift from the build because it <i>is</i> the build. Every line ships commented out, so copying a whole file and changing one number is safe. Regenerate them any time with <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Mod Templates</span> (writes to <code>Documentation/EnemyTemplates/</code>, which is gitignored).</p>
 
   <h3 id="newenemy">Declaring a new enemy</h3>
   <p>A mod can also add a creature, built by cloning a shipped one:</p>
@@ -417,7 +417,7 @@ SpeedMultiplier = <span class="a">1.6</span></code></pre>
 
   <div class="note"><b>Three ordering hazards live on this path</b>, each of which would produce an ordinary-looking donor enemy rather than an error. <code>Awake</code> consumes the definition once, so a variant is instantiated under an <b>inactive holder</b> — children of an inactive object skip <code>Awake</code> — bound there, then reparented. <code>OriginalColor</code> is cached in <code>Awake</code> too, so the skin goes on in that same window or an execution flash reverts the tint. And spawn tables are shared assets that the generator re-rolls resumed runs from, so variants join a <b>per-run copy</b>, appended in name order to keep a seed rolling the same enemies.</div>
 
-  <p class="dim">The catalog that makes <code>basedOn</code> resolvable is generated — <span class="kbd">Gleamwood ▸ Enemies ▸ Rebuild Catalog</span>. Enemy prefabs live outside <code>Resources</code>, so without it a running game has no handle to one except through a biome's spawn table.</p>
+  <p class="dim">The catalog that makes <code>basedOn</code> resolvable is generated — <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Rebuild Catalog</span>. Enemy prefabs live outside <code>Resources</code>, so without it a running game has no handle to one except through a biome's spawn table.</p>
 
   <h3>Clone-then-override</h3>
   <p><code>EnemyStateMachine.Awake</code> resolves its definition through a cache that returns the <b>shared asset untouched</b> when nothing overrides that enemy — so the default path allocates nothing and behaves exactly as before. When a mod does apply, the machine runs off a <b>deep clone</b> of the definition and every state config.</p>
