@@ -379,7 +379,7 @@ StatusesToApply = <span class="a">Ignite</span>          <span class="c">; resol
   </table>
   </div>
 
-  <p class="dim">Editor and build diverge exactly as enemies do: builds always load overrides; the editor only under <span class="kbd">Gleamwood ▸ Weapons ▸ Simulate Mod Overrides</span>. With no folder present the whole cost is one directory probe, and a boot report (<code>GLEAMWOOD WEAPON MOD REPORT</code> in the player log) says what loaded and what failed. See <a href="modding.html">Modding</a> for the player-facing quick start.</p>
+  <p class="dim">Editor and build diverge exactly as enemies do: builds always load overrides; the editor only under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Weapons</span>. With no folder present the whole cost is one directory probe, and a boot report (<code>GLEAMWOOD WEAPON MOD REPORT</code> in the player log) says what loaded and what failed. See <a href="modding.html">Modding</a> for the player-facing quick start.</p>
 </section>
 
 <div class="honest">
@@ -390,7 +390,7 @@ StatusesToApply = <span class="a">Ignite</span>          <span class="c">; resol
     <li>Statuses &amp; meters: <code>Assets/_Game/Combat/Code/CombatStatusDefinition.cs</code>, <code>CombatStatusManager.cs</code>; hit payload: <code>Assets/_Game/Systems/Interfaces/IHittable.cs</code>.</li>
     <li>Scene tuner: <code>Assets/_Game/Combat/Code/PlayerCombatRangePreview.cs</code> + <code>Assets/_Game/Editor/Combat/PlayerCombatRangePreviewEditor.cs</code>.</li>
     <li>Registration &amp; loot: <code>Assets/_Game/Systems/Run/Weapons/WeaponCatalog.cs</code>, <code>LootTable.cs</code>, <code>WeaponInstance.cs</code>, <code>WeaponPedestal.cs</code>, <code>UpgradeTrack.cs</code>.</li>
-    <li>Modding (§10): <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>; template build step <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>; verification pack <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code> + tests <code>Assets/Tests/PlayMode/WeaponModTests.cs</code>.</li>
+    <li>Modding (§10): <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>; template build step <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code> (on the shared <code>TemplateBuildStepBase.cs</code>; the field emitter with the weapon-only Vector2/status extras is <code>IniFieldWriter.cs</code>); verification pack <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code> + tests <code>Assets/Tests/PlayMode/WeaponModTests.cs</code>.</li>
     <li>Authoring surface: <code>Assets/_Game/Editor/ContentWorkbench.cs</code>, <code>Assets/_Game/Combat/Code/AnimatorStateRefAttribute.cs</code> + <code>Assets/_Game/Editor/Combat/AnimatorStateRefDrawer.cs</code>.</li>
     <li>Markdown companion: <a href="../GAME_TUNING_GUIDE.md"><code>Documentation/GAME_TUNING_GUIDE.md</code></a> — wiki and guide must agree.</li>
   </ul>

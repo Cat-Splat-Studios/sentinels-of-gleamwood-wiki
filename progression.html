@@ -197,7 +197,7 @@
   <p class="lead">The whole loop is headless-testable — no scenes needed — because <code>RunDirector</code> is a static service over a real save slot.</p>
   <ul>
     <li><b><code>RunDirectorTests</code></b> covers the earn/bank/survive-death currency math, suspend/resume of the in-run wallet, buying upgrades (debit, cap, unaffordable), the applied bonuses at <code>StartRun</code> and their reset at the hub, weapon unlock/hide, and the <code>LootTable</code> offer gate — locked out until bought, offered after.</li>
-    <li>Part of the <b>350-test</b> PlayMode suite. Run it with <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code>.</li>
+    <li>Part of the <b>359-test</b> PlayMode suite. Run it with <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code>.</li>
   </ul>
   <p class="dim">Source of record: <code>Assets/_Game/Systems/Run/</code> (<code>RunDirector</code>, <code>Economy</code>, <code>MetaUpgradeCatalog</code>, <code>ShopkeeperNPC</code>) and <code>Assets/_Game/Systems/Save/SaveSlot.cs</code> (<code>MetaProgress</code>). The shop UI is <code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>; weapon lock fields live on <code>Assets/_Game/Combat/Code/Definitions/WeaponDefinition.cs</code>.</p>
 </section>

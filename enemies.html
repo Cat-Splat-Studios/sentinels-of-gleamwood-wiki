@@ -437,7 +437,7 @@ SpeedMultiplier = <span class="a">1.6</span></code></pre>
 
   <div class="note"><b>Why this tier used to be the ceiling — and why it no longer is.</b> Letting text name states used to mean letting a mod name an <i>animator state that does not exist</i>, and that failed in the worst possible way: <code>Animator.Play()</code> silently no-opped, the state never completed, and the enemy froze permanently with no exception and no timeout. Enemies now play from a <a href="#graph">clip set</a> whose player <b>logs an error and reports the clip finished</b>, so an unknown name produces a loud message and a character that keeps moving. The freeze-forever failure no longer exists, which is what made <a href="#graph">§11</a> safe to build.</div>
 
-  <p class="dim">Editor and build diverge exactly as dialogue does: builds always load overrides; the editor only under <span class="kbd">Gleamwood ▸ Enemies ▸ Simulate Mod Overrides</span>, so authoring is never quietly beaten by a folder. With no folder present the whole cost is one directory probe.</p>
+  <p class="dim">Editor and build diverge exactly as dialogue does: builds always load overrides; the editor only under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies</span>, so authoring is never quietly beaten by a folder. With no folder present the whole cost is one directory probe.</p>
 </section>
 
 <section id="graph">

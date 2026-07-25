@@ -256,8 +256,8 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Action</th><th>Direction</th><th>Notes</th></tr>
-    <tr><td><span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Sync All From Files</b></td><td><code>.dlg</code> → asset</td><td><b>Refuses</b> a file with parse errors and changes nothing — a half-applied set is worse than a stale one.</td></tr>
-    <tr><td><span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Write All To Files</b></td><td>asset → <code>.dlg</code></td><td>Publishes what you authored in engine, so the text stays the shippable, moddable artifact.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Sync All From Files</b></td><td><code>.dlg</code> → asset</td><td><b>Refuses</b> a file with parse errors and changes nothing — a half-applied set is worse than a stale one.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Write All To Files</b></td><td>asset → <code>.dlg</code></td><td>Publishes what you authored in engine, so the text stays the shippable, moddable artifact.</td></tr>
     <tr><td>The tab's <b>Text file</b> row</td><td>either, per set</td><td>Shows <i>in sync</i> or <b>DIVERGED</b>, with both buttons and Reveal.</td></tr>
   </table>
   </div>
@@ -293,7 +293,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   </table>
   </div>
 
-  <div class="note"><b>Voice keys derive themselves.</b> A line with no <code>voice:</code> id looks itself up as <code>dialogueId:trigger:encounter:line</code> — the same shape as the rotation save key, so one convention covers both. A VO pipeline names files straight from the text and <b>a writer never types an id</b>; an explicit <code>voice:</code> exists only to share one take across lines. The tab shows each line's effective key and whether a take exists; <span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Report Voice Coverage</b> does the whole project. A missing take <i>reports</i> rather than blocking — unlike a bad pose id, "not recorded yet" is the normal state of a line mid-production.</div>
+  <div class="note"><b>Voice keys derive themselves.</b> A line with no <code>voice:</code> id looks itself up as <code>dialogueId:trigger:encounter:line</code> — the same shape as the rotation save key, so one convention covers both. A VO pipeline names files straight from the text and <b>a writer never types an id</b>; an explicit <code>voice:</code> exists only to share one take across lines. The tab shows each line's effective key and whether a take exists; <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Report Voice Coverage</b> does the whole project. A missing take <i>reports</i> rather than blocking — unlike a bad pose id, "not recorded yet" is the normal state of a line mid-production.</div>
 
   <p class="dim">Poses and voice are deliberately separate assets: a pose is the same drawing in every language, a take is not. Voice is the one piece of presentation that localises, so shipping a language is "add a VoiceBank" with nothing else touched.</p>
 
@@ -302,22 +302,22 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Tool</th><th>Makes</th><th>How</th></tr>
-    <tr><td><span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Generate Portraits</b></td><td>12 mood portraits → <code>PoseCatalog</code></td><td>Crops a bust from each boss's idle sprite and tints it per mood (neutral / angry / defeated), plus a black <code>mystery.shadow</code> silhouette. Deterministic; re-running overwrites the same files in place.</td></tr>
-    <tr><td><span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Generate Demo Audio</b></td><td>5 SFX stings baked into <code>VoiceBank</code> + a voice <b>manifest</b></td><td>Synthesizes each sting from one seeded RNG (deterministic); writes <code>voice_manifest.json</code> (<code>{stem, speaker, text}</code> from the real DialogueSets, so stems match the derived keys). <span class="kbd">Export Voice Manifest</span> rewrites just the manifest after a line edit.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Generate Portraits</b></td><td>12 mood portraits → <code>PoseCatalog</code></td><td>Crops a bust from each boss's idle sprite and tints it per mood (neutral / angry / defeated), plus a black <code>mystery.shadow</code> silhouette. Deterministic; re-running overwrites the same files in place.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Generate Demo Audio</b></td><td>5 SFX stings baked into <code>VoiceBank</code> + a voice <b>manifest</b></td><td>Synthesizes each sting from one seeded RNG (deterministic); writes <code>voice_manifest.json</code> (<code>{stem, speaker, text}</code> from the real DialogueSets, so stems match the derived keys). <span class="kbd">Export Voice Manifest</span> rewrites just the manifest after a line edit.</td></tr>
     <tr><td><code>generate_voice.ps1</code> <span class="dim">(Windows)</span></td><td>28 <b>spoken</b> VO takes → the pack</td><td>Reads the manifest and speaks each line with Windows TTS, a different voice per speaker. A machine voice, not a human actor — a stand-in for real recordings, replaceable one file at a time (§09).</td></tr>
-    <tr><td><span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Bake Voice Into Bank</b></td><td>the spoken takes → BASE game (<code>Assets/…/Voice/Lines</code> + <code>VoiceBank</code>)</td><td>Imports the pack's WAVs and wires each into the <code>VoiceBank</code> under its derived key, so the bosses speak in the base build with no mod folder. Run it after <code>generate_voice.ps1</code>.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Bake Voice Into Bank</b></td><td>the spoken takes → BASE game (<code>Assets/…/Voice/Lines</code> + <code>VoiceBank</code>)</td><td>Imports the pack's WAVs and wires each into the <code>VoiceBank</code> under its derived key, so the bosses speak in the base build with no mod folder. Run it after <code>generate_voice.ps1</code>.</td></tr>
   </table>
   </div>
   <p class="dim">Portraits and SFX are one-click and idempotent — not hand-placed pixels, so safe to regenerate after an art change. The full spoken VO now ships in the base game too (baked into the <code>VoiceBank</code>), still machine-voiced as a stand-in for real recordings. Regenerating it is a Windows-only three-step: export the manifest in Unity, run <code>generate_voice.ps1</code>, then <span class="kbd">Bake Voice Into Bank</span>.</p>
 
   <h3 id="preview">Previewing — see a beat without reaching the arena</h3>
-  <p>Poses, sides, shake/flash and sfx/voice only render at runtime, and the two wired beats sit at the far end of a boss fight. <span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> plays any beat and encounter of any set through the <b>real</b> <code>DialogueController</code> — the same render path the arena drives — in a throwaway play scene:</p>
+  <p>Poses, sides, shake/flash and sfx/voice only render at runtime, and the two wired beats sit at the far end of a boss fight. <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> plays any beat and encounter of any set through the <b>real</b> <code>DialogueController</code> — the same render path the arena drives — in a throwaway play scene:</p>
   <ul>
     <li>Pick a <code>DialogueSet</code> (or select one in the Project first), a <b>beat</b>, and an <b>encounter</b>, then press <b>Preview ▶</b>. From edit mode it enters play mode for you; already playing, it spawns immediately.</li>
     <li>Advance with <b>Submit</b> (Enter / controller A) exactly as in game, or with the on-screen buttons; <b>Auto-advance</b> plays it hands-free on a timer.</li>
     <li>It plays the chosen encounter <b>by index</b>, bypassing rotation — so you can see encounter 2 or 3 with no save slot, and you can preview an <b>unwired</b> beat (§03) that the game itself never fires.</li>
   </ul>
-  <div class="note"><b>Shipped content only, unless you opt in.</b> Poses and sfx resolve from the baked <code>PoseCatalog</code> / <code>VoiceBank</code>; a modded pose or a derived-key voice take previews only with <span class="kbd">Gleamwood ▸ Dialogue ▸ Simulate Mod Overrides</span> on (§09).</div>
+  <div class="note"><b>Shipped content only, unless you opt in.</b> Poses and sfx resolve from the baked <code>PoseCatalog</code> / <code>VoiceBank</code>; a modded pose or a derived-key voice take previews only with <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span> on (§09).</div>
 
   <h3>Wiring a beat that isn't wired yet</h3>
   <p>To make <code>Defeat</code> (or any unwired trigger) actually speak, add a call site. That is the entire job — no registration, no editor change, no new type:</p>
@@ -403,7 +403,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   </div>
   <p class="dim">That mapping is lossy — a key genuinely containing a dot could collide with one containing a colon — which is why the loader logs what each file claimed. A silent mis-binding would be far worse than a noisy one.</p>
 
-  <div class="note"><b>A ready-made example.</b> The base game already speaks these lines (baked into the <code>VoiceBank</code>), so <code>Documentation/ExampleDialogueVoice/</code> is what an audio mod that <b>overrides</b> them looks like: drop its <code>Mods/</code> folder beside the build and each line's file — named by the derived-key convention above (<code>krag-emberfall.Intro.0.0.wav</code>) — wins over the baked take. Swap any file for a real recording to re-voice one line. Regenerate with <code>generate_voice.ps1</code> after <span class="kbd">Gleamwood ▸ Dialogue ▸ Tools…</span> → <b>Export Voice Manifest</b>.</div>
+  <div class="note"><b>A ready-made example.</b> The base game already speaks these lines (baked into the <code>VoiceBank</code>), so <code>Documentation/ExampleDialogueVoice/</code> is what an audio mod that <b>overrides</b> them looks like: drop its <code>Mods/</code> folder beside the build and each line's file — named by the derived-key convention above (<code>krag-emberfall.Intro.0.0.wav</code>) — wins over the baked take. Swap any file for a real recording to re-voice one line. Regenerate with <code>generate_voice.ps1</code> after <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Export Voice Manifest</b>.</div>
 
   <div class="note warn"><b>WAV only, and deliberately.</b> Unity's runtime audio loader is asynchronous, and dialogue must never wait on a decode when a boss opens its mouth — an async path would also mean the first play of a modded line silently falls back to nothing. So <code>WavReader</code> decodes inline: PCM 8/16/24/32-bit and 32-bit float. <code>.ogg</code> and <code>.mp3</code> are skipped with a log line saying why. Images are PNG/JPG, loaded point-filtered so a mod is not blurred by bilinear filtering. Both are capped at 16 MB per file — a mod folder is untrusted input, so an oversized "portrait" is a logged complaint rather than an out-of-memory crash.</div>
 
@@ -415,7 +415,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <h3>Editor and build diverge, deliberately</h3>
   <div class="grid c2">
     <div class="card accent-cyan"><h4>In a build</h4><p>Overrides load at boot, always. With no <code>Mods/Dialogue/</code> folder the entire cost is one directory probe — no parsing, no allocation, behaviour identical to before the feature existed.</p></div>
-    <div class="card accent-ember"><h4>In the editor</h4><p>Overrides do <b>not</b> load. The editor's contract is the explicit sync, and a folder quietly beating the asset you are looking at is exactly the surprise that costs an afternoon. Opt in with <span class="kbd">Gleamwood ▸ Dialogue ▸ Simulate Mod Overrides</span> to test the mod path itself.</p></div>
+    <div class="card accent-ember"><h4>In the editor</h4><p>Overrides do <b>not</b> load. The editor's contract is the explicit sync, and a folder quietly beating the asset you are looking at is exactly the surprise that costs an afternoon. Opt in with <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span> to test the mod path itself.</p></div>
   </div>
 
   <div class="note"><b>An override never touches the asset.</b> It lives in a runtime table that <code>DialogueSet.ActiveGroups</code> reads in front of its own fields — the project's no-runtime-SO-mutation rule. So an override cannot leak into the editor, cannot survive into another run, and cannot corrupt shipped content.</div>

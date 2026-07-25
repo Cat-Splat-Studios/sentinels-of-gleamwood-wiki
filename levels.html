@@ -199,6 +199,7 @@
     <tr><td rowspan="2">Rest</td><td>No <code>layoutPrefab</code> · layout missing <code>EntryPoint</code> child, <code>RestSite</code> or <code>RestExit</code> · any <code>InteractZone</code> without an InputReader binding ("it can never be used" — soft-bricks heal/upgrade)</td><td>Error</td></tr>
     <tr><td><code>forgeEnabled</code> but no <code>ForgeSite</code> in the layout</td><td>Warn</td></tr>
     <tr><td rowspan="2">Spawn tables</td><td>Entry without a prefab · prefab without root <code>EnemyStateMachine</code> · no <code>EnemyDefinition</code> assigned · <b>magic FSM states</b>: <code>MaxHealth &gt; 0</code> but no state named <code>"dead"</code> ("it can never die")</td><td>Error</td></tr>
+    <tr><td>INI drift</td><td>A <code>GameContent.ini</code> section has <b>DIVERGED</b> from its asset(s) ("Import Content INI would overwrite") · no <code>GameContent.ini</code> at all — which side is authoritative is the author's call, so drift never fails a build</td><td>Warning</td></tr>
     <tr><td>Empty table · no <code>"hitstun"</code> state ("normal hits won't stagger it")</td><td>Warn</td></tr>
   </table>
   </div>

@@ -114,7 +114,7 @@ RESULT: OK — 1 declared, 1 retuned.
     <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every tier at once, weighted to dominate, for proving the whole stack survived a change. Not fun to play — built to be obvious in a screenshot.</td></tr>
   </table>
   </div>
-  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them. In the editor, mod loading is behind <span class="kbd">Gleamwood ▸ Enemies / Weapons ▸ Simulate Mod Overrides</span> so authoring is never quietly beaten by a stray folder; in a shipped build it is always on.</p>
+  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them. In the editor, mod loading is behind <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies / Weapons</span> so authoring is never quietly beaten by a stray folder; in a shipped build it is always on.</p>
 </section>
 
 <section id="player">
@@ -144,7 +144,7 @@ clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <spa
     <tr><td>changing what the player DOES</td><td>Not possible: a skin only supplies frames. Moves, timing and states are compiled. This is the deliberate ceiling — <code>Mods/Player/</code> has no behaviour tier the way enemies have <code>[Graph:]</code>.</td></tr>
   </table>
   </div>
-  <p class="dim">Editor and build diverge like the rest: builds always load; the editor only under <span class="kbd">Gleamwood ▸ Player ▸ Simulate Mod Overrides</span>. The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log says what loaded.</p>
+  <p class="dim">Editor and build diverge like the rest: builds always load; the editor only under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span>. The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log says what loaded.</p>
 </section>
 
 <div class="honest">
@@ -154,7 +154,7 @@ clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <spa
     <li>Weapon loaders: <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>.</li>
     <li>Enemy loaders: <code>Assets/_Game/Enemies/Code/Definitions/EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>; dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code>.</li>
     <li>Player skin (§06): <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code>, hook in <code>Assets/_Game/Player/Code/Animation/PlayerAnimation.cs</code> (Awake); the shared clip reader is <code>ModClipSetBuilder.ParseClipLine</code>.</li>
-    <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
+    <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code> — all on the shared <code>TemplateBuildStepBase.cs</code> shell, with the field emitter in <code>IniFieldWriter.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
   </ul>
 </div>
 
