@@ -65,7 +65,7 @@
     <tr><td><b>Boss</b></td><td>A <code>BossDefinition</code> pointing <code>bossPrefab</code> at the prefab, and a biome's <code>boss</code> slot. Bosses do <b>not</b> use spawn tables</td><td><a href="enemies.html">Enemies &amp; Bosses</a></td></tr>
     <tr><td><b>Biome / level</b></td><td>A <code>RunPlan</code> node (so a run visits it). Its room pool + spawn table + boss are fields on the biome</td><td><a href="levels.html">Levels &amp; Rooms</a></td></tr>
     <tr><td><b>Status effect</b></td><td>Nothing to register — reference it from a weapon's <i>Statuses On Hit</i> or an execution's <code>RequiredStatus</code></td><td><a href="extending.html">Extending</a></td></tr>
-    <tr><td><b>Room</b></td><td>The biome's <code>roomPool</code>. Must pass the reachability audit (every socket reaches every other)</td><td><a href="levels.html">Levels &amp; Rooms</a></td></tr>
+    <tr><td><b>Room</b></td><td>The biome's <code>roomPool</code>. Must pass the reachability audit (no door you can arrive through is a dead end; doors you cannot <i>reach</i> are fine — they are progression markers)</td><td><a href="levels.html">Levels &amp; Rooms</a></td></tr>
   </table>
   </div>
   <div class="note rule"><b>Prefer INI for the world layer.</b> Biomes, bosses and the run web can be authored as text in <code>Assets/_Game/Content/GameContent.ini</code> and imported with <span class="kbd">Gleamwood ▸ Import Content INI</span> (the validator runs automatically). See <a href="tuning.html">Tuning &amp; INI</a> for the full key reference.</div>

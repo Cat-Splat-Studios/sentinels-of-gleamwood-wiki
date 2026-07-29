@@ -153,12 +153,22 @@
   <table>
     <tr><th>Place</th><th>What it decides</th><th>What breaks if you miss it</th></tr>
     <tr><td><code>RoomReachability.Metrics.For</code></td><td>What the movement model believes the flag lets you do.</td><td>Every room's requirement re-derives to the wrong answer.</td></tr>
-    <tr><td><code>RoomAbilityAnalysis.Offerable</code> (already generic)</td><td>Which rooms the generator will offer.</td><td>Rooms nobody can clear get placed — a soft-lock.</td></tr>
+    <tr><td>Nothing — the generators are generic</td><td>Which <i>connections</i> the layout routes through a room.</td><td>Handled for you: the spine is gated per pair, side paths are not.</td></tr>
     <tr><td><code>PlayerContext</code> + the FSM edges</td><td>Whether the player can actually perform it.</td><td>Rooms are withheld from a player who could have cleared them all along — the gate becomes a tax rather than a progression.</td></tr>
   </table>
   </div>
-  <div class="rule note"><b>A room's requirement is DERIVED, never authored.</b> <code>RoomTemplate.RequiredAbilities</code> is a lazily-computed property, not a field: it asks <code>RoomAbilityAnalysis.Require</code> which is the weakest ability set that still connects every door. It was a field once, stamped by <code>RoomBuilder</code> — which only runs for <i>text</i> rooms, so every shipped prefab room silently kept the permissive default and the gate applied to campaign content and nothing else. A property cannot be forgotten the way a stamp can. A room that <i>no</i> set can clear reads as needing nothing: it is broken rather than gated, and withholding it from everyone would hide the fault instead of surfacing it.</div>
-  <div class="note"><b>The guarantee.</b> The path to the exit must be clearable with what the player holds on arrival. Every shipped biome is checked across every ability set and every seed: the pool always forms a chain and the exit is always reachable. Optional branches are gated too for now — the design allows them to demand more eventually, but that needs a way to <i>show</i> a locked door, which does not exist yet.</div>
+  <div class="rule note"><b>The gate is on the JOURNEY, not the room.</b> What must be clearable is the path the layout actually routes — entry to exit. Every other door is a <i>marker</i>: the ledge you can see and cannot take yet, which is the thing that tells a player an upgrade would open something. <code>RoomTemplate.RequiredForPath(from, to)</code> answers per ordered pair, so one room can be a stroll along its floor and a wall-jump climb to its ceiling at the same time.
+  <br><br>Judging a room as a whole is not a stricter version of this — it is a different and wrong question, and it shipped. A lattice junction whose left-to-right corridor is a plain walk was condemned for its ceiling door, the pool lost the only shape that closes a loop, the generator returned nothing, and the player dropped into an empty scene.</div>
+  <div class="scrollx">
+  <table>
+    <tr><th>Path</th><th>Gated?</th><th>Why</th></tr>
+    <tr><td><b>Entry → Exit</b> (the spine)</td><td>Yes</td><td>The run has to be finishable with what they hold on arrival.</td></tr>
+    <tr><td><b>Lattice arc</b> (the upper band)</td><td>No</td><td>It is a <i>loop</i> — both risers land back on the spine — so removing every arc edge still leaves Entry connected to Exit. An unclimbable riser costs nothing.</td></tr>
+    <tr><td><b>Branches</b> (side dungeons)</td><td>No</td><td>Nothing behind one is needed to finish. A wing you cannot climb today is a reason to come back.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>The one refusal that remains.</b> <code>RoomBuilder</code> rejects a room only when a door you can <i>arrive through</i> reaches no other door — judged with every ability unlocked, so it means broken geometry rather than a locked one. A door you merely cannot <i>reach</i> builds fine and is reported as a note, naming which journey is locked behind what.</div>
+  <div class="note"><b>And the backstop.</b> If a gated pool still cannot build, the gate is <i>lifted</i> for that biome with a loud error rather than returning no layout — a room the player may struggle with beats an empty scene. It should never fire; if it does, the pool is missing a bare-handed room for some shape the topology needs on the main path.</div>
 </section>
 
 <section id="hub">
