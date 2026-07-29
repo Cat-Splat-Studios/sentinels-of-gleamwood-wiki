@@ -251,6 +251,7 @@
 <section id="web">
   <h2><span class="num">07</span>The run web — nodes, branches, bypass doors, junctions</h2>
   <p class="lead">The run is a tiered DAG authored in data. <code>RunPlan.asset</code> lives at <code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code> (loaded via <code>Resources.Load</code>); a straight chain of single-next nodes <b>is</b> the old linear run. All variety is data — the web is authored in <code>GameContent.ini</code> <code>[Node:…]</code> sections, never Build Settings.</p>
+  <div class="note"><b>Players can re-web it too.</b> A campaign installed under <code>Mods/</code> writes the same <code>[Plan]</code>/<code>[Node:]</code>/<code>[Biome:]</code> blocks in <code>Campaign/RunWeb.ini</code> and gets its own web at runtime — see <a href="modding.html#campaign">Modding §07</a>. The key names here and there are deliberately the same, so <b>a key added to one is owed to the other</b>. Two consequences for you: names must resolve through <code>RunContentCatalog</code> (a build has no <code>AssetDatabase</code>), and changing the shipped web's SHAPE drops every suspended run in every existing save.</div>
 
   <h3>RunPlan &amp; BiomeNode fields</h3>
   <div class="scrollx">
@@ -418,6 +419,7 @@ outroText = <span class="s">The furnace... grows... cold.</span></code></pre>
     <li>The web: <code>Assets/_Game/Systems/Run/RunPlan.cs</code>, <code>RunDirector.cs</code>, <code>BiomeDefinition.cs</code>, <code>RestDefinition.cs</code>, and the shipped <code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code>.</li>
     <li>Spawning: <code>Assets/_Game/Systems/Run/ProcGen/EnemySpawnTable.cs</code>, <code>EnemySpawnMarker.cs</code>, <code>EnemySpawner.cs</code>.</li>
     <li>INI: <code>Assets/_Game/Editor/ContentIniImporter.cs</code> + <code>Assets/_Game/Content/GameContent.ini</code> (§10's key lists are the importer's).</li>
+    <li>The same web from a mod, at runtime: <code>Assets/_Game/Systems/Modding/CampaignPlan.cs</code>, <code>Assets/_Game/Systems/Run/RunContentCatalog.cs</code> (name→asset without <code>AssetDatabase</code>), <code>RunWebValidator.cs</code>, <code>RunWebFingerprint.cs</code>.</li>
     <li>Minimap: <code>Assets/_Game/UI/Code/HUD/MinimapController.cs</code> + <code>Assets/_Game/UI/Panels/Minimap/Minimap.uxml</code>.</li>
   </ul>
 </div>

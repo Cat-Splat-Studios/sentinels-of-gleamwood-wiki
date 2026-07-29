@@ -35,25 +35,30 @@
 
 <section id="what">
   <h2><span class="num">01</span>What you can change</h2>
-  <p class="lead">Gleamwood reads a <code>Mods/</code> folder that sits <b>beside the game's executable</b>. Anything in it is applied to a private copy each run, so your changes never touch the game's own files — delete the folder and everything is back to stock.</p>
+  <p class="lead">A mod is a <b>campaign</b>: one folder under <code>Mods/</code>, beside the game's executable, with a <code>mod.ini</code> naming it. You pick a campaign when you start a new save, and <b>that save is bound to it</b> — exactly one campaign is ever active, so a campaign can never reach a vanilla save or anybody else's. Everything is applied to a private copy each run, so your files never touch the game's own — delete the folder and that save reports the campaign as missing rather than quietly becoming something else.</p>
+  <pre><code>Mods/
+  <span class="a">my-campaign</span>/          <span class="c">&lt;-- the folder name IS the campaign id</span>
+    mod.ini            <span class="c">&lt;-- without this the folder is ignored entirely</span>
+    Enemies/  Weapons/  Dialogue/  Player/</code></pre>
   <div class="scrollx">
   <table>
-    <tr><th>Folder</th><th>What a text file there can do</th><th>Deep dive</th></tr>
-    <tr><td><code>Mods/Enemies/</code></td><td>Retune any enemy's numbers, add a new creature from an existing one, or write a whole new behaviour graph — and bring your own artwork.</td><td><a href="enemies.html#modding">Enemies §10–12</a></td></tr>
-    <tr><td><code>Mods/Weapons/</code></td><td>Retune any weapon (per combo swing and the dash), or add a new weapon from an existing one — its own name, stats, icon and on-hit status.</td><td><a href="combat.html#modding">Combat §10</a></td></tr>
-    <tr><td><code>Mods/Dialogue/</code></td><td>Rewrite any character's lines, or translate the whole game, in the plain-text <code>.dlg</code> format.</td><td><a href="dialogue.html#modding">Dialogue §09</a></td></tr>
-    <tr><td><code>Mods/Player/</code></td><td>Reskin the player — your own sprite sheet over the game's moves. A <code>[PlayerSkin]</code> file names the clips (with a <code>slot</code> for the split-body run). Changes how the player LOOKS, never what it DOES.</td><td><a href="#player">§06 below</a></td></tr>
+    <tr><th>Folder inside your campaign</th><th>What a text file there can do</th><th>Deep dive</th></tr>
+    <tr><td><code>Enemies/</code></td><td>Retune any enemy's numbers, add a new creature from an existing one, or write a whole new behaviour graph — and bring your own artwork.</td><td><a href="enemies.html#modding">Enemies §10–12</a></td></tr>
+    <tr><td><code>Weapons/</code></td><td>Retune any weapon (per combo swing and the dash), or add a new weapon from an existing one — its own name, stats, icon and on-hit status.</td><td><a href="combat.html#modding">Combat §10</a></td></tr>
+    <tr><td><code>Dialogue/</code></td><td>Rewrite any character's lines, or translate the whole game, in the plain-text <code>.dlg</code> format.</td><td><a href="dialogue.html#modding">Dialogue §09</a></td></tr>
+    <tr><td><code>Player/</code></td><td>Reskin the player — your own sprite sheet over the game's moves. A <code>[PlayerSkin]</code> file names the clips (with a <code>slot</code> for the split-body run). Changes how the player LOOKS, never what it DOES.</td><td><a href="#player">§06 below</a></td></tr>
+    <tr><td><code>Campaign/</code></td><td><b>Re-web the run itself.</b> Which biomes you visit, in what order, which branch, where it ends — plus retunes of any biome along the way. This is what makes a campaign a campaign rather than a pile of retunes.</td><td><a href="#campaign">§07 below</a></td></tr>
   </table>
   </div>
-  <div class="note rule"><b>You never start from a blank page.</b> Every build ships a <code>.templates</code> folder next to each mod folder, holding one file per shipped enemy, weapon and conversation — with the <b>real current values</b>, correctly spelled, <b>every line commented out</b>. Copy a template, delete the <code>;</code> in front of one line, change the number. That is the whole workflow.</div>
+  <div class="note rule"><b>You never start from a blank page.</b> Every build ships a complete campaign you can copy: <code>Mods/_Templates/example-campaign/</code>, holding a <code>mod.ini</code> plus one file per shipped enemy, weapon and conversation — with the <b>real current values</b>, correctly spelled, <b>every line commented out</b>. Copy that folder up into <code>Mods/</code>, rename it, delete the <code>;</code> in front of one line, change the number. That is the whole workflow. (It sits inert where it ships — the game only looks one level under <code>Mods/</code> for a <code>mod.ini</code>, so the template never shows up as a playable campaign.)</div>
 </section>
 
 <section id="first">
   <h2><span class="num">02</span>Your first mod, in five minutes</h2>
   <p class="lead">Make the starting sword hit like a truck. Nothing to install.</p>
   <ol class="steps">
-    <li><b>Find the game folder.</b> The one with <code>Gleamwood.exe</code> in it. Next to it is a <code>Mods/</code> folder (a build creates it empty) and a <code>Mods/Weapons.templates/</code> folder full of examples.</li>
-    <li><b>Copy a template.</b> Copy <code>Mods/Weapons.templates/DefaultSword.ini</code> into <code>Mods/Weapons/</code>. It is all comments, so on its own it changes nothing.</li>
+    <li><b>Find the game folder.</b> The one with <code>Gleamwood.exe</code> in it. Next to it is a <code>Mods/</code> folder holding <code>_Templates/example-campaign/</code>.</li>
+    <li><b>Copy the example campaign.</b> Copy <code>Mods/_Templates/example-campaign/</code> up one level into <code>Mods/</code> and rename it to <code>my-campaign</code>. Open its <code>mod.ini</code> and change <code>name</code> to whatever you want to see on the menu. Everything else is comments, so on its own it changes nothing.</li>
     <li><b>Uncomment one line.</b> Open your copy and find <code>; BaseDamage = 1</code>. Delete the <code>;</code> and the space, and change the number:
 <pre><code><span class="c">; before</span>
 ; BaseDamage = <span class="a">1</span>
@@ -68,16 +73,19 @@ BaseDamage = <span class="a">25</span></code></pre></li>
 <section id="new">
   <h2><span class="num">03</span>Adding something new, not just retuning</h2>
   <p class="lead">The same files can DECLARE new content, built from an existing thing so it always works. A new weapon is the same <i>type</i> as its donor (a bow stays a bow); a new enemy borrows a shipped creature's animations, so it can never get stuck on a move that was never drawn.</p>
-<pre><code><span class="c">; Mods/Weapons/frostbite.ini  — a new bow that sets things alight</span>
+<pre><code><span class="c">; my-campaign/Weapons/frostbite.ini  — a new bow that sets things alight</span>
 [<span class="a">NewWeapon:Frostbite</span>]
 basedOn         = <span class="a">DefaultBow</span>
-weight          = <span class="a">1</span>              <span class="c">; how often a pedestal offers it</span>
+<span class="c">; how often a pedestal offers it</span>
+weight          = <span class="a">1</span>
 WeaponName      = <span class="a">Frostbite</span>
 BaseDamage      = <span class="a">14</span>
-StatusesToApply = <span class="a">Ignite</span>         <span class="c">; a status, named</span>
-icon            = <span class="a">frostbite.png</span>  <span class="c">; optional, from Mods/Weapons/sprites/</span>
+<span class="c">; a status, named</span>
+StatusesToApply = <span class="a">Ignite</span>
+<span class="c">; optional, from Weapons/sprites/</span>
+icon            = <span class="a">frostbite.png</span>
 
-<span class="c">; Mods/Enemies/glass_hound.ini  — a fast, fragile hound</span>
+<span class="c">; my-campaign/Enemies/glass_hound.ini  — a fast, fragile hound</span>
 [<span class="a">NewEnemy:GlassHound</span>]
 basedOn   = <span class="a">CinderHoundDef</span>
 MaxHealth = <span class="a">3</span>
@@ -86,14 +94,16 @@ weight    = <span class="a">2</span>
 
 [<span class="a">NewEnemy:GlassHound.state:chase</span>]
 SpeedMultiplier = <span class="a">1.8</span></code></pre>
+  <div class="note warn"><b>Notes go on their own line — never after a value.</b> In <code>Weapons/</code>, <code>Enemies/</code> and <code>Player/</code> a <code>;</code> only opens a comment at the <b>start</b> of a line. Written after a value it stays <i>part of</i> that value, which then fails to read and silently leaves the shipped number in place — the line looks perfectly reasonable and does nothing. (<code>mod.ini</code> and <code>Campaign/</code> use a different reader that <em>does</em> strip a trailing <code>;</code>, which is exactly how the habit gets picked up — see <a href="#campaign">§07</a>, where it is legal.) The rule is deliberate: a value may legitimately open with <code>#</code>, like <code>tint = #88ddff</code>. When a value will not read, the log now names this as the likely cause.</div>
+
   <div class="note"><b>A declared enemy can go further than a variant.</b> The <code>[Graph:]</code> tier lets an enemy declare its own states, transitions and attack chains in text — a genuinely new behaviour, still safe because it plays from a clip set that reports an unknown animation loudly instead of freezing. Weapons have no state machine, so they stop at "new weapon". Both deep dives cover the full grammar: <a href="enemies.html#graph">Enemies §11</a>, <a href="combat.html#newweapon">Combat §10</a>.</div>
 </section>
 
 <section id="report">
   <h2><span class="num">04</span>Did it work? Read the report</h2>
-  <p class="lead">Every launch, before the first room, the game writes a short block per mod folder to its log — silent only when you have no <code>Mods/</code> folder at all. It is the fastest answer to "is my mod loading".</p>
+  <p class="lead">Every launch, before the first room, the game writes a short block per domain to its log — silent when you are playing vanilla, since there is then nothing to report. It is the fastest answer to "is my campaign loading".</p>
 <pre><code>======== GLEAMWOOD WEAPON MOD REPORT ========
-folder : ...\Gleamwood\Mods\Weapons
+folder : ...\Gleamwood\Mods\ashfall\Weapons
 enabled: True   (build — always on)
 retuned weapons : 1   [Weapon:...]
 declared weapons: 1   [NewWeapon:...]
@@ -110,7 +120,7 @@ RESULT: OK — 1 declared, 1 retuned.
   <div class="scrollx">
   <table>
     <tr><th>Location</th><th>What it is</th></tr>
-    <tr><td><code>Documentation/ExampleMod/</code></td><td><b>A tasteful example.</b> A couple of retunes, a glass-cannon hound and a status-bow, each heavily commented to read as a tutorial. Copy its <code>Mods/</code> folder next to the game.</td></tr>
+    <tr><td><code>Documentation/ExampleMod/</code></td><td><b>A tasteful example.</b> A couple of retunes, a glass-cannon hound, a status-bow and an icy player skin, each heavily commented to read as a tutorial. Copy its <code>Mods/</code> folder next to the game, then pick <b>Example Campaign</b> when you start a new save.</td></tr>
     <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every tier at once, weighted to dominate, for proving the whole stack survived a change. Not fun to play — built to be obvious in a screenshot.</td></tr>
   </table>
   </div>
@@ -120,31 +130,101 @@ RESULT: OK — 1 declared, 1 retuned.
 <section id="player">
   <h2><span class="num">06</span>Reskin the player</h2>
   <p class="lead">The player is moddable in exactly one way: its <b>look</b>. Drop your own sprite sheet over the game's moves. The states, the timing, the feel are the game's and stay compiled — a skin can only change which pixels play, which is the whole reason the player was moved onto the same clip system the enemies use.</p>
-<pre><code><span class="c">; Mods/Player/emberknight.ini</span>
+<pre><code><span class="c">; my-campaign/Player/emberknight.ini</span>
 [<span class="a">PlayerSkin</span>]
-sprite = <span class="a">emberknight.png</span> 12x8    <span class="c">; your sheet in Mods/Player/sprites/, cols x rows</span>
-pivot  = <span class="a">2</span>                     <span class="c">; feet 2px above a cell's bottom</span>
-clips  = <span class="a">extend</span>                <span class="c">; keep the shipped art for clips you don't redraw</span>
+<span class="c">; your sheet in Player/sprites/, cols x rows</span>
+sprite = <span class="a">emberknight.png</span> 12x8
+<span class="c">; feet 2px above a cell's bottom</span>
+pivot  = <span class="a">2</span>
+<span class="c">; keep the shipped art for clips you don't redraw</span>
+clips  = <span class="a">extend</span>
 
 clip Idle      = <span class="a">0-18</span>  fps <span class="a">25</span>
-clip Run       = <span class="a">24-35</span> fps <span class="a">18</span> <span class="t">slot Legs</span>       <span class="c">; the legs, during the split run</span>
-clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <span class="t">slot UpperBody</span> pivot <span class="a">38,52</span>  <span class="c">; torso, pinned where it meets the legs</span></code></pre>
+<span class="c">; the legs, during the split run</span>
+clip Run       = <span class="a">24-35</span> fps <span class="a">18</span> <span class="t">slot Legs</span>
+<span class="c">; torso, pinned where it meets the legs</span>
+clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <span class="t">slot UpperBody</span> pivot <span class="a">38,52</span></code></pre>
 
   <div class="note rule"><b>The one player-specific thing is <code>slot</code>.</b> While running, the legs and torso animate on two separate renderers, so some clips carry <code>slot Legs</code> or <code>slot UpperBody</code>. Keep those exactly as the template lists them, or a frame shows on the wrong half of the body. Everything without a slot is the whole body on the main renderer. (That the grammar even <i>has</i> a slot is why enemies and the player share one reader — enemies simply never write it.)</div>
 
   <div class="note"><b>Connecting the halves: pivot takes <code>x,y</code>.</b> The torso must sit exactly where it meets the hips, and on a sheet whose halves are not perfectly centred that is not the middle of the frame. <code>pivot = 2</code> sets the vertical only (x stays centred); <code>pivot = 38,52</code> sets both — <b>x pixels from the left, y pixels from the bottom</b>. Measure the connection point off your art. The same two-number form works for enemy art (<a href="enemies.html#art">§12</a>) and anywhere a sheet's centre is not its anchor.</div>
 
-  <p>You never start from a blank page here either: a build ships <code>Mods/Player.templates/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 9 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
+  <p>You never start from a blank page here either: a build ships <code>Mods/_Templates/example-campaign/Player/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 9 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
 
   <div class="scrollx">
   <table>
     <tr><th>Refused / noted</th><th>Because</th></tr>
     <tr><td>a clip name the player doesn't have</td><td>Reported and ignored — a typo can't blank the character. The template lists the real names so there's no guessing.</td></tr>
     <tr><td>a frame past the sheet</td><td>The whole skin is refused (not partly applied) and the player keeps its shipped art — a half-loaded skin is worse than none.</td></tr>
-    <tr><td>changing what the player DOES</td><td>Not possible: a skin only supplies frames. Moves, timing and states are compiled. This is the deliberate ceiling — <code>Mods/Player/</code> has no behaviour tier the way enemies have <code>[Graph:]</code>.</td></tr>
+    <tr><td>changing what the player DOES</td><td>Not possible: a skin only supplies frames. Moves, timing and states are compiled. This is the deliberate ceiling — <code>Player/</code> has no behaviour tier the way enemies have <code>[Graph:]</code>.</td></tr>
   </table>
   </div>
   <p class="dim">Editor and build diverge like the rest: builds always load; the editor only under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span>. The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log says what loaded.</p>
+</section>
+
+<section id="campaign">
+  <h2><span class="num">07</span>Re-web the run</h2>
+  <p class="lead">Everything above changes what is <i>in</i> the game. This changes the <b>shape of a run</b>: which biomes, in what order, where it branches and where it ends. Files go in <code>Campaign/</code> inside your campaign folder, and the key names are the same ones the game's own content file uses — a block copied out of <code>GameContent.ini</code> means the same thing here.</p>
+
+<pre><code><span class="c">; my-campaign/Campaign/web.ini</span>
+<span class="s">[Plan]</span>
+entry       = <span class="a">ash-start</span>      <span class="c">; where every run begins</span>
+
+<span class="s">[Node:ash-start]</span>
+biome = <span class="a">emberfall</span>            <span class="c">; a biome ID (not an asset name)</span>
+rest  = <span class="a">Rest_EmberTrail</span>      <span class="c">; the rest after it — the path doors live there</span>
+next  = <span class="a">ash-mid, ash-side</span>    <span class="c">; a two-way fork</span>
+
+<span class="s">[Node:ash-mid]</span>
+biome = <span class="a">cinderway</span>
+rest  = <span class="a">Rest_EmberTrail</span>
+next  = <span class="a">ash-end</span>
+
+<span class="s">[Node:ash-side]</span>
+biome = <span class="a">ashen-vaults</span>
+next  = <span class="a">-</span>                    <span class="c">; '-' = FINAL. Clearing it ends the run.</span>
+
+<span class="s">[Node:ash-end]</span>
+biome = <span class="a">pyre-crown</span>
+next  = <span class="a">-</span>
+
+<span class="c">; Retune a biome for THIS campaign only. The shipped one is never touched.</span>
+<span class="s">[Biome:emberfall]</span>
+displayName = <span class="a">Ashfall Reach</span>
+minRooms    = <span class="a">8</span>
+boss        = <span class="a">Boss_Krag</span></code></pre>
+
+  <div class="note rule"><b>The web is replaced, not merged.</b> The moment your campaign writes one <code>[Node:]</code> block, it owns the whole web — the shipped one is set aside entirely. A graph cannot be half-merged without inventing an order nobody wrote, so it is all or nothing.</div>
+
+  <div class="note"><b>Trailing comments are fine <i>here</i>.</b> Notice the <code>; where every run begins</code> notes sitting after values above — legal in <code>Campaign/</code> and in <code>mod.ini</code>, because these files share the reader the game's own <code>GameContent.ini</code> uses, and it strips a mid-line <code>;</code>. That reader is the exception: in <code>Weapons/</code>, <code>Enemies/</code> and <code>Player/</code> the same habit silently voids the value (<a href="#new">§03</a>). If you only remember one rule, put every note on its own line and it is always correct.</div>
+
+  <h3>What you can name</h3>
+  <p>Names resolve against the shipped game's content. You can recombine any of it; you cannot invent new assets from a text file.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Where</th><th>What it takes</th></tr>
+    <tr><td><code>entry</code></td><td><code>[Plan]</code></td><td>A node id from your own web. If it does not resolve, the campaign is refused.</td></tr>
+    <tr><td><code>gradeRubric</code></td><td><code>[Plan]</code></td><td>A rubric asset name, or <code>-</code> for no grade.</td></tr>
+    <tr><td><code>biome</code></td><td><code>[Node:]</code></td><td>A biome <b>ID</b> — <code>emberfall</code>, not <code>Biome_Emberfall</code>.</td></tr>
+    <tr><td><code>rest</code></td><td><code>[Node:]</code></td><td>A rest asset name, or <code>-</code>. Required on any node with exits.</td></tr>
+    <tr><td><code>next</code></td><td><code>[Node:]</code></td><td>Comma-separated node ids — one door each — or <code>-</code> for a final node.</td></tr>
+    <tr><td><code>bypass</code></td><td><code>[Node:]</code></td><td>The skip-the-boss route. Needs the biome's calm room switched on.</td></tr>
+    <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — numbers and text</b></td></tr>
+    <tr><td><code>displayName</code> <code>chapter</code> <code>objective</code></td><td><code>[Biome:]</code></td><td>What the intro card says.</td></tr>
+    <tr><td><code>minRooms</code> <code>maxRooms</code> <code>verticalJogChance</code> <code>branchChance</code> <code>maxBranches</code> <code>branchRunMax</code> <code>calmRoomBeforeBoss</code></td><td><code>[Biome:]</code></td><td>How the layout generates.</td></tr>
+    <tr><td><code>statScalePerStage</code></td><td><code>[Biome:]</code></td><td>How much tougher enemies get with depth.</td></tr>
+    <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — shipped assets, by name</b></td></tr>
+    <tr><td><code>boss</code> <code>spawnTable</code> <code>musicTrack</code> <code>roomPool</code> <code>socketCap</code> <code>standInLayout</code> <code>branchTreasure</code></td><td><code>[Biome:]</code></td><td>Any shipped asset of that kind. <code>roomPool</code> takes a comma list. <code>-</code> clears it.</td></tr>
+  </table>
+  </div>
+
+  <div class="note"><b>Enemies you declared still work here.</b> A campaign that adds a creature in <code>Enemies/</code> and retunes a biome in <code>Campaign/</code> gets both: the retuned biome still rolls from the same spawn table, so your new enemy appears in it with nothing extra to wire.</div>
+
+  <h3>When it is wrong, it refuses</h3>
+  <p>A name that does not resolve, or a web that cannot be played — an entry pointing nowhere, a door to a node that does not exist, a node nothing can reach, a loop with no ending — <b>refuses the campaign</b>. The slot will not start, and it tells you which line is at fault. That is deliberate: dropping you into a half-broken run would waste more of your time than refusing to start does.</p>
+  <p>A <i>value</i> that will not parse is different: <code>minRooms = eight</code> is reported and the shipped number is kept, so one typo does not silently flatten a biome to zero rooms. Same for a key nobody recognises — reported, and the rest of the file still applies.</p>
+
+  <div class="note rule"><b>Editing a web under your own save.</b> A suspended run remembers the shape of the web it was suspended on. Change that shape — add a node, rewire a door, point a node at a different biome — and that run is reported as unresumable rather than quietly continuing into a different game. <b>The save survives</b>; only the run in progress is lost, and you start a fresh one on the new web. Retuning a biome's numbers does not do this, so you can tune room counts all day with a run in flight.</div>
 </section>
 
 <div class="honest">
@@ -153,6 +233,7 @@ clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <spa
     <li>This page is the player-facing umbrella over three deep dives — it must agree with all three: <a href="enemies.html#modding">enemies.html §10–12</a>, <a href="combat.html#modding">combat.html §10</a>, <a href="dialogue.html#modding">dialogue.html §09</a>.</li>
     <li>Weapon loaders: <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>.</li>
     <li>Enemy loaders: <code>Assets/_Game/Enemies/Code/Definitions/EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>; dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code>.</li>
+    <li>Campaign / run web (§07): <code>Assets/_Game/Systems/Modding/CampaignPlan.cs</code> (parse + the two-level clone), <code>Assets/_Game/Systems/Run/RunContentCatalog.cs</code> (name→asset at runtime; rebuild with <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Rebuild Content Catalog</span>), <code>RunWebValidator.cs</code> (is the web playable), <code>RunWebFingerprint.cs</code> (the suspended-run guard). The key names must stay in step with <code>Assets/_Game/Editor/ContentIniImporter.cs</code> — that parity is the whole copy-paste promise.</li>
     <li>Player skin (§06): <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code>, hook in <code>Assets/_Game/Player/Code/Animation/PlayerAnimation.cs</code> (Awake); the shared clip reader is <code>ModClipSetBuilder.ParseClipLine</code>.</li>
     <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code> — all on the shared <code>TemplateBuildStepBase.cs</code> shell, with the field emitter in <code>IniFieldWriter.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
   </ul>

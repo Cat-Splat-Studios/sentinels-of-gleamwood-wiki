@@ -366,7 +366,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   <h2><span class="num">10</span>Retuning enemies from text (modding)</h2>
   <p class="lead">A player with the Steam build and no Unity can change any enemy's numbers. Same story as <a href="dialogue.html#modding">dialogue modding</a>, same folder convention — a file beside the executable, matched by name, applied to a private copy.</p>
 
-<pre><code><span class="c">; Mods/Enemies/tougher_krag.ini</span>
+<pre><code><span class="c">; my-campaign/Enemies/tougher_krag.ini</span>
 [<span class="a">Enemy:KragDef</span>]
 MaxHealth = <span class="a">99</span>
 
@@ -379,8 +379,8 @@ StrikeRange = <span class="a">2.5</span></code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Folder (beside the executable)</th><th>What it is</th></tr>
-    <tr><td><code>Mods/Enemies/*.ini</code></td><td><b>Loaded.</b> Overrides any enemy whose definition name matches a section.</td></tr>
-    <tr><td><code>Mods/Enemies.templates/</code></td><td><b>Not loaded.</b> One generated <code>.ini</code> per shipped enemy carrying its <b>current</b> values, every line commented out, plus a plain-English README.</td></tr>
+    <tr><td><code>&lt;campaign&gt;/Enemies/*.ini</code></td><td><b>Loaded.</b> Overrides any enemy whose definition name matches a section.</td></tr>
+    <tr><td><code>Mods/_Templates/example-campaign/Enemies/</code></td><td><b>Not loaded.</b> One generated <code>.ini</code> per shipped enemy carrying its <b>current</b> values, every line commented out, plus a plain-English README.</td></tr>
   </table>
   </div>
 
@@ -389,12 +389,15 @@ StrikeRange = <span class="a">2.5</span></code></pre>
   <h3 id="newenemy">Declaring a new enemy</h3>
   <p>A mod can also add a creature, built by cloning a shipped one:</p>
 <pre><code>[<span class="a">NewEnemy:AshHound</span>]
-basedOn   = <span class="a">CinderHoundDef</span>   <span class="c">; whose graph and prefab to reuse</span>
+<span class="c">; whose graph and prefab to reuse</span>
+basedOn   = <span class="a">CinderHoundDef</span>
 MaxHealth = <span class="a">8</span>
 tint      = <span class="a">#FF8844</span>
 scale     = <span class="a">1.25</span>
-sprite    = <span class="a">ash_hound.png</span>    <span class="c">; from Mods/Enemies/sprites/</span>
-weight    = <span class="a">2</span>                <span class="c">; spawn weight; 0 = declared but never rolled</span>
+<span class="c">; from Enemies/sprites/</span>
+sprite    = <span class="a">ash_hound.png</span>
+<span class="c">; spawn weight; 0 = declared but never rolled</span>
+weight    = <span class="a">2</span>
 minStage  = <span class="a">0</span>
 
 [<span class="a">NewEnemy:AshHound.state:chase</span>]
@@ -442,12 +445,14 @@ SpeedMultiplier = <span class="a">1.6</span></code></pre>
 
 <section id="graph">
   <h2><span class="num">11</span>Declaring a whole state graph from text</h2>
-  <p class="lead">The tier above lends you a shipped creature's brain and lets you change its numbers. This one lets you write the brain: states, what type each is, what it plays, and every edge between them — in the same <code>Mods/Enemies/*.ini</code>, with no Unity.</p>
+  <p class="lead">The tier above lends you a shipped creature's brain and lets you change its numbers. This one lets you write the brain: states, what type each is, what it plays, and every edge between them — in the same <code>&lt;campaign&gt;/Enemies/*.ini</code>, with no Unity.</p>
 
-<pre><code><span class="c">; Mods/Enemies/greater_krag.ini</span>
+<pre><code><span class="c">; my-campaign/Enemies/greater_krag.ini</span>
 [<span class="a">Graph:GreaterKrag</span>]
-basedOn = <span class="a">KragDef</span>          <span class="c">; prefab, animations and executions come from here</span>
-states  = <span class="a">replace</span>         <span class="c">; my graph, whole (default is `extend`)</span>
+<span class="c">; prefab, animations and executions come from here</span>
+basedOn = <span class="a">KragDef</span>
+<span class="c">; my graph, whole (default is `extend`)</span>
+states  = <span class="a">replace</span>
 health  = <span class="a">60</span>
 
 <span class="a">state</span> idle <span class="a">is</span> Idle
@@ -464,14 +469,18 @@ health  = <span class="a">60</span>
 
 <span class="a">state</span> attackLunge <span class="a">is</span> AttackPhase
   clip = <span class="a">imp-lunge</span>
-  <span class="a">-&gt;</span> chase <span class="a">when</span> distance &gt; 6      <span class="c">; interrupt: -&gt; beats then in the same frame</span>
+  <span class="c">; interrupt: -&gt; beats then in the same frame</span>
+  <span class="a">-&gt;</span> chase <span class="a">when</span> distance &gt; 6
   <span class="a">then</span> attackStrike <span class="a">at</span> 0.95
 
 <span class="c">; The enraged lane is six lines, because copyOf inherits the phase</span>
 <span class="c">; and only the one scalar that differs is written out.</span>
 <span class="a">state</span> attackCharge2 <span class="a">is</span> AttackPhase
   copyOf = <span class="a">attackCharge</span>
-  <span class="a">then</span> attackLunge <span class="a">at</span> 0.60      <span class="c">; 0.95 ordinary. THIS is the enrage tell.</span></code></pre>
+  <span class="c">; 0.95 ordinary. THIS is the enrage tell.</span>
+  <span class="a">then</span> attackLunge <span class="a">at</span> 0.60</code></pre>
+
+  <div class="note warn"><b>Every note goes on its own line — a <code>;</code> after a value is not a comment here.</b> It only opens one at the <b>start</b> of a line; written after content it stays part of the value. That is quiet on a number (the field keeps its shipped value) but LOUD in its consequences on the two shapes above: <code>states = replace  ; my graph</code> is not <code>replace</code>, so the creature silently <i>extends</i> its donor's graph instead of replacing it, and <code>then attackLunge at 0.60  ; the tell</code> fails to read <code>0.60</code> and the chain is <b>dropped entirely</b> — the state simply never chains. Both look completely reasonable in the file. (<code>mod.ini</code> and <code>Campaign/</code> use a different reader that <em>does</em> strip trailing comments, which is where the habit comes from — see <a href="modding.html#campaign">Modding §07</a>.)</div>
 
   <h3>Four line shapes, and only four</h3>
   <div class="scrollx">
@@ -547,21 +556,26 @@ health  = <span class="a">60</span>
 
 <section id="art">
   <h2><span class="num">12</span>Bringing your own art</h2>
-  <p class="lead">The tier above lets a creature <i>behave</i> like something new while still looking like its donor. This one gives it your pixels: a sheet in <code>Mods/Enemies/sprites/</code>, cut into animations by <code>clip</code> lines, in the same block as everything else.</p>
+  <p class="lead">The tier above lets a creature <i>behave</i> like something new while still looking like its donor. This one gives it your pixels: a sheet in <code>&lt;campaign&gt;/Enemies/sprites/</code>, cut into animations by <code>clip</code> lines, in the same block as everything else.</p>
 
-<pre><code><span class="c">; Mods/Enemies/ashhound.ini</span>
+<pre><code><span class="c">; my-campaign/Enemies/ashhound.ini</span>
 [<span class="a">Graph:AshHound</span>]
 basedOn = <span class="a">CinderHoundDef</span>
 states  = <span class="a">replace</span>
-clips   = <span class="a">replace</span>          <span class="c">; ...and it uses ONLY the art below</span>
-sprite  = <span class="a">ash_hound.png 8x3</span>   <span class="c">; 8 columns, 3 rows of equal cells</span>
-pivot   = <span class="a">2</span>                <span class="c">; his paws sit 2px above the bottom of a cell</span>
+<span class="c">; ...and it uses ONLY the art below</span>
+clips   = <span class="a">replace</span>
+<span class="c">; 8 columns, 3 rows of equal cells</span>
+sprite  = <span class="a">ash_hound.png 8x3</span>
+<span class="c">; his paws sit 2px above the bottom of a cell</span>
+pivot   = <span class="a">2</span>
 
 <span class="a">clip</span> Stand = <span class="a">0-7</span>    fps <span class="a">8</span>
 <span class="a">clip</span> Run   = <span class="a">8-15</span>   fps <span class="a">14</span>
 <span class="a">clip</span> Bite  = <span class="a">16-21</span>  fps <span class="a">16</span> <span class="a">once</span>
-<span class="a">clip</span> Down  = <span class="a">23</span>     <span class="a">once</span> pivot <span class="a">0</span>   <span class="c">; a corpse lies flat on the floor</span>
-<span class="a">clip</span> Hover = <span class="a">hover_*.png</span> fps <span class="a">12</span>  <span class="c">; or separate files, one per frame</span>
+<span class="c">; a corpse lies flat on the floor</span>
+<span class="a">clip</span> Down  = <span class="a">23</span>     <span class="a">once</span> pivot <span class="a">0</span>
+<span class="c">; or separate files, one per frame</span>
+<span class="a">clip</span> Hover = <span class="a">hover_*.png</span> fps <span class="a">12</span>
 
 <span class="a">state</span> chase <span class="a">is</span> Chase
   clip = <span class="a">Run</span>

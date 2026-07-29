@@ -381,11 +381,11 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Folder (beside the executable)</th><th>What it is</th></tr>
-    <tr><td><code>Mods/Dialogue/*.dlg</code></td><td><b>Loaded.</b> Overrides the shipped content for any set whose <code>id:</code> matches.</td></tr>
-    <tr><td><code>Mods/Dialogue/&lt;locale&gt;/*.dlg</code></td><td><b>Loaded, and wins</b> over the base folder. A language is a subfolder.</td></tr>
-    <tr><td><code>Mods/Dialogue/poses/*.png</code></td><td><b>Loaded.</b> New portrait art, claimed by <b>filename</b> — <code>krag.angry.png</code> satisfies pose id <code>krag.angry</code>.</td></tr>
-    <tr><td><code>Mods/Dialogue/audio/*.wav</code></td><td><b>Loaded.</b> New sfx and voice takes, same rule. Both folders take a <code>&lt;locale&gt;/</code> subfolder that wins.</td></tr>
-    <tr><td><code>Mods/Dialogue.templates/</code></td><td><b>Not loaded.</b> The game's real <code>.dlg</code> files, copied at build time as documentation, plus a plain-English README.</td></tr>
+    <tr><td><code>&lt;campaign&gt;/Dialogue/*.dlg</code></td><td><b>Loaded.</b> Overrides the shipped content for any set whose <code>id:</code> matches.</td></tr>
+    <tr><td><code>&lt;campaign&gt;/Dialogue/&lt;locale&gt;/*.dlg</code></td><td><b>Loaded, and wins</b> over the base folder. A language is a subfolder.</td></tr>
+    <tr><td><code>&lt;campaign&gt;/Dialogue/poses/*.png</code></td><td><b>Loaded.</b> New portrait art, claimed by <b>filename</b> — <code>krag.angry.png</code> satisfies pose id <code>krag.angry</code>.</td></tr>
+    <tr><td><code>&lt;campaign&gt;/Dialogue/audio/*.wav</code></td><td><b>Loaded.</b> New sfx and voice takes, same rule. Both folders take a <code>&lt;locale&gt;/</code> subfolder that wins.</td></tr>
+    <tr><td><code>Mods/_Templates/example-campaign/Dialogue/</code></td><td><b>Not loaded.</b> The game's real <code>.dlg</code> files, copied at build time as documentation, plus a plain-English README.</td></tr>
   </table>
   </div>
 
@@ -414,7 +414,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
 
   <h3>Editor and build diverge, deliberately</h3>
   <div class="grid c2">
-    <div class="card accent-cyan"><h4>In a build</h4><p>Overrides load at boot, always. With no <code>Mods/Dialogue/</code> folder the entire cost is one directory probe — no parsing, no allocation, behaviour identical to before the feature existed.</p></div>
+    <div class="card accent-cyan"><h4>In a build</h4><p>Overrides load at boot, always. With no <code>&lt;campaign&gt;/Dialogue/</code> folder the entire cost is one directory probe — no parsing, no allocation, behaviour identical to before the feature existed.</p></div>
     <div class="card accent-ember"><h4>In the editor</h4><p>Overrides do <b>not</b> load. The editor's contract is the explicit sync, and a folder quietly beating the asset you are looking at is exactly the surprise that costs an afternoon. Opt in with <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span> to test the mod path itself.</p></div>
   </div>
 
@@ -439,7 +439,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
     <li><b>No conditions on encounters.</b> Selection is purely "how many times has this beat fired". You cannot yet say "this line only if the player has the Emberbrand" — that would need a predicate on <code>DialogueGroup</code> and a filter in <code>Next()</code>.</li>
     <li><b>No branching or player choice.</b> A sequence is linear; Submit is the only input. There are no response options and no jump targets.</li>
     <li><b>No per-line camera or emote hooks.</b> Pose, side, effect, sfx and voice exist; anything beyond them is a new field on <code>DialogueLine</code> plus a handler in <code>DialogueController.ShowLine</code>.</li>
-    <li><b>Shipped voice-over is a machine voice.</b> The four boss sets ship <b>12 mood portraits</b>, <b>five SFX stings</b>, and <b>the full 28-line spoken voice-over</b> — all baked into the base game (portraits in <code>PoseCatalog</code>; the stings and per-line takes in <code>VoiceBank</code>), so the bosses speak with no mod folder at all. The voice is Windows TTS, a different voice per speaker — a real demo of the pipeline, not a human actor. Real recordings replace it one file at a time, and a dropped-in <code>Mods/Dialogue/audio/</code> take still overrides the baked one.</li>
+    <li><b>Shipped voice-over is a machine voice.</b> The four boss sets ship <b>12 mood portraits</b>, <b>five SFX stings</b>, and <b>the full 28-line spoken voice-over</b> — all baked into the base game (portraits in <code>PoseCatalog</code>; the stings and per-line takes in <code>VoiceBank</code>), so the bosses speak with no mod folder at all. The voice is Windows TTS, a different voice per speaker — a real demo of the pipeline, not a human actor. Real recordings replace it one file at a time, and a dropped-in <code>&lt;campaign&gt;/Dialogue/audio/</code> take still overrides the baked one.</li>
     <li><b>Modded audio is WAV only.</b> No <code>.ogg</code> or <code>.mp3</code>, because decoding those at runtime means an async path and dialogue cannot wait on a decode. Modders pay in file size.</li>
     <li><b>Position is coarse.</b> A portrait is <code>left</code> or <code>right</code>; there is no offset, scale or depth. Finer placement would be new modifier syntax and a new field.</li>
     <li><b>No hub NPC path.</b> <code>BossArenaSequence</code> is the only <code>DialogueSet</code> consumer in the project — <code>ForgeSite</code> uses the panel but builds its line inline — and <code>2.Hub</code> lacks the panel prefab entirely.</li>

@@ -301,7 +301,7 @@ size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height
   <h2><span class="num">10</span>Retuning weapons from text (modding)</h2>
   <p class="lead">A player with the Steam build and no Unity can change any weapon's numbers — the same folder convention as <a href="enemies.html#modding">enemy modding</a> and <a href="dialogue.html#modding">dialogue</a>: a file beside the executable, matched by name, applied to a private copy. The recipe above is authoring; this is modding, and they meet at the same <code>WeaponDefinition</code>.</p>
 
-<pre><code><span class="c">; Mods/Weapons/sharper_sword.ini</span>
+<pre><code><span class="c">; my-campaign/Weapons/sharper_sword.ini</span>
 [<span class="a">Weapon:DefaultSword</span>]
 BaseDamage = <span class="a">3</span>
 
@@ -317,8 +317,8 @@ DamageMultiplier = <span class="a">30</span></code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Folder (beside the executable)</th><th>What it is</th></tr>
-    <tr><td><code>Mods/Weapons/*.ini</code></td><td><b>Loaded.</b> Overrides any weapon whose asset name matches a section.</td></tr>
-    <tr><td><code>Mods/Weapons.templates/</code></td><td><b>Not loaded.</b> One generated <code>.ini</code> per shipped weapon carrying its <b>current</b> values — one section per combo swing and the dash — every line commented out, plus a README.</td></tr>
+    <tr><td><code>&lt;campaign&gt;/Weapons/*.ini</code></td><td><b>Loaded.</b> Overrides any weapon whose asset name matches a section.</td></tr>
+    <tr><td><code>Mods/_Templates/example-campaign/Weapons/</code></td><td><b>Not loaded.</b> One generated <code>.ini</code> per shipped weapon carrying its <b>current</b> values — one section per combo swing and the dash — every line commented out, plus a README.</td></tr>
   </table>
   </div>
 
@@ -328,7 +328,7 @@ DamageMultiplier = <span class="a">30</span></code></pre>
   <p>A mod can also add a weapon, built by cloning a shipped one:</p>
 <pre><code>[<span class="a">NewWeapon:Frostbite</span>]
 basedOn         = <span class="a">DefaultBow</span>      <span class="c">; whose type and stats to reuse</span>
-icon            = <span class="a">frostbite.png</span>   <span class="c">; from Mods/Weapons/sprites/</span>
+icon            = <span class="a">frostbite.png</span>   <span class="c">; from Weapons/sprites/</span>
 weight          = <span class="a">1</span>               <span class="c">; loot weight; 0 = declared but never offered</span>
 WeaponName      = <span class="a">Frostbite</span>
 BaseDamage      = <span class="a">14</span>
@@ -341,12 +341,33 @@ StatusesToApply = <span class="a">Ignite</span>          <span class="c">; resol
     <tr><th>Header key</th><th>Means</th></tr>
     <tr><td><code>basedOn</code></td><td><b>Required.</b> A weapon asset name from the <code>WeaponCatalog</code>. An unknown one is reported <i>with the valid names listed</i>.</td></tr>
     <tr><td><code>weight</code></td><td>How often it is offered in loot. <code>weight = 0</code> declares a weapon without putting it in any pool (still resolvable by a save that holds it).</td></tr>
-    <tr><td><code>icon</code></td><td>A picture file from <code>Mods/Weapons/sprites/</code>, shown on the pedestal. A bad path is reported and the weapon still works.</td></tr>
+    <tr><td><code>icon</code></td><td>A picture file from <code>Weapons/sprites/</code>, shown on the pedestal. A bad path is reported and the weapon still works.</td></tr>
     <tr><td>anything else</td><td>A field override on the cloned definition, exactly as for a shipped weapon — including <code>.attack:&lt;n&gt;</code> / <code>.dash</code> sub-sections for a melee donor.</td></tr>
   </table>
   </div>
 
   <div class="note"><b>A declared weapon enters TWO pools, and needs both.</b> It joins the <b>loot roll</b> so a pedestal can offer it — type-matched, so a bow pool never starts handing out blades — and it becomes <b><code>WeaponCatalog.Resolve</code>-able</b> so a save that holds it restores on resume instead of silently reverting to the default. The editor's <a href="#recipe">run-content validator</a> asserts exactly this coupling for shipped weapons; the mod path wires both from the shipped runtime rather than duplicating it.</div>
+
+  <div class="note warn"><b>A declared weapon may not reuse a shipped weapon's name.</b> The name is save data twice over — the id a run stores for what the player is holding, and the key the hub shop writes to <code>MetaProgress.unlockIds</code> — and resolution answers <i>shipped-first</i>. So <code>[NewWeapon:DefaultSword]</code> would build a weapon that can be offered and even bought, yet resolve back to the shipped blade on resume: the player pays for one weapon and keeps another. It is refused at the build seam and reported by name, so nothing downstream ever sees the imposter. Use <code>[Weapon:DefaultSword]</code> if what you wanted was to retune the shipped one.</div>
+
+  <h3 id="sellingamodweapon">Selling a weapon at the hub</h3>
+  <p>The unlock fields are ordinary overridable fields, so a campaign controls the shop as well as the loot roll — on its own weapons and on shipped ones:</p>
+<pre><code><span class="c">; re-price a SHIPPED weapon (SolarGreatsword and DaggerUnseen ship locked)</span>
+[<span class="a">Weapon:SolarGreatsword</span>]
+unlockCost          = <span class="a">120</span>
+
+<span class="c">; ...or take one out from behind the till entirely</span>
+[<span class="a">Weapon:DaggerUnseen</span>]
+lockedUntilUnlocked = <span class="a">false</span>
+
+<span class="c">; a weapon of your own, sold rather than dropped</span>
+[<span class="a">NewWeapon:Frostbite</span>]
+basedOn             = <span class="a">DefaultBow</span>
+weight              = <span class="a">0</span>       <span class="c">; never dropped...</span>
+lockedUntilUnlocked = <span class="a">true</span>    <span class="c">; ...only bought</span>
+unlockCost          = <span class="a">90</span></code></pre>
+  <p>The Weapon Unlocks tab reads <b>resolved</b> definitions, so a retuned price is the price the till charges and a retuned flag genuinely adds or removes a row. A declared weapon appears there whenever it sets <code>lockedUntilUnlocked</code>, whatever its <code>weight</code> — <code>weight = 0</code> is how you make it shop-exclusive.</p>
+  <div class="note"><b>The gate is at OFFER time, never at resolve time.</b> A locked weapon still <i>resolves</i>, so a suspended run that already holds one restores instead of bricking; what the lock withholds is the loot roll, the pedestal and the shop row. That is why the unlock check lives in <code>LootTable</code> and the shop, and never in <code>WeaponCatalog.Resolve</code>. See <a href="progression.html">Progression</a> for the Gleam economy the price is denominated in.</div>
 
   <h3>Clone-then-override</h3>
   <p>Every equip funnels through one seam — the <code>WeaponInstance</code> constructor. A shipped weapon with an override resolves there to a <b>deep clone</b> (a single <code>Object.Instantiate</code>, which copies the combo list and dash struct by value); combat, which reads the definition for base stats, sees the modded numbers everywhere it is equipped, forged or resumed. The clone keeps the asset name (the save id) and the concrete type, so nothing downstream can tell it from the shipped asset except its numbers.</p>
