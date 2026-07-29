@@ -135,6 +135,32 @@
   <div class="rule note"><b>The one rule — gate at OFFER time, never at RESOLVE time.</b> The unlock check lives in exactly one predicate: <code>LootTable.Qualifies</code>, the filter every roll and pedestal offer passes through. A locked weapon <b>stays in the catalog and the loot tables</b>; it is only kept out of the <i>offer</i>. That is deliberate — <code>WeaponCatalog.Resolve</code> turns saved weapon ids back into definitions when a suspended run resumes, so gating there would brick a saved run that already holds the weapon. Add unlock logic to <code>Qualifies</code>; never to <code>Resolve</code>.</div>
 </section>
 
+<section id="abilities">
+  <h2><span class="num">04b</span>Movement abilities</h2>
+  <p class="lead">The <b>Wall Jump</b> (200 Gleam) and the <b>Dash</b> (200 Gleam) are earned, not given. They are the only purchase that changes the <i>shape of the level</i>: the generator refuses to hand out rooms the player cannot clear, so buying one visibly widens what the game builds.</p>
+  <div class="grid c2">
+    <div class="card accent-violet">
+      <h4>Where they live</h4>
+      <p><code>PlayerAbilityCatalog</code> (<code>Assets/_Game/Systems/Run/Rooms/</code>) lists them in <b>code</b>, not in an asset — deliberately. <code>MetaUpgradeCatalog</code> has no modding tier either, so an asset would just add a second thing a campaign cannot retune; the two should get that tier together. Ownership is <code>MetaProgress.abilityIds</code>, its own array rather than <code>unlockIds</code> (which is keyed by weapon asset name).</p>
+    </div>
+    <div class="card accent-ember">
+      <h4>The one design knob</h4>
+      <p><code>PlayerAbilityCatalog.Baseline</code> is what a brand-new profile can do. It ships as <code>None</code>, so both abilities are earned. Set it to <code>PlayerAbilities.All</code> and the entire system becomes inert plumbing — nothing else changes. A profile saved before abilities existed reads as owning none, so existing players buy them too.</p>
+    </div>
+  </div>
+  <p>An ability is a flag on <code>PlayerAbilities</code>, and adding one touches <b>exactly three</b> places — miss any and the feature is incoherent:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Place</th><th>What it decides</th><th>What breaks if you miss it</th></tr>
+    <tr><td><code>RoomReachability.Metrics.For</code></td><td>What the movement model believes the flag lets you do.</td><td>Every room's requirement re-derives to the wrong answer.</td></tr>
+    <tr><td><code>RoomAbilityAnalysis.Offerable</code> (already generic)</td><td>Which rooms the generator will offer.</td><td>Rooms nobody can clear get placed — a soft-lock.</td></tr>
+    <tr><td><code>PlayerContext</code> + the FSM edges</td><td>Whether the player can actually perform it.</td><td>Rooms are withheld from a player who could have cleared them all along — the gate becomes a tax rather than a progression.</td></tr>
+  </table>
+  </div>
+  <div class="rule note"><b>A room's requirement is DERIVED, never authored.</b> <code>RoomTemplate.RequiredAbilities</code> is a lazily-computed property, not a field: it asks <code>RoomAbilityAnalysis.Require</code> which is the weakest ability set that still connects every door. It was a field once, stamped by <code>RoomBuilder</code> — which only runs for <i>text</i> rooms, so every shipped prefab room silently kept the permissive default and the gate applied to campaign content and nothing else. A property cannot be forgotten the way a stamp can. A room that <i>no</i> set can clear reads as needing nothing: it is broken rather than gated, and withholding it from everyone would hide the fault instead of surfacing it.</div>
+  <div class="note"><b>The guarantee.</b> The path to the exit must be clearable with what the player holds on arrival. Every shipped biome is checked across every ability set and every seed: the pool always forms a chain and the exit is always reachable. Optional branches are gated too for now — the design allows them to demand more eventually, but that needs a way to <i>show</i> a locked door, which does not exist yet.</div>
+</section>
+
 <section id="hub">
   <h2><span class="num">05</span>The shopkeeper</h2>
   <p class="lead">All spending happens at ONE hub NPC — the <b>Shopkeeper</b> in <code>2.Hub</code> — that opens a full-screen <b>tabbed menu</b>. This replaced the old per-item greybox altars: because both tabs read the catalogs, a new upgrade or a newly-locked weapon appears automatically with nothing to place in the world.</p>
@@ -145,7 +171,7 @@
     </div>
     <div class="card accent-ember">
       <h4>ShopScreen — the tabbed menu</h4>
-      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). <b>Kit Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapon Unlocks</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>. Rows show level/cost + your balance; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); owned/mastered rows read UNLOCKED/MASTERED and can't be re-bought.</p>
+      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). <b>Kit Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapon Unlocks</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>. Rows show a name + a blurb (<code>MetaUpgrade.description</code> / <code>WeaponDefinition.Description</code> — this tab is the <b>only</b> place a weapon's Description reaches the player) on the left, level/cost + your balance on the right; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); owned/mastered rows read UNLOCKED/MASTERED and can't be re-bought.</p>
     </div>
   </div>
   <div class="note">Opened from the world, so — unlike Settings, whose opener already froze the game — the shop pushes <code>MenuState</code> itself (freeze + UI input map), like Pause/Death. Owned/affordable state is snapshot on open and after each buy, never polled per-frame (those reads hit the save file). The weapon <b>pedestals</b> (§00) stay separate: the shop is where you <i>unlock</i> a weapon permanently; the pedestals are the per-run random pick from what you've unlocked.</div>
@@ -160,6 +186,7 @@
     <tr><td><code>currency</code></td><td>MetaProgress</td><td>Banked Gleam. The spendable balance.</td></tr>
     <tr><td><code>upgradeIds[]</code> · <code>upgradeLevels[]</code></td><td>MetaProgress</td><td>Owned level per kit upgrade (parallel arrays). <code>Get/SetUpgradeLevel</code> grow them in place.</td></tr>
     <tr><td><code>unlockIds[]</code></td><td>MetaProgress</td><td>Weapon unlocks bought (asset names). Appended, never removed. <code>HasUnlock/AddUnlock</code>.</td></tr>
+    <tr><td><code>abilityIds[]</code></td><td>MetaProgress</td><td>Movement abilities bought (<code>PlayerAbilityCatalog</code> ids). Its own array, so weapon names and ability ids can never collide. <code>HasAbility/AddAbility</code>.</td></tr>
     <tr><td><code>runCurrency</code></td><td>RunSave</td><td>The in-run wallet, written at every room entry so a quit mid-run keeps the Gleam earned so far.</td></tr>
   </table>
   </div>
@@ -188,7 +215,17 @@
   <h3>Lock a weapon behind an unlock</h3>
   <ol>
     <li>On the <code>WeaponDefinition</code>, set <code>lockedUntilUnlocked = true</code> and an <code>unlockCost</code>. Keep it in the <code>WeaponCatalog</code> + its loot table — the offer gate handles the rest.</li>
+    <li>Write its <code>Description</code> (Workbench → Identity). Gating the weapon is what makes that field player-facing: it becomes the blurb under the name on its shop row. Leave it empty and the row shows a bare name.</li>
     <li>Done. It hides from offers until bought, resumes cleanly if a saved run already holds it, AND appears in the shopkeeper's Weapon Unlocks tab automatically (that tab is <code>WeaponCatalog.LockedWeapons()</code>).</li>
+  </ol>
+
+  <h3>Add a movement ability</h3>
+  <ol>
+    <li>Add a flag to <code>PlayerAbilities</code>.</li>
+    <li>Teach <code>RoomReachability.Metrics.For</code> what it <i>does</i> — this is the only place a flag becomes movement, and every room's requirement re-derives itself from it with no content touched.</li>
+    <li>Gate it in the controller so the player genuinely cannot use it unlocked: a <code>bool</code> <b>property</b> on <code>PlayerContext</code> (a field is invisible to <code>DynamicCondition</code>), folded into every edge that reaches the ability — both the data-driven ones in <code>PlayerDef.asset</code> and the code-driven ones in <code>PlayerStateMachine</code>. Count them; the dash has seven.</li>
+    <li>Add an entry to <code>PlayerAbilityCatalog.All</code> with a stable <code>id</code> (it is a <b>save key</b>) and a cost. The shopkeeper's Abilities tab reads the catalog, so the row appears automatically.</li>
+    <li>Write a discriminator in <code>ReachabilityDiscriminatorTests</code>: geometry that is traversable <i>with</i> the ability and not <i>without</i>. A term nobody can demonstrate is a term that has quietly stopped working.</li>
   </ol>
 </section>
 
