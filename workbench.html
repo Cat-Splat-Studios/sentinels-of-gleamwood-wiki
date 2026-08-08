@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -161,7 +162,7 @@
 </section>
 
 <section id="melee">
-  <h2><span class="num">05</span>Melee — Overview | Swings | Dash Attack</h2>
+  <h2><span class="num">05</span>Melee — Overview | Swings | Aerials | Ground | Dash Attack</h2>
   <p class="lead">The flagship category (and the default tab). Damage always resolves as <b>BaseDamage × swing multiplier × run upgrades</b> — the workbench shows the first product for you.</p>
 
   <h3>Overview</h3>
@@ -170,8 +171,9 @@
     <tr><th>Group</th><th>Field</th><th>What it does</th></tr>
     <tr><td rowspan="2"><b>Checks</b></td><td>WeaponCatalog</td><td><code>[ok] registered in WeaponCatalog</code> — or red <i>“NOT in WeaponCatalog - run resume can't restore it”</i>.</td></tr>
     <tr><td>Loot table</td><td><code>[ok] offered by a loot table</code> — or red <i>“not in any loot table - pedestals will never offer it”</i>.</td></tr>
-    <tr><td rowspan="2"><b>Identity</b></td><td>Display Name</td><td>Shown on the HUD, pedestals and the forge. Empty = asset name.</td></tr>
+    <tr><td rowspan="3"><b>Identity</b></td><td>Display Name</td><td>Shown on the HUD, pedestals and the forge. Empty = asset name.</td></tr>
     <tr><td>Icon</td><td>HUD + pedestal sprite.</td></tr>
+    <tr><td>Description</td><td>Player-facing blurb under the name in the shopkeeper's <b>Weapon Unlocks</b> rows — so it only ever renders on a weapon with <code>lockedUntilUnlocked</code>. Pedestals and the HUD ignore it. (Hidden here until 2026-07-27; it used to be a dead field.)</td></tr>
     <tr><td rowspan="5"><b>Base Combat</b></td><td>Base Damage</td><td>The multiplicand for every swing.</td></tr>
     <tr><td>Base Hitstun (s)</td><td>Fallback when a swing's own hitstun is 0.</td></tr>
     <tr><td>Base Hitstop (s)</td><td>Fallback when a swing's own hitstop is 0.</td></tr>
@@ -191,10 +193,12 @@
     <tr><td>Combo Window (s)</td><td>How long after this swing the next input still chains.</td></tr>
     <tr><td>Hit Window (min–max slider)</td><td>Fraction of the swing (0–1) during which the hitbox is live. Effective label spells it out: <i>hits between 0.30 and 0.70 of the swing (0.12s – 0.28s)</i>. An end at ≤0.01 displays as 0.9.</td></tr>
     <tr><td>Reach / Height (units)</td><td>Hitbox size. 0 = defaults (1.2 reach, 1.4 height). <b>Drag the box handles visually</b>: select the Player in a scene with this weapon on its <code>PlayerCombatRangePreview</code>.</td></tr>
-    <tr><td rowspan="4"><b>Impact</b></td><td>Damage ×</td><td>Multiplier on Base Damage — effective label shows the result, <i>= deals 24 damage (before run upgrades)</i>.</td></tr>
+    <tr><td>Vertical Offset</td><td>Shifts the box up (+) or <b>down</b> (−). The box seats above the <em>feet</em>, so at 0 it barely reaches below them — a down-air is unusable without a negative value. The effective label prints the real span: <i>= box spans −1.58 to 0.53 units around the feet</i>.</td></tr>
+    <tr><td rowspan="6"><b>Impact</b></td><td>Damage ×</td><td>Multiplier on Base Damage — effective label shows the result, <i>= deals 24 damage (before run upgrades)</i>.</td></tr>
     <tr><td>Hitstun (s) / Hitstop (s)</td><td>0 = fall back to the weapon's base values.</td></tr>
-    <tr><td>Juggle Points</td><td>60 launches a grounded enemy.</td></tr>
     <tr><td>Execution Points</td><td>100 makes the enemy executable.</td></tr>
+    <tr><td>Launcher</td><td>Launches a <b>grounded</b> enemy on contact. This is the ONLY way an enemy goes airborne. Ignored on a target already airborne, or one whose definition says it cannot be launched.</td></tr>
+    <tr><td>Reaction</td><td>What the hit <em>does</em> beyond its numbers. <b>Standard</b> = hitstun. <b>Spike</b> = drive an airborne target into the floor; the effective label prints the resulting speed, which comes from <code>|Knockback Y|</code> with a floor of 18. <b>Crumple</b> = no knockback, double hitstun.</td></tr>
     <tr><td rowspan="2"><b>Motion</b></td><td>Lunge Speed</td><td>Forward push during the swing (writes the movement force's X; Y is preserved).</td></tr>
     <tr><td>Lock Movement</td><td>Freeze the player after the lunge portion.</td></tr>
     <tr><td rowspan="3"><b>Presentation</b></td><td>Swing Sound</td><td>SoundRow — audition with <b>Play</b>.</td></tr>
@@ -202,6 +206,18 @@
     <tr><td>Animation State</td><td>Validated animator dropdown. Empty = default <code>PlayerMeleeAttack1</code> (first swing) / <code>PlayerMeleeAttack2</code>.</td></tr>
   </table>
   </div>
+
+  <h3>Aerials · Ground</h3>
+  <p>Two tabs over the same idea: the move the player gets when they hold a <b>direction</b> while swinging. A direction toolbar sits where the swing toolbar does — <b>Neutral · Up · Down · Forward</b> in the air, <b>Up · Down · Forward</b> on the ground. Ground has no Neutral because the neutral ground swing is already the combo step; a Neutral entry there would replace the string with a single move.</p>
+  <p>Pick a direction the weapon has no move for and the tab says so and offers <b>+ Add &lt;Direction&gt; move</b>, which appends an entry ready for a clip. Two rows sit above the shared swing form:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Row</th><th>What it does</th></tr>
+    <tr><td><b>Animation State</b></td><td>The full-body clip this direction plays, from the same validated dropdown the swings use. <b>Leave it empty and the entry is skipped entirely</b> — the direction falls back as if it were never authored, which the tab warns about rather than letting you wonder.</td></tr>
+    <tr><td><b>Own Numbers</b> (<code>OverrideConfig</code>)</td><td>Off, the direction borrows the combo step's damage, reach and timing, so it only changes the <em>drawing</em> — the tab calls that a costume and offers a one-click <b>Turn on Own Numbers</b>. On, the whole swing form appears and the direction becomes a genuinely different move.</td></tr>
+  </table>
+  </div>
+  <p>The form below those rows is <b>the same one the Swings tab draws</b>, deliberately: a direction's config <i>is</i> a swing config, and authoring them through two different forms is how the two drift into disagreeing about what a field means. The footer reminds you of the one rule that differs per tab — aerials want Combo Window equal to Duration (one attack per airtime), ground wants it larger (a direction branches the string rather than ending it).</p>
 
   <h3>Dash Attack</h3>
   <p>Same Impact and Presentation vocabulary, plus a <b>Strike Box</b> group: Reach and Height (0 = the same 1.2 × 1.4 defaults; the box <b>travels with the player</b> during the dash — drag it visually on the Player, it's the violet box). One subtlety worth knowing: a custom dash animation state is <b>full-body on layer 0</b>; leave it empty and the game uses the layer-1 upper-body slash overlay (<code>Upper_Slash1</code>).</p>
@@ -226,10 +242,10 @@
     <tr><th>Sub-tab</th><th>Group</th><th>Fields</th></tr>
     <tr><td rowspan="3"><b>Shot &amp; Timing</b></td><td>Draw</td><td><b>Draw Time (s)</b> — releasing earlier cancels the shot.</td></tr>
     <tr><td>Perfect Release</td><td><b>Perfect Window (s)</b> min-max slider (0–3, seconds after draw start) with effective <i>perfect between …s and …s of the draw</i>; <b>Perfect Damage ×</b>, <b>Perfect Force ×</b>.</td></tr>
-    <tr><td>On Hit</td><td><b>Juggle Points</b>, <b>Execution Points</b>.</td></tr>
+    <tr><td>On Hit</td><td><b>Execution Points</b>.</td></tr>
     <tr><td rowspan="3"><b>Presentation</b></td><td>Sound</td><td>SoundRows for <b>Release Sound</b> and <b>Perfect Release Sound</b>.</td></tr>
     <tr><td>Visuals</td><td><b>Hit Effect</b> — spawned at the arrow's impact point.</td></tr>
-    <tr><td>Animation</td><td>Three validated dropdowns: <b>Draw</b> (layer 0, default <code>StandBowDraw</code>), <b>Hold</b> (layer 1, <code>Upper_BowHold</code>), <b>Release</b> (layer 1, <code>Upper_BowRelease</code>).</td></tr>
+    <tr><td>Animation</td><td>Three validated dropdowns: <b>Draw</b> (layer 0, default <code>StandBowDraw</code>), <b>Hold</b> (layer 1, <code>Upper_RunBowCharge</code>), <b>Release</b> (layer 1, <code>Upper_RunBowShoot</code>). The last two apply <b>while moving only</b> — planted, the hardcoded <code>StandBow*</code> clips play on layer 0. Leave them empty unless you have art drawn to match: both defaults are the torso half of a run-and-aim drawing, and a clip from anywhere else splits the character at the waist (see <a href="combat.html">combat §04</a>).</td></tr>
   </table>
   </div>
   <div class="warn note"><b>Not yet in game:</b> <code>DrawSound</code> and <code>ProjectilePrefab</code> — shots are instant casts. The footer on the tab says so; don't burn time authoring them.</div>

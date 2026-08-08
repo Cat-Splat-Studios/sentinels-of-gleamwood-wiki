@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -39,7 +40,7 @@
   <div class="grid c3">
     <div class="card accent-ember"><h4>Add, don't mutate</h4><p>New content is a <b>new asset</b>. You almost never edit code or existing assets — and never at runtime. This is the whole reason adding things doesn't break old things.</p></div>
     <div class="card accent-cyan"><h4>Declare, don't wire</h4><p>An attribute grows the tools: <code>[WorkbenchCategory]</code> a workbench tab, <code>[Tunable]</code> an F1 slider. You never maintain editor glue.</p></div>
-    <div class="card accent-green"><h4>Validate before you trust</h4><p><span class="kbd">Gleamwood ▸ Validate Run Content</span> and the 435-test suite catch unreachable rooms, unregistered weapons and broken wiring <b>before</b> a run does.</p></div>
+    <div class="card accent-green"><h4>Validate before you trust</h4><p><span class="kbd">Gleamwood ▸ Validate Run Content</span> and the PlayMode suite catch unreachable rooms, unregistered weapons and broken wiring <b>before</b> a run does.</p></div>
   </div>
   <div class="note">Where you'll work: <span class="kbd">Gleamwood ▸ Content Workbench</span> for authoring, the <b>Scene view</b> for hitboxes/ranges, <span class="kbd">F1</span> in play mode for live feel, and <code>Assets/_Game/Content/GameContent.ini</code> for the run's shape. Full tours are one click away on every page above.</p></div>
 </section>
@@ -148,7 +149,7 @@
   <h2><span class="num">05</span>Pre-flight — before you commit</h2>
   <ol class="steps">
     <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> — 0 errors. (Rooms: also <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>.)</li>
-    <li><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> — 435 green (<code>Logs/playmode_test_results.txt</code>).</li>
+    <li><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> — all green — the run writes the count and any failures to <code>Logs/playmode_test_results.txt</code>.</li>
     <li>Play it. New content only counts once it's shown up in an actual run.</li>
     <li>Touched a system a wiki page documents? Update that page in the same commit — see <a href="maintaining.html">Maintaining</a>.</li>
   </ol>

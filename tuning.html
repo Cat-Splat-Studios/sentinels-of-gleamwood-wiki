@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a class="on" href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -110,7 +111,8 @@
   </table>
   </div>
   <div class="warn note"><b>Tune jumps on the Jump tab, never mover gravity.</b> Gravity is derived: <code>Gravity = -(2·MaxJumpHeight) / TimeToJumpApex²</code>. <code>ApplyJumpGravity()</code> pushes it to <b>both</b> consumers — <code>Mover.Gravity</code> and <code>Physics2D.gravity</code> (dynamic rigidbodies inherit it). The mover's serialized <code>gravity</code> (−25) is overwritten at startup by <code>PlayerStateMachine</code>.</div>
-  <div class="note"><b>No panel in your scene?</b> The Player prefab leaves <code>uiDocument</code> unassigned (<code>{fileID: 0}</code>); only scenes that override it have the F1 panel — today that's <code>2.Hub</code>, <code>3.BiomeHost</code> and <code>4.RestHost</code>. Elsewhere the panel logs an error in Start and disables itself.</div>
+  <div class="note"><b>F1 works wherever the Player prefab does.</b> <code>uiDocument</code>, its <code>PanelSettings</code> and its source asset are wired on <code>Assets/Prefabs/Player.prefab</code> itself, so no scene needs an override and none carries one. If the wiring is ever lost, <code>Gleamwood ▸ Dev ▸ Run ▸ Wire Debug Panel</code> rebuilds it — including pointing the document at <code>Assets/UI Toolkit/DebugPanelSettings.asset</code>, its own PanelSettings, so the panel sorts above the HUD rather than merging into it.</div>
+  <div class="warn note"><b>This file overrides the scene, silently.</b> Every control marked to save writes into <code>DebugSettings/DebugSettings.json</code>, and that file is re-applied <b>at boot, over whatever the scene or asset authored</b> — nothing logs that it happened. A value you tuned months ago keeps winning. It cost a real bug: a stale <code>Camera.UseBounds</code> clamped the hub camera into a rect the player spawns outside of, so it parked in a corner and never followed. Two rules follow. <b>Host-owned runtime state must not be saved</b> — anything a host writes per room entry (camera bounds and their rect) is <code>saveValue = false</code>, live-toggleable but not persisted. And <b>to retire a stale value, bump the control's key</b> (<code>OffsetY</code> → <code>OffsetYV2</code>) rather than editing the JSON, which is usually someone's working file; a renamed key makes the old entry inert. Precedents in <code>PlayerDebugUI</code>: <code>OffsetYV2</code>, <code>LookAheadDistanceV2</code>, <code>LookAheadTriggerSpeedV2</code>, <code>VerticalDeadzoneV2</code>.</div>
   <p class="dim">Not tunable on purpose (inspector/Workbench only): <code>TurnAccelerationMultiplier</code>, <code>MaxHealth</code>, <code>ComboResetTime</code>, <code>dashCurve</code>, <code>MinJumpFraction</code>, <code>JumpCutMultiplier</code>, <code>ApexSpeedThreshold</code>, the weapon references and <code>EnemyLayers</code>.</p>
 </section>
 
@@ -284,11 +286,10 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   </div>
   <h3>A verbatim slice of the shipped file</h3>
 <pre><code><span class="c">; one node, its biome, and its boss — exactly as shipped</span>
-<span class="t">[Node:emberfall-1]</span>
+<span class="t">[Node:start]</span>
 <span class="a">biome</span> = emberfall
 <span class="a">rest</span> = Rest_EmberTrail
-<span class="a">next</span> = depths-2
-<span class="a">bypass</span> = cinder-2
+<span class="a">next</span> = t2-a, t2-b, t2-c
 
 <span class="t">[Biome:emberfall]</span>
 <span class="a">displayName</span> = The Emberfall Clearing
@@ -318,10 +319,10 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
 <span class="a">outroText</span> = The furnace... grows... cold.</code></pre>
   <h3>What's in the file today</h3>
   <ul>
-    <li><b>Plan:</b> <code>entry = emberfall-1</code>, <code>gradeRubric = GradeRubric</code>.</li>
-    <li><b>Web (4 nodes):</b> <code>emberfall-1</code> → <code>depths-2</code> → <code>crown-3</code> (FINAL), with bypass <code>emberfall-1</code> → <code>cinder-2</code> → <code>crown-3</code>. Three levels, one real choice, both path types.</li>
-    <li><b>5 biomes:</b> emberfall (8–10 rooms, jog 0.45), emberfall-depths (11–14, 0.45), cinderway (14–17, 0.5), ashen-vaults (14–17, 0.55 — not in the demo web), pyre-crown (12–15, 0.6, explicit roomPool swapping in <code>Room_Crown_BossArena</code>).</li>
-    <li><b>3 bosses:</b> Boss_Krag, Boss_CinderShepherd, Boss_PyreRegent.</li>
+    <li><b>Plan:</b> <code>entry = start</code>, <code>gradeRubric = GradeRubric</code>.</li>
+    <li><b>Web (10 nodes):</b> <code>start</code> (always Emberfall) → three tier-2 forks → tier-3 → tier-4 → <code>finale</code> (always the Demon King, the only terminal). Lateral edges inside tier 3 and tier 4 let a route take the long way round, so a run is <b>5, 6 or 7 levels</b> — 31 routes in all. See <a href="levels.html#web">Levels ▸ the shipped web</a>.</li>
+    <li><b>10 biomes:</b> emberfall (8–10 rooms, jog 0.45), cinderway (14–17, 0.5), ashen-vaults (14–17, 0.55), mire (9–12, 0.3), emberfall-depths (11–14, 0.45), spire (10–13, 0.7), hollow (10–13, 0.45), pyre-crown (12–15, 0.6, explicit roomPool swapping in <code>Room_Crown_BossArena</code>), gale (12–15, 0.5), demon-king (12–14, 0.4).</li>
+    <li><b>3 bosses:</b> Boss_Krag, Boss_CinderShepherd, Boss_PyreRegent. <b>The other seven biomes ship with <code>boss = -</code> on purpose</b> — the web and the routes are the deliverable; boss design is a later pass. Each one logs one <i>"has a Boss arena but no BossDefinition"</i> warning at import, and its arena room simply has nothing in it.</li>
     <li><b>8 enemy blocks:</b> Krag 40 HP no-juggle · CinderShepherd 60 · PyreRegent 80 · VaultAcolyte 22 · SootBomber 6 (juggle) · PyreArcher 5 (juggle) · CinderHound 4 (juggle) · EmberWisp 3.</li>
     <li><b>1 rest:</b> Rest_EmberTrail — <code>healMissingFraction = 0.4</code>, <code>forgeEnabled = true</code>.</li>
   </ul>

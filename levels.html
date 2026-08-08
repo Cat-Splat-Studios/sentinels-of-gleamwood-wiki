@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a class="on" href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -55,7 +56,10 @@
 
 <section id="anatomy">
   <h2><span class="num">02</span>Room anatomy</h2>
-  <p>A room prefab is: a root GameObject carrying <code>RoomTemplate</code>, a child <code>Grid</code> with two role tilemaps — <code>Floors</code> (walkable tops and platforms) and <code>Walls</code> (walls, ceilings, cover) — both with a <code>TilemapCollider2D</code>. Grid cells are <b>1×1 unit</b>, origin at the bottom-left cell corner. Source: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code> and <code>Documentation/ROOM_STANDARDS.md</code>.</p>
+  <p>A room prefab is: a root GameObject carrying <code>RoomTemplate</code>, a child <code>Grid</code> with up to three role tilemaps — <code>Floors</code> (walkable tops) and <code>Walls</code> (walls, ceilings, cover) on layer <b><code>Level</code></b>, plus the optional <code>Platforms</code> map on layer <b><code>OneWay</code></b> — each with a <code>TilemapCollider2D</code>. Grid cells are <b>1×1 unit</b>, origin at the bottom-left cell corner. Source: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code> and <code>Documentation/ROOM_STANDARDS.md</code>.</p>
+
+  <div class="note"><b>Thin platforms: the layer is the seam, not the map name.</b> <code>Floors</code> vs <code>Walls</code> is a <i>role</i> split, and shipped rooms already contradict it — <code>Room_Ember_BigArena</code> puts one continuous ledge run on both — so it cannot carry collision meaning. The Unity <b>layer</b> can, because it is the one thing both readers see: the mover's <code>oneWayMask</code> raycast and <code>RoomReachability.CollectGeometry</code>. A cell on <code>OneWay</code> blocks a downward crossing of its <b>top edge</b> by feet that started at or above that edge — you land on it, you jump up through it from below, and <b>down + jump</b> drops you through. In a <code>.room</code> drawing it is the <code>-</code> glyph — the full character vocabulary lives in <code>Documentation/ROOM_STANDARDS.md</code> §3b, and <code>RoomText.Glyphs</code> is what every refusal message prints.
+  <br><br>Two settings here are not preferences, and each shipped broken once. The platform map's <code>CompositeCollider2D</code> must be <code>GeometryType.<b>Polygons</b></code>: the pass-through test is <i>inside-ness</i>, and the default <code>Outlines</code> builds edges with <b>no interior</b>, so a player mid-pass-through finds the bottom edge instead and lands on the collider's underside — hanging below the bar the art draws. And the Player prefab must actually carry a non-empty <code>oneWayMask</code>; a newly-added serialized field is <b>not</b> written into an already-serialized asset, so it deserialises to 0 and every platform silently becomes air. <code>ShippedPlayerPlatformWiringTests</code> pins both by reading the shipped assets — a hand-built rig proved the mechanism and shipped the bug twice. <b><code>PlatformEffector2D</code> cannot be used:</b> the mover is kinematic and resolves collisions with <code>Physics2D.Raycast</code>, and raycasts do not consult effectors — while enemies <i>are</i> solver-driven, so an effector would be one-way for enemies and solid for the player.</div>
 
   <h3>RoomTemplate fields</h3>
   <div class="scrollx">
@@ -146,31 +150,51 @@
 
 <section id="reachability">
   <h2><span class="num">04</span>The reachability guarantee</h2>
-  <p class="lead">Why it exists (the M6 "cinderway lesson", straight from the source comment): every socket aperture must reach every other socket aperture, or branch content behind them — including bypass doors to other biomes — <b>silently vanishes from runs</b>. The audit in <code>Assets/_Game/Editor/RoomReachability.cs</code> simulates the actual controller over your tiles.</p>
+  <p class="lead">A room is judged by simulating the real controller over your tiles. <b>It refuses one thing only: a trap.</b> If you can arrive through a door and reach no other door — with every ability unlocked — that is a dead run and the room is thrown out. Everything else is reported, not refused.</p>
 
-  <h3>The exact movement model</h3>
+  <div class="rule note"><b>A door you cannot reach is not a bug — it is the point.</b> Gating is per CONNECTION (<code>RoomTemplate.RequiredForPath(from, to)</code>), not per room. A room's ground-floor corridor can be a stroll while its ceiling door needs a wall jump; only the ENTRY-TO-EXIT journey the layout actually routes has to be walkable with the abilities the run currently holds. The door above you that you cannot take yet is what an earned ability is <i>for</i>. Judging the whole room instead once deleted the pool's only junction and left the player in an empty scene.</div>
+
+  <h3>Where it lives</h3>
   <div class="scrollx">
   <table>
-    <tr><th>Rule</th><th>What the walker does</th></tr>
-    <tr><td><b>Solid</b></td><td>Every cell with a tile on any child Tilemap that has a <code>TilemapCollider2D</code>.</td></tr>
-    <tr><td><b>Fits (2-air-cell rule)</b></td><td>A feet cell is usable iff feet <b>and</b> head cells are air. The player is ~1.33 tall, so <b>a 1-cell gap is a wall</b>. In-room range is x,y ∈ [−1 .. size] — apertures sit on the edges.</td></tr>
-    <tr><td><b>Socket entry cells</b></td><td>Left = (0, cell); Right = (size.x−1, cell); Up/Down = the 3 cells spanning columns cell..cell+2 at the top/bottom row.</td></tr>
-    <tr><td><b>Flood</b></td><td>BFS from each socket's cells. Every socket must reach every other socket, <b>both directions</b>.</td></tr>
-    <tr><td><b>Walk + gravity settle</b></td><td>Step into the adjacent column, then fall until landing — any distance, no fall damage. If the walker fell, the original height cell is also flooded (airborne pass-through counts for aperture cells).</td></tr>
-    <tr><td><b>Jump = an arc, not an elevator</b></td><td>Only when grounded (solid below, or y==0). For dx in −2..2 (≠0), rise 0..2: the player may rise along <i>any</i> column in the span — launch, destination, or between — then drift at apex height to the target. The rise column needs <code>Fits</code> at every rise step; the apex row needs <code>Fits</code> from that column to the target column. Constants: <code>JumpRise = 2</code> (MaxJumpHeight 2 u = 2 cells), <code>JumpReach = 2</code> lateral cells during a rise.</td></tr>
-    <tr><td><b>Flat gap hops</b></td><td><code>rise 0</code> in the arc = hopping flat across 1–2 empty columns.</td></tr>
-    <tr><td><b>Pure vertical mounts</b></td><td>dx=0, rise 1..2 — requires a clear launch column; breaks at the first blocked cell.</td></tr>
+    <tr><th>File</th><th>Role</th></tr>
+    <tr><td><code>Systems/Run/Rooms/RoomReachability.cs</code></td><td>The movement model and the flood. <b>Runtime</b> assembly, because a campaign's <code>.room</code> drawings must be proved walkable on a player's machine, where no <code>AssetDatabase</code> exists.</td></tr>
+    <tr><td><code>Systems/Run/Rooms/RoomAudit.cs</code></td><td><b>THE verdict</b> — one implementation, three callers: <code>RoomBuilder</code> (campaign text rooms, at load), <code>RunContentValidator</code> (editor + build gate), and the menu. Two opinions about "is this room broken" is how a room once became shippable at runtime and unshippable at build time.</td></tr>
+    <tr><td><code>Editor/RoomReachability.cs</code></td><td>Only the menu sweep. It finds rooms and prints what the auditor says; it contains no movement model.</td></tr>
+  </table>
+  </div>
+
+  <h3>The movement model</h3>
+  <p>The flood's state is <b>(x, row, vertical velocity, dash cooldown)</b> — not a cell. Three earlier versions tracked position alone and every one was wrong, because arriving somewhere at terminal fall speed and arriving there standing still lead to different places.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Rule</th><th>What the model does</th></tr>
+    <tr><td><b>Numbers</b></td><td>Read from <code>PlayerSettings.asset</code> at audit time, never from the C# field initialisers — the tuned asset and the defaults disagree on values that decide rooms (DashCooldown 0.2 vs 1.0, DashDuration 0.4 vs 0.2).</td></tr>
+    <tr><td><b>Solid</b></td><td>Every cell with a tile on <b>any</b> child Tilemap carrying a <code>TilemapCollider2D</code> — the union, so a seam between a <code>Floors</code> map and a <code>Walls</code> map is still solid.</td></tr>
+    <tr><td><b>The body</b></td><td>The real collider box, 0.565 × 1.328, swept over every cell column and row it straddles. Narrower than a cell, so it can span two columns — which is what catches a corner tile the <i>head</i> hits.</td></tr>
+    <tr><td><b>The lattice</b></td><td>Rows are integer sub-cells (<code>cellQ</code> = 2 for the shipped tuning, so half-cells). One step is the time to cross one cell at MoveSpeed. Per step the body moves <code>vy − 1</code> rows and velocity loses 2 — exact integers for any tuning, so the model never drifts on floating point.</td></tr>
+    <tr><td><b>Jump</b></td><td>A launch <i>velocity</i>, not a fixed rise. Both a held launch and a tapped launch are tried, so a full jump that would not fit under a ceiling does not block the move. Horizontal freedom is ±1 cell per step with free mid-air reversal — what bounds the reach is <b>time in the air</b>, not a lateral constant.</td></tr>
+    <tr><td><b>Falling</b></td><td>Accelerates until terminal speed, which <i>slows</i> the fall and therefore makes a long drop carry <b>further</b> horizontally. Swept, so it cannot tunnel through a corner.</td></tr>
+    <tr><td><b>Wall jump</b> <span class="dim">(ability)</span></td><td>Any airborne position whose feet touch solid on either side is a launch pad, repeatably against the <b>same face</b> — nothing tracks a wall identity or a count. So one wall is a ladder and a shaft is climbable without terracing.</td></tr>
+    <tr><td><b>Dash</b> <span class="dim">(ability)</span></td><td>Air-capable, cancels gravity outright, and <b>chains</b> — which is exactly why the cooldown is carried in the state. Without modelling it, dashes would chain every step and a gap of any width would read as crossable.</td></tr>
+    <tr><td><b>Clearance</b></td><td>The player is 2 cells tall, so <b>a 1-cell gap is still a wall</b> — and now it is reported by coordinate rather than left for you to find.</td></tr>
   </table>
   </div>
 
   <h3>Running the audit — and reading what it says</h3>
   <ol class="steps">
-    <li>Run <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>. Scope: all prefabs under <code>Assets/_Game/Biomes</code> with a <code>RoomTemplate</code> and <b>≥2 sockets</b>, skipping <code>/Debug/</code>.</li>
-    <li>The Console prints <code>[Reach] &lt;roomName&gt;:</code> with indented failures per room, then a summary — <code>[Reach] every room fully traversable</code> or <code>[Reach] N room(s) with unreachable sockets</code>. Errors are <b>clickable</b>: the context object is the prefab, so a click pings the offending room.</li>
-    <li>Each failure reads <code>{fromSide}@{fromCell} cannot reach {toSide}@{toCell}</code> — e.g. <code>Left@2 cannot reach Up@6</code> means a walker entering the left door on floor row 2 can never exit the ceiling aperture at column 6. Direction matters: <code>Right@5 cannot reach Left@2</code> with the reverse passing means the room is one-way (a drop you can't climb back).</li>
-    <li>Diagnose against the model: a 1-cell gap somewhere (walls to the walker), a step-up over 2 u without terracing, an Up socket the room never terraces to, or a fix tile parked within 2 columns of a platform edge that killed the jump arc.</li>
+    <li>Run <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>. It sweeps shipped prefabs under <code>Assets/_Game/Biomes</code> (skipping <code>/Debug/</code>) <b>and every campaign <code>.room</code> text drawing</b> — each installed <code>Mods/&lt;id&gt;/Campaign/Rooms/</code> plus <code>Documentation/ExampleMod</code>. Before this, an author drawing a room got no editor feedback at all.</li>
+    <li>It closes with <code>N room(s) checked — E refused, W that read wrong, N door(s) behind an ability</code>. Errors are clickable: the context object is the prefab.</li>
   </ol>
-  <div class="note"><b>You rarely run this alone.</b> The validator (§5) runs the same analysis on every pooled room with ≥2 sockets and turns each failure into a hard error: <code>Room 'X': {failure} (player cannot traverse - fix clearance/steps)</code>. The standalone menu item is for iterating on one room fast.</div>
+  <div class="scrollx">
+  <table>
+    <tr><th>What it says</th><th>What it means</th></tr>
+    <tr><td><b>refused</b> <span class="dim">(error)</span></td><td>A trap: <i>"entering by Left@1 leaves the player with no way out"</i>. Judged with every ability unlocked, so it means the geometry is broken rather than merely locked. This is the only thing that fails a build.</td></tr>
+    <tr><td><b>reads wrong</b> <span class="dim">(warning)</span></td><td><i>"N stretch(es) of floor with only 1 cell of headroom: (3,8)-(3,8)…"</i>. Legal, but the art draws a passage where the geometry has a wall. Raise the platform above it by one, or fill the gap in so it reads as solid.</td></tr>
+    <tr><td><b>behind an ability</b> <span class="dim">(note)</span></td><td><i>"Left@1 -&gt; Up@2 needs wall jump"</i>. Working as intended — the room is still offered; the layout just will not route the main path through that door until the player can take it.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>You rarely run this alone.</b> <span class="kbd">Gleamwood ▸ Validate Run Content</span> runs the same auditor over every pooled room, and the build gate turns its errors into a failed build. The standalone menu item is for iterating on one room fast — and it is the only one that also reads your <code>.room</code> drawings.</div>
 </section>
 
 <section id="validator">
@@ -226,6 +250,8 @@
     <tr><td><code>genRules.calmRoomBeforeBoss</code></td><td>true</td><td>Suppress enemy spawns in the room directly before the boss corridor. <b>Must be ON</b> for any node with a bypass (§7).</td></tr>
     <tr><td><code>genRules.branchChance</code></td><td>0</td><td>[0..1] chance per fork candidate — a chain room with an unused UP socket — to grow a side dungeon.</td></tr>
     <tr><td><code>genRules.maxBranches</code> / <code>branchRunMax</code></td><td>2 / 2</td><td>Cap on branches per level; most runner rooms inside one branch, between the corner and the terminal.</td></tr>
+    <tr><td><code>genRules.topology</code></td><td><code>Chain</code></td><td><b>Which generator builds the level.</b> <code>Chain</code> = the left-to-right spine with dead-end spurs (§7). <code>Lattice</code> = a rolled grid of columns and bands that can carry LOOPS (§7b). Chain is the enum's zero, so every existing biome keeps its shape without being touched.</td></tr>
+    <tr><td><code>genRules.latticeTier</code></td><td><code>Arc</code></td><td>Lattice only: how rich a shape to <i>attempt</i> — <code>Arc</code> (one loop) / <code>Stack</code> (a loop with a shaft standing on it) / <code>Web</code> (an arc off the arc, two nested loops). The generator walks DOWN this list until one fits your rooms, so asking for more than your pool can build costs a log line, never the level.</td></tr>
     <tr><td><code>socketCap</code></td><td>—</td><td>Prefab spawned on every unused socket to seal its aperture (anchored at the aperture's floor/left cell).</td></tr>
     <tr><td><code>spawnTable</code></td><td>—</td><td>Rolled at every <code>EnemySpawnMarker</code> in the layout (markers can override).</td></tr>
     <tr><td><code>statScalePerStage</code></td><td>0.25</td><td>Spawned enemies get <code>1 + stageIndex × this</code> applied to their health — context-side, never the shared SO.</td></tr>
@@ -267,11 +293,21 @@
   </table>
   </div>
 
-  <h3>The shipped web</h3>
-<pre><code><span class="c">; three levels, one real choice, both path types — nodeIds are SAVE data, never rename shipped ones</span>
-entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
-   ├─ next ──────→ <span class="a">depths-2</span>  (emberfall-depths) ──→ <span class="a">crown-3</span>
-   └─ bypass ────→ <span class="a">cinder-2</span>  (cinderway)        ──→ <span class="a">crown-3</span>  (pyre-crown, FINAL)</code></pre>
+  <h3>The shipped web — ten biomes, runs of five to seven levels</h3>
+<pre><code><span class="c">; nodeIds are SAVE data. They are deliberately NEUTRAL so a biome can be re-themed</span>
+<span class="c">; forever without ever tempting a rename — displayName does the player-facing work.</span>
+<span class="a">start</span> (Emberfall — always first)
+  ├─→ <span class="a">t2-a</span> ─→ t3-a, t3-b
+  ├─→ <span class="a">t2-b</span> ─→ t3-b, t3-c        + bypass ─→ t3-a
+  └─→ <span class="a">t2-c</span> ─→ t3-c, t3-a
+       <span class="a">t3-a</span> ─→ <span class="c">t3-b (lateral)</span>, t4-a   + bypass ─→ t4-b
+       <span class="a">t3-b</span> ─→ <span class="c">t3-c (lateral)</span>, t4-a, t4-b
+       <span class="a">t3-c</span> ─→ t4-b
+            <span class="a">t4-a</span> ─→ <span class="c">t4-b (lateral)</span>, finale
+            <span class="a">t4-b</span> ─→ finale
+                 <span class="a">finale</span> (The Demon King — always last, the only terminal)</code></pre>
+  <div class="note"><b>LATERAL edges are what make the length vary.</b> A tier node can lead to its SIBLING instead of descending, so "the long way round" is a choice rather than a coin flip — and no middle biome is mandatory, only <i>which</i> tier-3 and tier-4 you see. They run strictly a→b→c and never back, because <code>RunWebValidator</code> refuses a cycle. Enumerated: <b>31 routes — 12 of five levels, 13 of six, 6 of seven, none outside that.</b></div>
+  <div class="warn note"><b>Changing this shape voids every suspended run.</b> <code>RunWebFingerprint</code> hashes exactly it, so a node added, removed or repointed makes in-flight runs unresumable — the saves and the permanent profile survive untouched. Biome <i>tunables</i> are outside the hash on purpose; retune those freely.</div>
 
   <h3>Depth, salt, and why merges never get easier</h3>
   <ul>
@@ -307,6 +343,35 @@ entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
   <div class="warn note"><b>The bypass triangle:</b> a node with <code>bypassNextId</code> needs (1) its id resolvable, (2) the biome's <code>calmRoomBeforeBoss</code> ON — otherwise "the junction door has no room to live in" — and (3) a <code>BypassDoor</code> prefab in Resources. The validator enforces all three; the audit (§4) keeps the branch terminals it prefers actually reachable.</div>
 </section>
 
+<section id="lattice">
+  <h2><span class="num">07b</span>The lattice — levels that loop</h2>
+  <p class="lead">Everything above builds a <b>chain</b>: a spine left to right, with spurs that go up, turn once and dead-end. Set <code>genRules.topology = Lattice</code> and a second generator takes over — one that lays rooms on a rolled grid of <b>columns</b> and <b>bands</b>, and can close a loop.</p>
+
+  <h3>Why a grid, and not "let branches try to rejoin"</h3>
+  <p>In the chain, a room's position is solved from its parent's socket — so where a room ends up depends on the <i>path taken to reach it</i>. That makes a tree free and a cycle nearly impossible: two paths into the same room have to agree by luck, and with arbitrary room sizes they essentially never do. Fix the grid <b>first</b> and the dependence disappears. A room's position becomes a function of its <b>slot</b>, both paths compute the same coordinates, and every cycle closes by construction — no search, no backtracking, no retries.</p>
+
+  <div class="rule note"><b>The door discipline, and it is not a preference.</b> A lattice room puts its <b>Left/Right doors on row 1</b> and its <b>Up/Down doors on column 2</b>. Row 1 because a door on row 0 has no floor under it (the text parser refuses it outright), so row 1 is the only row every band height can offer. Column 2 because it is the smallest offset that still leaves a wall cell either side of a 3-cell opening in the narrowest room the grammar allows. Matching cells are what let <i>any</i> two rooms mate — which is the whole mechanism by which a cycle closes for free. A pool that violates it is refused with a message naming the row and the column.</div>
+
+  <h3>The three tiers</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Tier</th><th>Shape</th><th>What your pool needs</th></tr>
+    <tr><td><code>Arc</code></td><td>One loop: a run above the spine that rises at one column and comes back down at another. A real loop, walkable both ways.</td><td>Rooms with a ceiling door and rooms with a floor door.</td></tr>
+    <tr><td><code>Stack</code></td><td>The loop, plus a vertical shaft standing on it — three rooms sharing one column. A pocket you climb into, not a way round.</td><td>Also a room with a floor door <b>and</b> a ceiling door, for a shaft rising from an arc's <b>end</b>. A shaft from the middle of an arc needs only an ordinary junction with a dead end on top.</td></tr>
+    <tr><td><code>Web</code></td><td>An arc off the arc — its risers land on the first arc rather than on the spine, so the second loop hangs off the first. Two nested cycles.</td><td>The same through-room, and it is what makes this shape <b>reliable</b> rather than lucky.</td></tr>
+  </table>
+  </div>
+
+  <div class="note"><b>Asking for more than your rooms can build is safe.</b> The generator walks DOWN the tier list until a shape fits, and logs which tier it landed on and which room would have unlocked the one above. Measured on the ten shipped example rooms asking for <code>Web</code>: with the through-room, 500 webs in 500 seeds. Without it, 18 webs, 194 stacks and 288 plain arcs. You lose the shape, never the level — which matters, because a biome with no layout gets no player either.</div>
+
+  <h3>Where the loop pays out</h3>
+  <p>A closed ring has <b>no dead ends</b> — every room has two ways out — so nothing on it reads as "somewhere you went out of your way to find". That is why a <code>Stack</code> matters beyond its shape: the top of its shaft is the first pocket a looping level has. Treasure and the slip-away door both read the layout's graph now (<code>BiomeLayoutPlan.TreasureRooms</code> / <code>BypassRoom</code>), preferring a real pocket and falling back to the room deepest from the entry only when the layout genuinely has none.</p>
+
+  <h3>Turning it on</h3>
+  <div class="warn note"><b>Only a campaign INI can select the lattice today.</b> <code>topology</code> and <code>latticeTier</code> are parsed by <code>CampaignPlan</code>'s <code>[Biome:]</code> block — a <code>Mods/&lt;id&gt;/Campaign/</code> file. <span class="kbd">Gleamwood ▸ Import Content INI</span> does <b>not</b> read them (<code>ContentIniImporter</code> has no case for either) and the Workbench Levels tab exposes only <code>branchChance</code> out of <code>genRules</code>. No shipped biome asset carries a <code>topology</code> key, so every shipped biome is a chain.</div>
+  <p>A complete, commented worked example ships in <code>Documentation/ExampleMod/Mods/example/Campaign/RunWeb.ini</code> — uncomment the block. The ten <code>lat-*.room</code> drawings beside it are the alphabet: <code>lat-junction</code> (the spine room an arc leaves from), <code>lat-arc-start</code> / <code>lat-arc-end</code> (its two ends), <code>lat-crossroads</code> (the through-room) and <code>lat-pocket</code> (a dead end to hide a reward in), plus straights and tagged ends. Read <code>lat-junction.room</code> to see per-connection gating in one file: you can walk it left to right with nothing, and its ceiling door needs a wall jump.</p>
+</section>
+
 <section id="spawntables">
   <h2><span class="num">08</span>Spawn tables</h2>
   <p class="lead">Where enemies come from: the biome's <code>EnemySpawnTable</code> rolled at every active <code>EnemySpawnMarker</code>. Create tables via <span class="kbd">Gleamwood/Enemy Spawn Table</span>; the enemies themselves live on <a href="enemies.html">Enemies &amp; Bosses</a>.</p>
@@ -315,7 +380,8 @@ entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
     <tr><th>Entry field</th><th>Default</th><th>Meaning</th></tr>
     <tr><td><code>enemyPrefab</code></td><td>—</td><td>Prefab with <code>EnemyStateMachine</code> on the root (validator-enforced). <code>EnemyKillReporter</code> is also required by convention — the validator does <b>not</b> check it, so verify it by hand (missing = silent kill-count/arena-clear breakage).</td></tr>
     <tr><td><code>weight</code></td><td>1 (Min 0)</td><td>Weighted roll among eligible entries.</td></tr>
-    <tr><td><code>minStage</code></td><td>0</td><td>Earliest stage index this enemy appears at — gated by node <b>depth</b>, so late-game lanes stay dangerous.</td></tr>
+    <tr><td><code>minStage</code></td><td>0</td><td>Earliest stage index this enemy appears at — gated by node <b>depth</b>, so late-game lanes stay dangerous. How deep into the <b>RUN</b> you are.</td></tr>
+    <tr><td><code>minRoomDistance</code></td><td>0</td><td>How many <b>connections from this level's entry</b> before the enemy may appear. A separate axis from <code>minStage</code> on purpose: folding them together would make something authored as "second biome onward" also turn up in room two of the first one. Counted over connections rather than left-to-right, so it still means something in a layout with loops, where there is no such thing as "the fifth room". Also settable from a mod's <code>[NewEnemy:]</code> block.</td></tr>
   </table>
   </div>
   <ul>
@@ -344,11 +410,13 @@ entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
     <tr><th>USS class</th><th>Applied to</th></tr>
     <tr><td><code>.mini-room</code></td><td>Every room.</td></tr>
     <tr><td><code>.mini-room--seen</code></td><td>Fog-of-war: added the first time the player <b>enters</b> the room.</td></tr>
-    <tr><td><code>.mini-room--junction</code></td><td>The calm room, when the node has a bypass — the junction telegraph.</td></tr>
+    <tr><td><code>.mini-room--junction</code></td><td>The room the bypass door actually spawns in, when the node has a bypass — asked of <code>BiomeLayoutPlan.BypassRoom()</code>, the same question the host asks. The two used to decide separately, and disagreed in every branched biome: the map tinted the calm room while the door went to a branch terminal.</td></tr>
     <tr><td><code>.mini-room--boss</code></td><td>The arena <b>and</b> its BossCorridor.</td></tr>
     <tr><td><code>.mini-room--exit</code> · <code>.mini-room--current</code></td><td>The exit room; the room you're in.</td></tr>
+    <tr><td><code>.mini-link</code> · <code>.mini-link--seen</code></td><td>A <b>connection</b>, drawn from <code>plan.edges</code> and revealed once both rooms it joins have been entered.</td></tr>
   </table>
   </div>
+  <div class="note"><b>Connections are drawn, never inferred.</b> Rectangles alone make "touching" mean "connected" — true by luck in a chain, and false in a lattice, where two rooms can sit flush against a shared wall and a ring's chord joins two rooms whose rectangles say nothing about each other. A loop that read as a corridor is the one thing this map must not do.</div>
 </section>
 
 <section id="ini">
@@ -358,7 +426,7 @@ entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
   <div class="scrollx">
   <table>
     <tr><th>Section</th><th>Keys</th><th>Maps onto</th></tr>
-    <tr><td><code>[Biome:&lt;biomeId&gt;]</code></td><td><code>displayName, chapter, objective, minRooms, maxRooms, verticalJogChance, calmRoomBeforeBoss, branchChance, maxBranches, branchRunMax, branchTreasure, statScalePerStage, roomPool, socketCap, spawnTable, boss, musicTrack, standInLayout</code></td><td><code>BiomeDefinition</code> fields (§6). Missing biome assets are <b>created</b> (<code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code>).</td></tr>
+    <tr><td><code>[Biome:&lt;biomeId&gt;]</code></td><td><code>displayName, chapter, objective, minRooms, maxRooms, verticalJogChance, calmRoomBeforeBoss, branchChance, maxBranches, branchRunMax, branchTreasure, statScalePerStage, roomPool, socketCap, spawnTable, boss, musicTrack, standInLayout</code></td><td><code>BiomeDefinition</code> fields (§6). Missing biome assets are <b>created</b> (<code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code>). <b>Not importable here:</b> <code>topology</code> and <code>latticeTier</code> — the importer has no case for either, so a level's SHAPE is the one biome knob this file cannot set (§7b).</td></tr>
     <tr><td><code>[Boss:&lt;assetName&gt;]</code></td><td><code>bossPrefab, dialogue, entranceDelay, addsTable, rewardPrefab, outroSpeaker, outroText, musicTrack, musicCueId</code></td><td><code>BossDefinition</code> fields (see <a href="enemies.html">Enemies &amp; Bosses</a>). Missing boss assets are created too. <code>musicCueId</code> is superseded by <code>musicTrack</code>; kept only so old INIs parse.</td></tr>
     <tr><td><code>[Node:&lt;nodeId&gt;]</code></td><td><code>biome</code> (by biomeId) · <code>rest</code> (<code>-</code> = none) · <code>next</code> (<code>-</code> = FINAL, or comma list) · <code>bypass</code> (<code>-</code> = none)</td><td>Builds <code>plan.nodes</code> — the run web (§7).</td></tr>
     <tr><td><code>[Plan]</code></td><td><code>entry, gradeRubric</code> (+ legacy <code>stages</code>/<code>restAfter</code> lists that synthesize a linear chain)</td><td><code>RunPlan</code> root fields.</td></tr>
@@ -368,11 +436,10 @@ entry: <span class="a">emberfall-1</span> (emberfall, rest Rest_EmberTrail)
   </div>
 
   <p>The shipped file, verbatim — one node and its biome and boss:</p>
-<pre><code><span class="t">[Node:emberfall-1]</span>
+<pre><code><span class="t">[Node:start]</span>
 biome = <span class="s">emberfall</span>
 rest = <span class="s">Rest_EmberTrail</span>
-next = <span class="s">depths-2</span>
-bypass = <span class="s">cinder-2</span>
+next = <span class="s">t2-a, t2-b, t2-c</span>
 
 <span class="t">[Biome:emberfall]</span>
 displayName = <span class="s">The Emberfall Clearing</span>
@@ -413,9 +480,11 @@ outroText = <span class="s">The furnace... grows... cold.</span></code></pre>
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
-    <li>Room contract + audit: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code>, <code>Assets/_Game/Editor/RoomReachability.cs</code>, <code>Documentation/ROOM_STANDARDS.md</code> (movement budget + §3 standards).</li>
+    <li>Room contract: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code>, <code>Documentation/ROOM_STANDARDS.md</code> (movement budget + §3 standards).</li>
+    <li>The audit — §4 mirrors these three: <code>Assets/_Game/Systems/Run/Rooms/RoomReachability.cs</code> (the movement model and the flood), <code>Rooms/RoomAudit.cs</code> (the verdict, shared by the builder, the validator and the menu), <code>Rooms/PlayerAbilities.cs</code> (the weakest-set analysis), and <code>Assets/_Game/Editor/RoomReachability.cs</code> (the menu sweep only).</li>
     <li>Validation: <code>Assets/_Game/Editor/RunContentValidator.cs</code> — §5's table mirrors its checks one-for-one.</li>
-    <li>Generation + assembly: <code>Assets/_Game/Systems/Run/ProcGen/BiomeGenerator.cs</code>, <code>BiomeLayoutPlan.cs</code>, <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
+    <li>Generation + assembly: <code>Assets/_Game/Systems/Run/ProcGen/BiomeGenerator.cs</code> (chain), <code>ProcGen/LatticeGenerator.cs</code> (§7b — the grid, the tiers and the door discipline), <code>BiomeLayoutPlan.cs</code> (the graph the consumers read), <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
+    <li>Text rooms: <code>Assets/_Game/Systems/Run/Rooms/RoomText.cs</code> + <code>RoomTextParser.cs</code> + <code>RoomBuilder.cs</code>, and the shipped drawings in <code>Documentation/ExampleMod/Mods/example/Campaign/Rooms/</code>.</li>
     <li>The web: <code>Assets/_Game/Systems/Run/RunPlan.cs</code>, <code>RunDirector.cs</code>, <code>BiomeDefinition.cs</code>, <code>RestDefinition.cs</code>, and the shipped <code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code>.</li>
     <li>Spawning: <code>Assets/_Game/Systems/Run/ProcGen/EnemySpawnTable.cs</code>, <code>EnemySpawnMarker.cs</code>, <code>EnemySpawner.cs</code>.</li>
     <li>INI: <code>Assets/_Game/Editor/ContentIniImporter.cs</code> + <code>Assets/_Game/Content/GameContent.ini</code> (§10's key lists are the importer's).</li>

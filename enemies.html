@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -41,7 +42,7 @@
     <tr><th>What</th><th>Where</th></tr>
     <tr><td>Enemy FSM definitions (states as sub-assets)</td><td><code>Assets/_Game/Enemies/Data/EnemyDefinitions/*.asset</code> — <code>ImpScoutDef</code>, <code>CinderHoundDef</code>, <code>EmberWispDef</code>, <code>PyreArcherDef</code>, <code>SootBomberDef</code>, <code>VaultAcolyteDef</code>, <code>KragDef</code>, <code>CinderShepherdDef</code>, <code>PyreRegentDef</code></td></tr>
     <tr><td>Shared transition rules (referenced by every def)</td><td><code>Assets/_Game/Enemies/Data/EnemyDefinitions/SharedRules/</code> — <code>Dy_JuggleCondition</code>, <code>Dy_NotDeadCheck</code>, <code>Dy_NotExecuted</code></td></tr>
-    <tr><td>Execution definitions</td><td><code>Assets/_Game/Enemies/Data/ExecutionDefinitions/</code> — <code>SamuraiSlice</code>, <code>Explosion</code>, <code>Firestorm</code>, <code>OffScreenKill</code></td></tr>
+    <tr><td>Execution definitions</td><td><code>Assets/_Game/Enemies/Data/ExecutionDefinitions/</code> — ten of them: <code>Explosion</code>, <code>Firestorm</code>, <code>OffScreenKill</code>, <code>SamuraiSlice</code>, plus <code>Groundbreaker</code>, <code>Meteor</code>, <code>Pinfall</code>, <code>Nailed</code>, <code>Skyhook</code>, <code>Overload</code></td></tr>
     <tr><td>Enemy prefabs</td><td><code>Assets/_Game/Enemies/Prefabs/</code> — one per definition, plus <code>Projectile_PyreShot</code></td></tr>
     <tr><td>Boss staging assets</td><td><code>Assets/_Game/Biomes/Emberfall/Boss_Krag.asset</code>, <code>Assets/_Game/Biomes/Boss_CinderShepherd.asset</code>, <code>Assets/_Game/Biomes/Boss_PyreRegent.asset</code></td></tr>
     <tr><td>Spawn tables</td><td><code>Assets/_Game/Biomes/Emberfall/SpawnTable_*.asset</code> + <code>Assets/_Game/Biomes/Debug/SpawnTable_Debug.asset</code></td></tr>
@@ -55,8 +56,8 @@
   <table>
     <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
     <tr><td><code>MaxHealth</code></td><td>3</td><td>Hit points. Damage routes through <code>EnemyStateMachine.TakeHit</code>; 0 HP enters the <code>dead</code> state. <b>0 = no health system:</b> the enemy cannot die from plain damage — executions still kill it.</td></tr>
-    <tr><td><code>CanBeJuggled</code></td><td>true</td><td>When on, filling the juggle meter launches the enemy airborne. All three bosses ship with this off.</td></tr>
-    <tr><td><code>Executions</code></td><td>empty</td><td>List of <code>ExecutionDefinition</code> assets this enemy can be finished with (§05). The four shipped ones are reusable — ImpScout wires all four.</td></tr>
+    <tr><td><code>CanBeJuggled</code></td><td>true</td><td>When on, a swing whose <code>IsLauncher</code> is set (the up-attacks) can put the enemy airborne, in one hit. Off, nothing can. All three bosses ship with this off.</td></tr>
+    <tr><td><code>Executions</code></td><td>empty</td><td>List of <code>ExecutionDefinition</code> assets this enemy can be finished with (§05). All ten shipped ones are reusable, and every enemy in the roster wires all ten — they differ by TRIGGER, not by animation, so adding one costs no graph wiring (§05).</td></tr>
   </table>
   </div>
 
@@ -77,7 +78,7 @@
   <div class="scrollx">
   <table>
     <tr><th>Definition</th><th>HP</th><th>Juggle</th><th>Kit beyond idle / chase / hitstun / juggled / dead</th></tr>
-    <tr><td><code>ImpScoutDef</code></td><td>10</td><td>yes</td><td>attackCharge → attackLunge (MoveSpeed 8, armor 1) → attackStrike (armor 1) → attackRecover; all 4 executions wired</td></tr>
+    <tr><td><code>ImpScoutDef</code></td><td>10</td><td>yes</td><td>attackCharge → attackLunge (MoveSpeed 8, armor 1) → attackStrike (armor 1) → attackRecover; all 10 executions wired</td></tr>
     <tr><td><code>CinderHoundDef</code></td><td>4</td><td>yes</td><td>4-phase melee chain</td></tr>
     <tr><td><code>SootBomberDef</code></td><td>6</td><td>yes</td><td>4-phase melee chain</td></tr>
     <tr><td><code>VaultAcolyteDef</code></td><td>22</td><td>no</td><td>4-phase melee chain</td></tr>
@@ -190,18 +191,18 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
 </section>
 
 <section id="reactions">
-  <h2><span class="num">04</span>Getting hit — super armor, hitstun, juggle, death</h2>
+  <h2><span class="num">04</span>Getting hit — super armor, hitstun, launch, death</h2>
   <p class="lead">Everything an enemy does when your hit lands is one pipeline in <code>EnemyStateMachine.TakeHit</code>, in this exact order:</p>
   <ol>
     <li>Dead enemies ignore hits. The hit is timestamped.</li>
     <li>Execution readiness is captured <b>before</b> the hit's points land — the swing that merely tops the meter never also executes on the same frame; you must land a follow-up while the enemy is already execution-ready.</li>
-    <li>Meters accrue: <b>juggle points only while grounded</b> (air hits build no juggle points — an airborne enemy can't be re-launched), execution points always; statuses apply.</li>
+    <li>Execution points accrue and statuses apply.</li>
     <li>Feedback: hitstop (if the hit carries any), the hit flash, and the prefab's <code>hurtSound</code> (§09).</li>
     <li>Damage applies — only when <code>MaxHealth &gt; 0</code>.</li>
     <li><b>Executions</b> fire if the enemy was already ready and a definition's conditions match — once per enemy, ever (§05).</li>
-    <li><b>Death</b>: at 0 HP the enemy enters <code>dead</code>. A killing blow wins over juggle, armor, and hitstun — <b>death bypasses super armor by design</b>. A def with health but no <code>dead</code> state logs "this enemy cannot die" instead of crashing.</li>
-    <li>Already juggled → the air hit resets juggle points (the anti-infinite rule).</li>
-    <li><b>Juggle launch</b>: a full juggle meter launches from <i>any</i> state, armor or not.</li>
+    <li><b>Death</b>: at 0 HP the enemy enters <code>dead</code>. A killing blow wins over a launch, armor, and hitstun — <b>death bypasses super armor by design</b>. A def with health but no <code>dead</code> state logs "this enemy cannot die" instead of crashing.</li>
+    <li><b>Launch</b>: a single <code>IsLauncher</code> swing on a <b>grounded</b> target — the up-attacks — launches from <i>any</i> state, armor or not. This is the only way an enemy goes airborne; there is no meter. It does nothing to a target already up there.</li>
+    <li><b>Spike</b>: a <code>Reaction = Spike</code> hit on an <b>airborne</b> target overrides all of the above — it cancels the launch, drives them at the floor at <code>|KnockbackForce.y|</code> (min 18), and pays off on landing with a bounce, hitstop and a flash. For 0.6&nbsp;s afterwards the enemy reads as <code>RecentlySpiked</code>, which executions can require.</li>
     <li><b>Super armor</b> gets its say only now: if the current state absorbs the hit, no hitstun — damage, meters, flash and sound already happened.</li>
     <li>Otherwise → <code>hitstun</code>.</li>
   </ol>
@@ -210,7 +211,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   <ul>
     <li>Effective limit for a hit's <code>DamageType</code> = its <code>SuperArmorOverrides</code> entry if listed, else the base <code>SuperArmorHits</code>. Limit 0 = that type interrupts instantly; limit N = hits 1…N absorbed, hit N+1 interrupts.</li>
     <li><b>Each damage type tracks its own count, reset on every phase entry.</b></li>
-    <li>Armor never reduces damage — it only suppresses the state change (the flinch). Juggle launches, executions, and death all punch through.</li>
+    <li>Armor never reduces damage — it only suppresses the state change (the flinch). Launches, executions, and death all punch through.</li>
     <li>The player side can pierce it: the <b>ArmorPiercing</b> checkbox on a <code>WeaponDefinition</code> bypasses armor on all three attack paths — see <a href="combat.html">Combat &amp; Weapons</a>.</li>
     <li><code>DamageType</code> values: <code>MELEE_SLASH</code>, <code>RANGED_PIERCE</code>, <code>DASH_SLASH</code> (<code>Assets/_Game/Combat/Code/DamageType.cs</code>).</li>
   </ul>
@@ -224,21 +225,21 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <tr><td>Armored vs all except dash</td><td>2</td><td><code>{DASH_SLASH, 0}</code></td></tr>
   </table>
   </div>
-  <div class="warn note"><b>Armor gates hitstun only.</b> If a design needs armor to also gate juggle launches, that's a deliberate code extension — do not assume it.</div>
+  <div class="warn note"><b>Armor gates hitstun only.</b> If a design needs armor to also gate launches, that's a deliberate code extension — do not assume it.</div>
 
   <h3>Hitstun and the FallbackStateName net</h3>
   <p>The Hit state stops movement on entry and holds for the hit's hitstun duration — <b>defaulting to 0.2s when the hit carries none</b>. Data-driven Hit→X transitions are the primary exit, checked first every frame; if none ever fires, the timer sends the enemy to <code>FallbackStateName</code> (default <code>"idle"</code>). That net is why a def with a half-wired Hit state stumbles instead of freezing forever; it warns once if the fallback id isn't registered.</p>
 
   <h3>Juggled — the hang</h3>
-  <p>On launch: damping set to <code>AirDrag</code>, velocity zeroed, one impulse of <code>LaunchForce</code> upward. At the apex the Rigidbody is parked <b>Static for 0.8 seconds</b> — that hang is your air-combo window — then falls Dynamic again and exits to <code>idle</code> on landing. Air hits during the juggle reset the juggle meter. Exit restores damping and body type even when death or an execution interrupts mid-hang, so nothing floats forever. Every launch counts toward the run's juggle stat; re-juggles add up.</p>
+  <p>On launch: damping set to <code>AirDrag</code>, velocity zeroed, one impulse of <code>LaunchForce</code> upward. At the apex the Rigidbody is parked <b>Static for 0.8 seconds</b> — that hang is your air-combo window — then falls Dynamic again and exits to <code>idle</code> on landing. Air hits during the juggle route into the juggled state rather than hitstun — that branch looks like dead code (its body is empty) and is not: hitstun's <code>Enter()</code> zeroes velocity, so without it a follow-up would drop the target. Exit restores damping and body type even when death or an execution interrupts mid-hang, so nothing floats forever. Every launch counts toward the run's juggle stat; re-juggles add up.</p>
 
   <h3>Death</h3>
   <p>The Death state flips <code>IsDead</code> (which is what kill reporting and the boss gate listen to, synchronously before destruction), disables physics, spawns <code>DeathEffect</code>, and destroys the GameObject after the death clip finishes plus 0.1s — instantly if there's no clip.</p>
 </section>
 
 <section id="executions">
-  <h2><span class="num">05</span>Executions &amp; juggle points</h2>
-  <p class="lead">Two meters live on the prefab's <code>CombatStatusManager</code>: <b>juggle</b> (launch threshold 60, decays 20/s after 2s) and <b>execution</b> (threshold 100, decays 25/s after 3s). Hits feed both via their <code>jugglePoints</code> / <code>executionPoints</code>. Execution points are never consumed — instead, each enemy can be executed <b>once, ever</b>; a guard prevents re-triggering.</p>
+  <h2><span class="num">05</span>Executions</h2>
+  <p class="lead">One meter lives on the prefab's <code>CombatStatusManager</code>: <b>execution</b> (threshold 100, decays 25/s after 3s), fed by each hit's <code>executionPoints</code>. Points are never consumed — instead, each enemy can be executed <b>once, ever</b>; a guard (<code>_executionReported</code>) prevents re-triggering. <span class="dim">(There is no juggle meter any more — an enemy goes airborne because a swing carried <code>IsLauncher</code>, not because a counter filled.)</span></p>
   <p>An <code>ExecutionDefinition</code> (<span class="kbd">Create ▸ Combat ▸ Execution Definition</span>) describes when a finisher fires and which state plays it:</p>
   <div class="scrollx">
   <table>
@@ -247,19 +248,17 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <tr><td><code>ExecutionConfig</code></td><td>The finisher state config. Its state is <b>auto-registered</b> on the machine — you don't add it to the def's <code>States</code> list.</td></tr>
     <tr><td><code>RequiredDamageType</code></td><td>The hit type that can trigger it (<code>MELEE_SLASH</code> / <code>RANGED_PIERCE</code> / <code>DASH_SLASH</code>).</td></tr>
     <tr><td><code>MustBeAirborne</code> / <code>MustBeGrounded</code></td><td>State gates — airborne checks both "not grounded" and "currently in the juggled state".</td></tr>
+    <tr><td><code>RequireSpecificReaction</code> + <code>RequiredReaction</code></td><td>What this hit <b>is</b> — a Spike, a Crumple. Only melee sets a reaction, so this pairs with <code>MELEE_SLASH</code>.</td></tr>
+    <tr><td><code>RequireRecentlySpiked</code></td><td>What just <b>happened</b> to them: they landed from a spike within <code>SpikeWindow</code> (0.6&nbsp;s). Fires on the follow-up, which is the hit an execution is gated on anyway.</td></tr>
     <tr><td><code>RequiredStatus</code> + <code>MinStatusCount</code></td><td>Optional status stack requirement (e.g. 3 StickyArrows).</td></tr>
     <tr><td><code>ConsumeStatusOnTrigger</code></td><td>Default true — clears the required status when the execution fires.</td></tr>
   </table>
   </div>
-  <div class="scrollx">
-  <table>
-    <tr><th>Shipped execution</th><th>Trigger</th><th>Finisher</th></tr>
-    <tr><td><code>SamuraiSlice</code></td><td>DASH_SLASH while airborne</td><td>DashExecution config (slash lines + dissolve)</td></tr>
-    <tr><td><code>OffScreenKill</code></td><td>RANGED_PIERCE while airborne</td><td>BowExecution config (screen-edge knockback explosion)</td></tr>
-    <tr><td><code>Explosion</code></td><td>DASH_SLASH with 3× StickyArrows, consumed</td><td>Explosive execution config</td></tr>
-    <tr><td><code>Firestorm</code></td><td>MELEE_SLASH with 1× Ignite, consumed</td><td>Explosive execution config</td></tr>
-  </table>
-  </div>
+  <p>The full ten, with exactly how a player triggers each, live on the combat page: <a href="combat.html#execroster">Execution roster</a>. Every shipped enemy carries all ten, in the same order.</p>
+
+  <div class="rule note"><b>The ORDER of an enemy's <code>Executions</code> list is behaviour, not presentation.</b> <code>TakeHit</code> takes the first match and stops. So a definition that asks for strictly less than a later one makes that later one <b>unreachable</b> — silently, with no error, on every enemy that carries both. Two rules keep the shipped list honest, and both were live bugs first: <b>most specific first</b> (Skyhook, "juggled", was swallowing Meteor, "juggled + Spike"), and <b>status catch-alls last</b> (Firestorm at slot 4 made Groundbreaker, Meteor, Pinfall and Skyhook all unreachable with the greatsword equipped). <code>ExecutionTriggerTests</code> enforces both — an inspector drag reorders the list in one click.</div>
+
+  <div class="note"><b>Debugging a trigger.</b> <span class="kbd">F1 ▸ Run (dev) ▸ Execution gates ▸ Explain executions</span> records, per hit, which gate closed on each of the ten and why — including the two reasons the roster is never consulted at all (meter not full <em>before</em> the hit; this enemy already executed once). Off by default; it builds a string per hit.</div>
   <div class="note"><b>Editor nicety:</b> creating an execution state config through the creator tooling prompts "Create Execution Definition?" and auto-wraps it into a definition wired to your def (<code>Assets/_Game/Editor/Enemies/EnemyExecutionPostProcessor.cs</code>).</div>
 </section>
 
@@ -281,7 +280,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   <ol class="steps">
     <li><b>Clips.</b> One non-looping clip per phase, plus idle / chase / death. Frame rate = intended duration (the clip IS the timer). Clip names become animator state names.</li>
     <li><b>Animator controller.</b> One state per clip on Base Layer, state name == clip name, <b>no transitions in the controller</b> — the FSM plays states directly.</li>
-    <li><b>Definition asset.</b> <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Set <code>MaxHealth</code>, <code>CanBeJuggled</code>, and optionally wire the four reusable <code>ExecutionDefinition</code>s.</li>
+    <li><b>Definition asset.</b> <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Set <code>MaxHealth</code>, <code>CanBeJuggled</code>, and optionally wire the ten reusable <code>ExecutionDefinition</code>s (the shipped roster wires all ten to every enemy).</li>
     <li><b>State sub-assets.</b> On the workbench's <a href="workbench.html#states">States tab</a> — <b>+ Create State</b> picks the type and does the rest (sub-asset, <code>StateName</code>, added to <code>States</code>, first one becomes Initial). Minimum viable set on every shipped enemy: Idle, Chase (or Float Chase), Hit, Juggled, Death, plus attack phases <code>attackCharge → attackLunge → attackStrike → attackRecover</code> chained by <code>NextStateName</code>, last one → <code>chase</code>.</li>
     <li><b>Transitions.</b> idle→chase (Distance LessThan ~7–8), chase→attackCharge (LessThan ≈ the strike range, 1.5), chase→idle leash (GreaterThan 10), idle/hitstun→juggled (the three <code>SharedRules</code> assets), hitstun→idle (<code>HitStunCondition</code> + <code>AnimationEndCondition</code>). Set <code>InitialState</code> = idle and list <b>all</b> sub-assets in <code>States</code>.</li>
     <li><b>Prefab.</b> The §06 component set on the root; assign the definition and <code>hurtSound</code> on <code>EnemyStateMachine</code>. Flying: <code>gravityScale</code> 0.</li>
@@ -409,7 +408,8 @@ SpeedMultiplier = <span class="a">1.6</span></code></pre>
   <table>
     <tr><th>Header key</th><th>Means</th></tr>
     <tr><td><code>basedOn</code></td><td><b>Required.</b> A definition name from the <code>EnemyCatalog</code>. An unknown one is reported <i>with the valid names listed</i>.</td></tr>
-    <tr><td><code>weight</code> · <code>minStage</code></td><td>Where it sits in the spawn roll. <code>weight = 0</code> declares an enemy without adding it to the roll.</td></tr>
+    <tr><td><code>weight</code> · <code>minStage</code></td><td>Where it sits in the spawn roll. <code>weight = 0</code> declares an enemy without adding it to the roll. <code>minStage</code> is how deep into the <b>RUN</b> — which biome — before it appears.</td></tr>
+    <tr><td><code>minRoomDistance</code></td><td>How many <b>doors into a level</b> before it appears (0 = anywhere). A separate axis from <code>minStage</code> on purpose: something authored as "second biome onward" should not also start turning up in room two of the first one. Counted over connections, so it keeps meaning something in a level that loops.</td></tr>
     <tr><td><code>tint</code> · <code>scale</code></td><td>Its skin. A bad colour is reported and the enemy still spawns — one cosmetic typo should not delete a creature.</td></tr>
     <tr><td><code>sprite</code></td><td>The <b>sheet its animations are cut from</b> — see <a href="#art">§12</a>. On its own it does nothing and says so; it needs <code>clip</code> lines.</td></tr>
     <tr><td>anything else</td><td>A field override on the cloned definition, exactly as for a shipped enemy.</td></tr>
@@ -635,7 +635,7 @@ pivot   = <span class="a">2</span>
     <li>One transition per Update, and transitions run <i>before</i> the state's own Update each frame.</li>
     <li>Every phase needs a clip; a clipless phase warns and advances immediately (no telegraph).</li>
     <li><code>2.IntroLevel</code> starts frozen (<code>timeScale = 0</code> until the intro card is dismissed) — animators don't advance in editor tests until you set <code>Time.timeScale = 1</code>.</li>
-    <li>Air hits build no juggle points; executions require pre-hit readiness and fire once per enemy; juggles count every launch.</li>
+    <li>Executions require pre-hit readiness and fire once per enemy; the run's juggle stat counts every launch.</li>
     <li>Shared SOs are never mutated at runtime — depth scaling goes through <code>ApplyStatScale</code> on the context. The scene ring tuner is the deliberate exception: it writes shared definitions in-editor, with Undo.</li>
     <li><code>EnemyJuggledConfig.AirDrop</code> is serialized but never read; <code>BossDefinition.musicCueId</code> is dead.</li>
     <li>Inactive spawn markers are skipped on purpose — disable a marker to mute it. <code>isBossPoint</code> implies defer-to-sequence at assembly.</li>

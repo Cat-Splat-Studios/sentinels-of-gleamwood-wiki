@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a class="on" href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -141,7 +142,7 @@
   <div class="grid c2">
     <div class="card accent-violet">
       <h4>Where they live</h4>
-      <p><code>PlayerAbilityCatalog</code> (<code>Assets/_Game/Systems/Run/Rooms/</code>) lists them in <b>code</b>, not in an asset — deliberately. <code>MetaUpgradeCatalog</code> has no modding tier either, so an asset would just add a second thing a campaign cannot retune; the two should get that tier together. Ownership is <code>MetaProgress.abilityIds</code>, its own array rather than <code>unlockIds</code> (which is keyed by weapon asset name).</p>
+      <p><code>PlayerAbilityCatalog</code> (<code>Assets/_Game/Systems/Run/Rooms/</code>) lists them in <b>code</b>, not in an asset — deliberately. It used to share that call with <code>MetaUpgradeCatalog</code>, whose argument was that an asset would only add a second thing a campaign could not retune. <b>That is no longer true of upgrades</b> — a campaign retunes and declares permanent upgrades in <code>Progression/</code> (<a href="modding.html#progression">Modding §08</a>). Abilities are the one still waiting: they need the same asset migration first, and until then a campaign cannot add or re-gate one. Ownership is <code>MetaProgress.abilityIds</code>, its own array rather than <code>unlockIds</code> (which is keyed by weapon asset name).</p>
     </div>
     <div class="card accent-ember">
       <h4>The one design knob</h4>
@@ -169,11 +170,128 @@
   </div>
   <div class="note"><b>The one refusal that remains.</b> <code>RoomBuilder</code> rejects a room only when a door you can <i>arrive through</i> reaches no other door — judged with every ability unlocked, so it means broken geometry rather than a locked one. A door you merely cannot <i>reach</i> builds fine and is reported as a note, naming which journey is locked behind what.</div>
   <div class="note"><b>And the backstop.</b> If a gated pool still cannot build, the gate is <i>lifted</i> for that biome with a loud error rather than returning no layout — a room the player may struggle with beats an empty scene. It should never fire; if it does, the pool is missing a bare-handed room for some shape the topology needs on the main path.</div>
+
+  <h3 id="ability-source">Where the ability set comes from (2026-08-03)</h3>
+  <div class="rule note"><b><code>RunDirector.Abilities</code> mirrors the ACTIVE SLOT — except during a run, where it is frozen at whatever the layout was generated from.</b>
+  <br><br>It used to be <code>PlayerAbilities.All</code> whenever no run was in flight, and <code>PlayerContext</code> repeated that exemption a second time as <code>!RunDirector.IsRunActive ||</code>. The result was one profile with two kits: you could dash in the hub and not in the run. Hisham, on a build — <i>"it should be the same player so they should have the same abilities."</i>
+  <br><br><b>The escape hatch is now about having no PROFILE, not about being outside a run.</b> With no slot bound, <code>PlayerAbilityCatalog.Owned(null)</code> already answers <code>All</code>, so <code>3.TestSandbox</code> and any scene opened straight from the Project window still hold the full kit. That needed no special case — it falls out of the same expression, which is the tell that the exemption never should have been about runs.</div>
+  <div class="scrollx">
+  <table>
+    <tr><th>Moment</th><th>Seam</th><th>Why it must recompute</th></tr>
+    <tr><td>A slot is bound (new game, continue, restored after a failed launch)</td><td><code>RunDirector.BindSlot</code></td><td>Binding a slot and deriving what it can DO are one operation. The two bare <code>SaveSystem.ActiveSlot =</code> writes in <code>SaveSlotsController</code> were how a hub ended up holding the previous session's kit.</td></tr>
+    <tr><td>Run start / resume</td><td><code>RecomputeMetaBonuses</code></td><td>Freezes the set the level is generated from.</td></tr>
+    <tr><td>An ability is bought at the Shopkeeper, or dev-toggled</td><td><code>TryUnlockAbility</code> / <code>DebugSetAbilityOwned</code>, guarded by <code>if (!IsRunActive)</code></td><td>In the hub it applies at once — otherwise you buy the dash and cannot dash in the room you bought it in. Mid-run it waits, because widening the set would desync it from the level already built.</td></tr>
+    <tr><td>Death, clear, or quit to title</td><td><code>ResetMetaBonuses</code></td><td>Used to hand back <code>All</code>. That was the hub's second source of a kit nobody earned.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Pushed, not computed.</b> <code>SaveSystem.Load</code> hits disk with no cache, and <code>PlayerContext.HasDash</code> is compiled into a <code>DynamicCondition</code> and evaluated <i>every frame</i> — so a per-read getter is impossible. <code>Abilities</code> also stays a settable static because <code>BiomeGenerator</code> widens it to <code>All</code> around generation and restores it in a <code>finally</code>; a computed property would break that seam.
+  <br><br><b>Visible consequence, and it is intended:</b> a brand-new profile stands in the hub with neither dash nor wall jump. The hub is traversable bare-handed, and what you see there is now exactly what you take into the run.</div>
+
+  <div class="note"><b>Still gated on <code>IsRunActive</code>, deliberately unresolved:</b> <code>PlayerStateMachine</code> adds <code>MetaMaxHpBonus</code> only during a run, so the hub player also has less max HP than the run player. Vigor is a <i>run</i> boost in a way a dash is not, and <code>RunDirectorTests</code> pins the reset on purpose — so that is a separate decision, not an oversight.</div>
+</section>
+
+<section id="moves">
+  <h2><span class="num">04d</span>The directional moveset</h2>
+  <p class="lead">The moveset went from one swing to nine in a day. Handing all of it over at once is both a worse first hour and a wasted progression axis — Hisham: <i>"in order to make the perm upgrade shop more interesting - should we have to purchase all aerial and directional attacks? this makes a lot of sense"</i>. Five of the nine are now bought at the shopkeeper's <b>Ground</b>, <b>Air</b> and <b>Bow</b> tabs — one tab per input family, so the tab name and the row's own instruction line (<i>"Ground: UP + attack"</i>) say the same word. It was ONE "Moves" tab until the bow's two purchases took it to eight rows and the panel outgrew the screen; the split is filtered through <code>MoveKey.TryParse</code>, so a new move lands in its tab with no category field to keep in sync.</p>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Move</th><th>key</th><th>Input</th><th>Cost</th></tr>
+    <tr><td colspan="4" class="dim"><b>Free — and both for mechanical reasons, not generosity</b></td></tr>
+    <tr><td><b>The launcher</b></td><td><code>ground:up</code></td><td>Ground: UP + attack</td><td>—</td></tr>
+    <tr><td><b>Neutral air</b></td><td><code>aerial:neutral</code></td><td>Air: attack</td><td>—</td></tr>
+    <tr><td colspan="4" class="dim"><b>For sale</b></td></tr>
+    <tr><td>Plunge</td><td><code>aerial:down</code></td><td>Air: DOWN + attack</td><td>60</td></tr>
+    <tr><td>Pin</td><td><code>ground:down</code></td><td>Ground: DOWN + attack</td><td>90</td></tr>
+    <tr><td>Charge</td><td><code>ground:forward</code></td><td>Ground: a direction + attack</td><td>120</td></tr>
+    <tr><td>Rising Cut</td><td><code>aerial:up</code></td><td>Air: UP + attack</td><td>150</td></tr>
+    <tr><td>Air Lunge</td><td><code>aerial:forward</code></td><td>Air: a direction + attack</td><td>150</td></tr>
+  </table>
+  </div>
+
+  <div class="rule note"><b>Why those two are never sold.</b> <code>ground:up</code> is the <em>only</em> move in the shipped data that puts an enemy in the air, and four of the ten executions are gated on a juggled target — selling it means a fresh profile has no launcher, no juggle and four unreachable executions, which is a wall dressed as progression. <code>aerial:neutral</code> is the fallback every aerial leans on: with it unowned, an unowned Up resolves to <em>nothing</em> and an airborne swing plays the <b>grounded combo clip</b> — a planted stance hanging in mid-air, the exact bug the aerial moveset was built to fix. <code>MoveUnlockTests</code> pins both, plus the invariant that every move is either free or sellable (a move that is neither is authored, animated, permanently dead content).</div>
+
+  <div class="grid c2">
+    <div class="card accent-violet">
+      <h4>One vocabulary, three uses</h4>
+      <p><code>MoveKey</code> (<code>Assets/_Game/Combat/Code/Definitions/</code>) is the modding tier's move address, <b>promoted</b>. <code>[Weapon:DefaultSword.aerial:up]</code> was already a published contract with anyone who has written a mod; the same string is now the shop's save key and the imbue's target. Inventing a second spelling would have meant two vocabularies for one idea, and only one of them getting updated. Keys are interned, so the combat seam's per-hit compare is a reference check.</p>
+    </div>
+    <div class="card accent-ember">
+      <h4>The gate is inside the resolver loop</h4>
+      <p><code>TryResolve</code>/<code>TryResolveExact</code> take an optional <code>owns</code> predicate, applied <b>per candidate</b> — not to the result. That placement is the whole design: an unowned aerial Up has to fall through to the Neutral aerial exactly as an unauthored one does. Filtering afterwards would return false and leave the swing with no clip at all.</p>
+    </div>
+  </div>
+
+  <div class="note"><b>Two questions, two methods.</b> <code>TryGetAerial</code>/<code>TryGetGrounded</code> stay <i>asset</i> oracles — "does this weapon author a move for this direction" — and the Workbench, the wiki capture and the mod loader all keep asking that, because a designer has to be able to see and tune a move nobody has bought. <code>TryGetAerialOwned</code>/<code>TryGetGroundedOwned</code> ask the gameplay question, and only the attack state calls them. Collapsing the two would turn a shop gate into an authoring gate.</div>
+
+  <div class="note"><b>Unlike an ability, a move applies IMMEDIATELY</b> — in the hub or mid-run. Abilities are frozen mid-run because the <i>level</i> was generated from them; <code>RoomReachability</code> has no attack term at all, so nothing the generator decided depends on the moveset. You walk out of the shop swinging what you just bought.</div>
+
+  <div class="warn note"><b>Existing profiles buy the five back.</b> A save written before this shipped has an empty <code>moveIds</code>, so it reads as the baseline — the same thing that happens to a new profile. That is the identical call <a href="#ability-source">movement abilities</a> made, and for the identical reason: the alternative is granting them silently, which would mean no existing player ever sees the feature. Three testers, early-stage saves, ~570 Gleam total.</div>
+</section>
+
+<section id="runmods">
+  <h2><span class="num">04c</span>Per-run modifiers — rules, not numbers</h2>
+  <p class="lead">The third tier, and the newest. A <b>run modifier</b> is a mechanical rule change the player picks up <i>during</i> a run and loses when it ends. Hisham's framing, which is why the tier exists: <i>"the idea is we can have a bunch of mechanical things like this on a per run basis."</i></p>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Tier</th><th>Scope</th><th>Changes</th><th>Lives on</th></tr>
+    <tr><td>Kit upgrades &amp; abilities (§03, §04b)</td><td><b>Permanent</b></td><td>Numbers, and two movement verbs</td><td><code>MetaProgress</code>; frozen for the duration of a run</td></tr>
+    <tr><td>The forge (<code>UpgradeTrack</code>)</td><td>Per run</td><td><b>Numbers only</b> — a damage and execution-point multiplier</td><td><code>WeaponInstance.UpgradeLevel</code></td></tr>
+    <tr><td><b>Run modifiers</b></td><td>Per run</td><td><b>Rules.</b> "Your up-air launches now" is not a number.</td><td><code>RunModifiers</code>, saved on <code>RunSave</code></td></tr>
+  </table>
+  </div>
+
+  <div class="grid c2">
+    <div class="card accent-violet">
+      <h4>Where they live</h4>
+      <p><code>RunModifierCatalog</code> and <code>RunModifiers</code> (<code>Assets/_Game/Systems/Run/</code>). The catalog is now <b>one asset per modifier</b> plus an ordered catalog asset in <code>Resources/</code>, authored in the Workbench's <i>Run Upgrades</i> tab and retunable from a campaign's <code>Progression/</code> folder (<a href="modding.html#progression">Modding §08</a>). The order is load-bearing: the offer roll walks the catalog, so a seed only reproduces if the list does. The shipped four survive in code as a fallback and as what the generator writes the assets FROM — and because moving to assets deleted the compile-error-on-rename protection the <code>const string</code>s gave, which is why an id-stability test now pins them against a literal list. <code>RunModifiers</code> is a static dictionary of <code>id → stacks</code>; reading it is one lookup, so a combat seam can ask on every swing.</p>
+    </div>
+    <div class="card accent-ember">
+      <h4>Every modifier has a CAP, and it is load-bearing</h4>
+      <p><code>maxStacks</code> is not a balance knob bolted on afterwards. Several of these raise a budget that is the only thing bounding a loop — a cancel restarts the same combo index with a fresh timer, so an <i>unbounded</i> cancel budget is a state the player never leaves. <code>RunModifierTests.EveryCatalogEntry_IsUsable</code> refuses an uncapped entry.</p>
+    </div>
+  </div>
+
+  <div class="rule note"><b>Updraft is TARGETED: it imbues one <i>rolled</i> move.</b> The ground up-attack is the launcher by default and always will be — but which <em>other</em> move also launches is rolled per run from the seed, so a run where the down-air launches plays differently from one where the running attack does. <code>RunModifierRoll</code> owns the roll; the target is <b>stored</b> on the run rather than re-derived, because a weapon's moveset can be rewritten from text between sessions and a seed-derived target would silently relocate on resume — the failure class <code>RunWebFingerprint</code> exists to refuse for layouts.
+  <br><br><b>Two moves are never rolled.</b> <code>ground:up</code> already launches, so imbuing it spends the modifier on nothing. <code>ground:down</code> is the Crumple, and the two are contradictory in a way that deletes the move: Crumple zeroes knockback to pin a target where it stands, and launching immediately overwrites the body's velocity — "pin them" would become "throw them", and the Pinfall execution would stop being reachable.</div>
+
+  <h3>The shipped three</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Modifier</th><th>id</th><th>Stacks</th><th>What it changes</th><th>Read at</th></tr>
+    <tr><td><b>Chain Break</b></td><td><code>combo-cancels</code></td><td>3</td><td>Cancel the last hit of a ground combo into a directional attack one more time per string. Base budget is <b>1</b>.</td><td><code>PlayerMeleeAttackState.CancelBudget</code></td></tr>
+    <tr><td><b>Updraft</b></td><td><code>up-air-launcher</code></td><td>1</td><td><b>Targeted.</b> One rolled move also launches a grounded target this run. A second way <i>in</i> to a juggle. <span class="dim">(The id still says "up-air" because an id is a save key; the up-air is merely its default.)</span></td><td><code>PlayerMeleeAttackState.ProcessHit</code></td></tr>
+    <tr><td><b>Second Wind</b></td><td><code>extra-aerial-attack</code></td><td>2</td><td>One more melee attack per airtime. Landing still refunds the lot. Base budget is <b>1</b>.</td><td><code>PlayerContext.AerialAttackBudget</code></td></tr>
+  </table>
+  </div>
+
+  <div class="rule note"><b>Updraft cannot become an infinite, and that is structural rather than tuned.</b> <code>EnemyStateMachine</code> only honours <code>isLauncher</code> against a <b>grounded</b> target — you cannot launch something that is already up there. So an up-air that launches is a second <i>opener</i>, never a way to keep a target airborne. Any future "X also launches" modifier inherits the same guarantee for free.</div>
+
+  <div class="note"><b>Where the base value lives.</b> At the seam, not in the catalog: <code>RunModifiers.Budget(id, 1)</code> written out at the call site reads as "you get one, and the modifier adds more". A bare <code>Budget(id)</code> returning 1 by magic would hide the number a designer actually wants to change.</div>
+
+  <h3>Candidates — the backlog, so the idea outlives the session</h3>
+  <p>None of these are built. They are listed because the tier's whole value is that adding one is small, and a list of "mechanical things on a per-run basis" is worth more written down than remembered.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Idea</th><th>Likely seam</th><th>Watch out for</th></tr>
+    <tr><td>The <b>down-air spike</b> also crumples on landing</td><td><code>EnemyStateMachine.ResolveSpikeLanding</code></td><td>Stacks with <code>RequireRecentlySpiked</code> executions — check it does not make three of them trivial.</td></tr>
+    <tr><td><b>Wider cancel window</b> (cancel earlier in the swing)</td><td><code>meleeConfig.ComboProgressTiming</code> read in <code>UpdateComboLogic</code></td><td>Player-config, not per-weapon — one modifier changes every weapon at once.</td></tr>
+    <tr><td><b>Air-dash refresh on hit</b></td><td><code>PlayerDashState</code> / the airtime gate</td><td>Needs its own budget or it is infinite horizontal travel.</td></tr>
+    <tr><td><b>Executions cost less meter</b> / a second execution per enemy</td><td><code>EnemyStateMachine._executionReported</code></td><td>That bool is the once-per-enemy rule; a counter needs a cap for the same reason the cancel does.</td></tr>
+    <tr><td><b>Directional attacks chain into each other</b></td><td><code>CanCancel</code>'s "final hit only" gate</td><td>This is the one that most needs a budget — it is the cancel loop with the guard removed.</td></tr>
+    <tr><td><b>Ground bounce</b>: a spiked enemy pops back up once</td><td><code>ResolveSpikeLanding</code>'s <code>SpikeBounce</code></td><td>Re-entering the juggle needs <code>CanBeJuggled</code> respected, or bosses start flying.</td></tr>
+  </table>
+  </div>
+
+  <h3>Testing one right now</h3>
+  <p>Open the debug panel (<span class="kbd">F1</span>) → <b>Run (dev)</b> → <b>Per-run modifiers</b>. Toggles and sliders apply <b>immediately, mid-run</b> — unlike the ability toggles above them, which wait for the next run because the level was already generated from the old set. The <b>Budgets now</b> row underneath shows the numbers the controller actually reads, so a slider that says 2 against a game that behaves like 1 is visible rather than mysterious.</p>
+  <div class="warn note">All these rows are <code>saveValue = false</code>. A persisted debug value is re-applied at boot <i>over</i> whatever the run earned, silently — the trap that once broke hub camera follow. Run state must never be a panel preference.</div>
 </section>
 
 <section id="hub">
   <h2><span class="num">05</span>The shopkeeper</h2>
-  <p class="lead">All spending happens at ONE hub NPC — the <b>Shopkeeper</b> in <code>2.Hub</code> — that opens a full-screen <b>tabbed menu</b>. This replaced the old per-item greybox altars: because both tabs read the catalogs, a new upgrade or a newly-locked weapon appears automatically with nothing to place in the world.</p>
+  <p class="lead">All spending happens at ONE hub NPC — the <b>Shopkeeper</b> in <code>2.Hub</code> — that opens a full-screen <b>tabbed menu</b>: <b>Upgrades</b>, <b>Weapons</b>, <b>Abilities</b> (§04b) and the three move tabs <b>Ground</b> / <b>Air</b> / <b>Bow</b> (§04d). This replaced the old per-item greybox altars: every tab reads a catalog, so a new upgrade, a newly-locked weapon, a new ability or a new move appears automatically with nothing to place in the world.</p>
   <div class="grid c2">
     <div class="card accent-violet">
       <h4>ShopkeeperNPC — the world trigger</h4>
@@ -181,7 +299,7 @@
     </div>
     <div class="card accent-ember">
       <h4>ShopScreen — the tabbed menu</h4>
-      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). <b>Kit Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapon Unlocks</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>. Rows show a name + a blurb (<code>MetaUpgrade.description</code> / <code>WeaponDefinition.Description</code> — this tab is the <b>only</b> place a weapon's Description reaches the player) on the left, level/cost + your balance on the right; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); owned/mastered rows read UNLOCKED/MASTERED and can't be re-bought.</p>
+      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). Each tab is a <b>(name, builder) pair</b> in one array — they used to be a names array beside a separately-filled row list, joined only by position, so adding a name without its rows threw the moment the player tabbed onto it. <b>Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapons</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>; <b>Abilities</b> and the three move tabs iterate their catalogs. The row list is a <b>ScrollView bounded at 420px</b> — sized against the 21:9 logical viewport (~636px), not 16:9 — with <code>ScrollTo</code> following the selection: an unbounded list grew the panel until the title and the hint bar were clipped off both edges of the screen. Rows show a name + a blurb (<code>MetaUpgrade.description</code> / <code>WeaponDefinition.Description</code> — this tab is the <b>only</b> place a weapon's Description reaches the player) on the left, level/cost + your balance on the right; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); owned/mastered rows read UNLOCKED/MASTERED and can't be re-bought.</p>
     </div>
   </div>
   <div class="note">Opened from the world, so — unlike Settings, whose opener already froze the game — the shop pushes <code>MenuState</code> itself (freeze + UI input map), like Pause/Death. Owned/affordable state is snapshot on open and after each buy, never polled per-frame (those reads hit the save file). The weapon <b>pedestals</b> (§00) stay separate: the shop is where you <i>unlock</i> a weapon permanently; the pedestals are the per-run random pick from what you've unlocked.</div>
@@ -197,7 +315,10 @@
     <tr><td><code>upgradeIds[]</code> · <code>upgradeLevels[]</code></td><td>MetaProgress</td><td>Owned level per kit upgrade (parallel arrays). <code>Get/SetUpgradeLevel</code> grow them in place.</td></tr>
     <tr><td><code>unlockIds[]</code></td><td>MetaProgress</td><td>Weapon unlocks bought (asset names). Appended, never removed. <code>HasUnlock/AddUnlock</code>.</td></tr>
     <tr><td><code>abilityIds[]</code></td><td>MetaProgress</td><td>Movement abilities bought (<code>PlayerAbilityCatalog</code> ids). Its own array, so weapon names and ability ids can never collide. <code>HasAbility/AddAbility</code>.</td></tr>
+    <tr><td><code>moveIds[]</code></td><td>MetaProgress</td><td>Directional moves bought (§04d), keyed by <code>MoveKey</code> — the same address a weapon .ini uses. Its own array for the same namespace reason as <code>abilityIds</code>. <code>HasMove/AddMove</code>.</td></tr>
     <tr><td><code>runCurrency</code></td><td>RunSave</td><td>The in-run wallet, written at every room entry so a quit mid-run keeps the Gleam earned so far.</td></tr>
+    <tr><td><code>modifierTargets[]</code></td><td>RunSave</td><td>Which MOVE each held modifier points at, for the ones that name one (Updraft). <b>Read per index</b>, never joined to the other two arrays' length — a pre-target save has 2 ids, 2 stacks and 0 targets, and a shared <code>Math.Min</code> bound would read zero of everything and wipe the run's modifiers on the update that added this.</td></tr>
+    <tr><td><code>modifierIds[]</code> · <code>modifierStacks[]</code></td><td>RunSave</td><td>The per-run modifiers (§04c) this run is holding. Written at every room entry beside the wallet, so a modifier is not a pickup you lose by closing the game. Ids, never indices — the catalog is a set, and reordering it must not repoint a suspended run at a different rule.</td></tr>
   </table>
   </div>
   <div class="note"><b>Ids are save data.</b> An upgrade <code>id</code> and a weapon asset <b>name</b> are the keys players own progress by — renaming one silently orphans everything bought under the old name. Treat them like a database primary key. (The tooltip on <code>MetaUpgrade.id</code> says exactly this.)</div>
@@ -237,6 +358,25 @@
     <li>Add an entry to <code>PlayerAbilityCatalog.All</code> with a stable <code>id</code> (it is a <b>save key</b>) and a cost. The shopkeeper's Abilities tab reads the catalog, so the row appears automatically.</li>
     <li>Write a discriminator in <code>ReachabilityDiscriminatorTests</code>: geometry that is traversable <i>with</i> the ability and not <i>without</i>. A term nobody can demonstrate is a term that has quietly stopped working.</li>
   </ol>
+
+  <h3>Add a directional move to the shop</h3>
+  <ol>
+    <li>Author the move on the weapons (<code>AerialAttacks</code> / <code>GroundAttacks</code>) as usual — the shop sells access, not content.</li>
+    <li>Add a bit to <code>MoveSet</code> and a case to <code>MoveKey.Of</code> / <code>MoveKey.For</code>'s table. <b>Never hand-write <code>MoveSet.All</code></b> — it is composed from its members precisely so a new bit cannot be silently left out of it.</li>
+    <li>Add a <code>MoveDef</code> to <code>MoveCatalog.All</code> with a stable <code>key</code> (it is a <b>save key</b> and a mod-file address), the <code>input</code> line, and a cost. Nothing else to wire: the shop tab and the F1 toggles both build from the catalog.</li>
+    <li><b>Decide whether it is free.</b> The baseline is not generosity — it holds the moves that other systems depend on existing (the launcher, the aerial fallback). If withholding your move would break a fallback or make content unreachable, it belongs in <code>Baseline</code>, and say why in a comment.</li>
+    <li><code>MoveUnlockTests.TheBaselineAndTheShop_TogetherCoverEveryMove</code> will fail until the move is either free or sellable — that is the point: a move that is neither is authored, animated, permanently dead content.</li>
+  </ol>
+
+  <h3>Add a per-run modifier</h3>
+  <ol>
+    <li>Add an entry to <code>RunModifierCatalog.All</code>: a stable <code>id</code> (it is a <b>save key</b>), a display name, a description that says what the <i>rule</i> becomes, and a <code>maxStacks</code>. Add a <code>const</code> for the id beside the others so seams do not spell it by hand.</li>
+    <li><b>Decide the cap by asking what it bounds.</b> If the modifier feeds a budget, is that budget the only thing that ends a loop? If so, the cap is a safety property, not balance — say so in the entry.</li>
+    <li>Read it at exactly one seam, with the base value written out: <code>RunModifiers.Budget(id, 1)</code> or <code>RunModifiers.Has(id)</code>. Two seams reading the same modifier is two rules that will drift.</li>
+    <li>Nothing to wire for the dev panel — <span class="kbd">F1 ▸ Run (dev)</span> builds a row per catalogue entry. Add the new budget to the <b>Budgets now</b> readout if it is a number.</li>
+    <li>Test it <b>through the game</b>, not through the counter. Asserting <code>RunModifiers.Count</code> passes even when the seam never reads it; <code>ComboCancelTests.TheRunCanBuyMoreCancels</code> counts swings instead.</li>
+  </ol>
+  <div class="note">Persistence and clearing are free — <code>RunDirector</code> already writes on suspend, reads on resume, and clears at <code>StartRun</code> and <code>ClearActive</code>. A new modifier inherits all of it.</div>
 </section>
 
 <section id="tests">
@@ -244,7 +384,7 @@
   <p class="lead">The whole loop is headless-testable — no scenes needed — because <code>RunDirector</code> is a static service over a real save slot.</p>
   <ul>
     <li><b><code>RunDirectorTests</code></b> covers the earn/bank/survive-death currency math, suspend/resume of the in-run wallet, buying upgrades (debit, cap, unaffordable), the applied bonuses at <code>StartRun</code> and their reset at the hub, weapon unlock/hide, and the <code>LootTable</code> offer gate — locked out until bought, offered after.</li>
-    <li>Part of the <b>435-test</b> PlayMode suite. Run it with <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code>.</li>
+    <li>Part of the PlayMode suite. Run it with <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code>.</li>
   </ul>
   <p class="dim">Source of record: <code>Assets/_Game/Systems/Run/</code> (<code>RunDirector</code>, <code>Economy</code>, <code>MetaUpgradeCatalog</code>, <code>ShopkeeperNPC</code>) and <code>Assets/_Game/Systems/Save/SaveSlot.cs</code> (<code>MetaProgress</code>). The shop UI is <code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>; weapon lock fields live on <code>Assets/_Game/Combat/Code/Definitions/WeaponDefinition.cs</code>.</p>
 </section>

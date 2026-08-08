@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a class="on" href="modding.html">Modding</a>
@@ -39,7 +40,7 @@
   <pre><code>Mods/
   <span class="a">my-campaign</span>/          <span class="c">&lt;-- the folder name IS the campaign id</span>
     mod.ini            <span class="c">&lt;-- without this the folder is ignored entirely</span>
-    Enemies/  Weapons/  Dialogue/  Player/</code></pre>
+    Enemies/  Weapons/  Dialogue/  Player/  Progression/</code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Folder inside your campaign</th><th>What a text file there can do</th><th>Deep dive</th></tr>
@@ -47,6 +48,7 @@
     <tr><td><code>Weapons/</code></td><td>Retune any weapon (per combo swing and the dash), or add a new weapon from an existing one — its own name, stats, icon and on-hit status.</td><td><a href="combat.html#modding">Combat §10</a></td></tr>
     <tr><td><code>Dialogue/</code></td><td>Rewrite any character's lines, or translate the whole game, in the plain-text <code>.dlg</code> format.</td><td><a href="dialogue.html#modding">Dialogue §09</a></td></tr>
     <tr><td><code>Player/</code></td><td>Reskin the player — your own sprite sheet over the game's moves. A <code>[PlayerSkin]</code> file names the clips (with a <code>slot</code> for the split-body run). Changes how the player LOOKS, never what it DOES.</td><td><a href="#player">§06 below</a></td></tr>
+    <tr><td><code>Progression/</code></td><td><b>Set the economy.</b> Retune what the Shopkeeper sells and what it costs, retune the per-run modifiers a run can pick up, or declare your own of either. This is what stops a campaign playing Gleamwood's progression with its own content.</td><td><a href="#progression">§08 below</a></td></tr>
     <tr><td><code>Campaign/</code></td><td><b>Re-web the run itself.</b> Which biomes you visit, in what order, which branch, where it ends — plus retunes of any biome along the way. This is what makes a campaign a campaign rather than a pile of retunes.</td><td><a href="#campaign">§07 below</a></td></tr>
   </table>
   </div>
@@ -94,7 +96,7 @@ weight    = <span class="a">2</span>
 
 [<span class="a">NewEnemy:GlassHound.state:chase</span>]
 SpeedMultiplier = <span class="a">1.8</span></code></pre>
-  <div class="note warn"><b>Notes go on their own line — never after a value.</b> In <code>Weapons/</code>, <code>Enemies/</code> and <code>Player/</code> a <code>;</code> only opens a comment at the <b>start</b> of a line. Written after a value it stays <i>part of</i> that value, which then fails to read and silently leaves the shipped number in place — the line looks perfectly reasonable and does nothing. (<code>mod.ini</code> and <code>Campaign/</code> use a different reader that <em>does</em> strip a trailing <code>;</code>, which is exactly how the habit gets picked up — see <a href="#campaign">§07</a>, where it is legal.) The rule is deliberate: a value may legitimately open with <code>#</code>, like <code>tint = #88ddff</code>. When a value will not read, the log now names this as the likely cause.</div>
+  <div class="note warn"><b>Notes go on their own line — never after a value.</b> In <code>Weapons/</code>, <code>Enemies/</code>, <code>Player/</code> and <code>Progression/</code> a <code>;</code> only opens a comment at the <b>start</b> of a line. Written after a value it stays <i>part of</i> that value, which then fails to read and silently leaves the shipped number in place — the line looks perfectly reasonable and does nothing. (<code>mod.ini</code> and <code>Campaign/</code> use a different reader that <em>does</em> strip a trailing <code>;</code>, which is exactly how the habit gets picked up — see <a href="#campaign">§07</a>, where it is legal.) The rule is deliberate: a value may legitimately open with <code>#</code>, like <code>tint = #88ddff</code>. When a value will not read, the log now names this as the likely cause.</div>
 
   <div class="note"><b>A declared enemy can go further than a variant.</b> The <code>[Graph:]</code> tier lets an enemy declare its own states, transitions and attack chains in text — a genuinely new behaviour, still safe because it plays from a clip set that reports an unknown animation loudly instead of freezing. Weapons have no state machine, so they stop at "new weapon". Both deep dives cover the full grammar: <a href="enemies.html#graph">Enemies §11</a>, <a href="combat.html#newweapon">Combat §10</a>.</div>
 </section>
@@ -142,14 +144,16 @@ clips  = <span class="a">extend</span>
 clip Idle      = <span class="a">0-18</span>  fps <span class="a">25</span>
 <span class="c">; the legs, during the split run</span>
 clip Run       = <span class="a">24-35</span> fps <span class="a">18</span> <span class="t">slot Legs</span>
-<span class="c">; torso, pinned where it meets the legs</span>
-clip Upper_Run = <span class="a">36-47</span> fps <span class="a">18</span> <span class="t">slot UpperBody</span> pivot <span class="a">38,52</span></code></pre>
+<span class="c">; the torso: THE SAME FRAMES as the legs clip above</span>
+clip Upper_Run = <span class="a">24-35</span> fps <span class="a">18</span> <span class="t">slot UpperBody</span></code></pre>
 
   <div class="note rule"><b>The one player-specific thing is <code>slot</code>.</b> While running, the legs and torso animate on two separate renderers, so some clips carry <code>slot Legs</code> or <code>slot UpperBody</code>. Keep those exactly as the template lists them, or a frame shows on the wrong half of the body. Everything without a slot is the whole body on the main renderer. (That the grammar even <i>has</i> a slot is why enemies and the player share one reader — enemies simply never write it.)</div>
 
-  <div class="note"><b>Connecting the halves: pivot takes <code>x,y</code>.</b> The torso must sit exactly where it meets the hips, and on a sheet whose halves are not perfectly centred that is not the middle of the frame. <code>pivot = 2</code> sets the vertical only (x stays centred); <code>pivot = 38,52</code> sets both — <b>x pixels from the left, y pixels from the bottom</b>. Measure the connection point off your art. The same two-number form works for enemy art (<a href="enemies.html#art">§12</a>) and anywhere a sheet's centre is not its anchor.</div>
+  <div class="note warn"><b>The paired clips must be given the SAME FRAMES.</b> Three pairs exist — <code>Run</code>+<code>Upper_Run</code>, <code>RunBowCharge</code>+<code>Upper_RunBowCharge</code>, <code>RunBowShoot</code>+<code>Upper_RunBowShoot</code>. They are not two animations. They are <b>one drawing</b>, cut across the waist by a shader, so the legs can keep their own timing while the arms do something else — that is what lets the player run and aim at once. Point a pair at two different drawings and your character visibly comes apart at the belt: on the shipped archer, one drawing joins to within 2.7px and two drawings never got below 11px, whatever we tried. Note the example above gives both clips frames <code>24-35</code>.</div>
 
-  <p>You never start from a blank page here either: a build ships <code>Mods/_Templates/example-campaign/Player/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 9 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
+  <div class="note"><b>Pivot: one number, and both halves share it.</b> <code>pivot = 2</code> means "my character's feet sit 2px above the bottom of a frame". Because the halves are one drawing, they anchor identically — there is nothing to line up by hand, and you should <b>not</b> give a torso clip its own pivot. (An <code>x,y</code> form exists and still applies to enemy art, <a href="enemies.html#art">§12</a>, where a sheet's centre is not its anchor. It used to be needed here too, back when the torso was separately drawn art painted over the legs; a hand-tuned anchor is exactly what the shader cut removed.)</div>
+
+  <p>You never start from a blank page here either: a build ships <code>Mods/_Templates/example-campaign/Player/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 11 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
 
   <div class="scrollx">
   <table>
@@ -196,7 +200,7 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
 
   <div class="note rule"><b>The web is replaced, not merged.</b> The moment your campaign writes one <code>[Node:]</code> block, it owns the whole web — the shipped one is set aside entirely. A graph cannot be half-merged without inventing an order nobody wrote, so it is all or nothing.</div>
 
-  <div class="note"><b>Trailing comments are fine <i>here</i>.</b> Notice the <code>; where every run begins</code> notes sitting after values above — legal in <code>Campaign/</code> and in <code>mod.ini</code>, because these files share the reader the game's own <code>GameContent.ini</code> uses, and it strips a mid-line <code>;</code>. That reader is the exception: in <code>Weapons/</code>, <code>Enemies/</code> and <code>Player/</code> the same habit silently voids the value (<a href="#new">§03</a>). If you only remember one rule, put every note on its own line and it is always correct.</div>
+  <div class="note"><b>Trailing comments are fine <i>here</i>.</b> Notice the <code>; where every run begins</code> notes sitting after values above — legal in <code>Campaign/</code> and in <code>mod.ini</code>, because these files share the reader the game's own <code>GameContent.ini</code> uses, and it strips a mid-line <code>;</code>. That reader is the exception: in <code>Weapons/</code>, <code>Enemies/</code>, <code>Player/</code> and <code>Progression/</code> the same habit silently voids the value (<a href="#new">§03</a>). If you only remember one rule, put every note on its own line and it is always correct.</div>
 
   <h3>What you can name</h3>
   <p>Names resolve against the shipped game's content. You can recombine any of it; you cannot invent new assets from a text file.</p>
@@ -212,6 +216,11 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
     <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — numbers and text</b></td></tr>
     <tr><td><code>displayName</code> <code>chapter</code> <code>objective</code></td><td><code>[Biome:]</code></td><td>What the intro card says.</td></tr>
     <tr><td><code>minRooms</code> <code>maxRooms</code> <code>verticalJogChance</code> <code>branchChance</code> <code>maxBranches</code> <code>branchRunMax</code> <code>calmRoomBeforeBoss</code></td><td><code>[Biome:]</code></td><td>How the layout generates.</td></tr>
+    <tr><td><code>topology</code></td><td><code>[Biome:]</code></td><td><code>Chain</code> (the default — a spine left to right with dead-end spurs) · <code>Lattice</code> (a rolled grid of columns and bands, which can carry <b>loops</b>) · <code>Branching</code> (a trunk, a vertical fan column at its end, and one eastbound path leaving each storey — <b>3 or 4 ways out of the level</b>, one behind the boss and the rest slip-aways). <b>A campaign file is the only place this can be set</b> — <code>GameContent.ini</code>'s importer has no case for it, so the shipped game is all chains.</td></tr>
+    <tr><td><code>branches</code></td><td><code>[Biome:]</code></td><td>Branching only: how many PATHS the level offers, including the boss road. Path 0 always carries the boss corridor, arena and exit; the rest end in <code>SlipAway</code> rooms. <code>1</code> is legal and means a forced-boss level with no way to skip the fight.</td></tr>
+    <tr><td><code>pathRoomsMin</code> · <code>pathRoomsMax</code></td><td><code>[Biome:]</code></td><td>Branching only: how many rooms ONE path owns. The boss road spends part of that budget on its corridor and arena. Defaults are <b>4–6, and they are measured</b> — swept over 200 seeds of the shipped pool, that is the largest budget that keeps every level inside 28–41 rooms <i>and</i> a minimap more readable than the chain it replaces. 5–8 gives 34–46 rooms and a worst case of 0.62&nbsp;px/cell against the chain's 0.55: bigger levels, drawn as a smear.</td></tr>
+    <tr><td><code>bandHeight</code></td><td><code>[Biome:]</code></td><td>Branching only: how tall one path's lane is, in cells. <b>Must exceed the tallest room in your pool</b> or nothing can be placed — and the fan base is deliberately exactly one band tall, which is what makes the storey above it land on the next band's floor. The slack above your tallest room is exactly how much vertical jog a path is allowed.</td></tr>
+    <tr><td><code>latticeTier</code></td><td><code>[Biome:]</code></td><td>Lattice only: <code>Arc</code> (one loop) · <code>Stack</code> (a loop with a shaft standing on it) · <code>Web</code> (an arc off the arc — two nested loops). The generator comes DOWN this list until a shape your rooms can build fits, and names the room that would have bought the one above. Asking for more than you have costs a log line, never the level.</td></tr>
     <tr><td><code>statScalePerStage</code></td><td><code>[Biome:]</code></td><td>How much tougher enemies get with depth.</td></tr>
     <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — shipped assets, by name</b></td></tr>
     <tr><td><code>boss</code> <code>spawnTable</code> <code>musicTrack</code> <code>roomPool</code> <code>socketCap</code> <code>standInLayout</code> <code>branchTreasure</code></td><td><code>[Biome:]</code></td><td>Any shipped asset of that kind. <code>roomPool</code> takes a comma list. <code>-</code> clears it.</td></tr>
@@ -227,15 +236,95 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
   <div class="note rule"><b>Editing a web under your own save.</b> A suspended run remembers the shape of the web it was suspended on. Change that shape — add a node, rewire a door, point a node at a different biome — and that run is reported as unresumable rather than quietly continuing into a different game. <b>The save survives</b>; only the run in progress is lost, and you start a fresh one on the new web. Retuning a biome's numbers does not do this, so you can tune room counts all day with a run in flight.</div>
 </section>
 
+
+<section id="progression">
+  <h2><span class="num">08</span>Set the economy</h2>
+  <p class="lead">A campaign that supplies its own rooms, enemies, weapons and conversations is still selling Gleamwood's upgrades at Gleamwood's prices. <code>Progression/</code> is the last thing a campaign was renting: <b>what a profile can buy, and what a run can become.</b></p>
+
+  <pre><code><span class="c">; my-campaign/Progression/Progression.ini</span>
+
+<span class="c">; retune what the Shopkeeper sells</span>
+[<span class="a">Upgrade:vigor</span>]
+perLevel = 15
+baseCost = 80
+
+<span class="c">; declare one of your own</span>
+[<span class="a">NewUpgrade:swiftness</span>]
+displayName = Swiftness
+description = Every weapon hits a little harder.
+effect      = DamagePercent
+perLevel    = 4
+maxLevel    = 3
+baseCost    = 120
+costGrowth  = 60
+
+<span class="c">; retune a MOVE the player buys — the key is MoveKey's grammar</span>
+[<span class="a">Move:aerial:down</span>]
+displayName = Meteor
+description = Drive them into the floor.
+cost        = 40
+
+<span class="c">; retune an ABILITY</span>
+[<span class="a">Ability:dash</span>]
+cost = 350
+
+<span class="c">; retune a per-run modifier</span>
+[<span class="a">RunModifier:combo-cancels</span>]
+maxStacks = 3
+
+<span class="c">; declare one — no code, because a modifier is addressed by its EFFECT</span>
+[<span class="a">NewRunModifier:iron-lungs</span>]
+displayName = Iron Lungs
+description = One more melee attack per airtime.
+effect      = AerialAttacks
+maxStacks   = 2</code></pre>
+
+  <h3>The two kinds, and why they are different</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Section</th><th>What it is</th><th>What <code>effect</code> can be</th></tr>
+    <tr><td><code>[Upgrade:]</code></td><td><b>Permanent.</b> Bought once with Gleam and kept forever, across every run on that save.</td><td><code>MaxHp</code> · <code>DamagePercent</code> · <code>WeaponStartLevel</code></td></tr>
+    <tr><td><code>[Move:]</code></td><td><b>Permanent.</b> A directional attack the player buys once. The header is the move's <code>MoveKey</code> — <code>aerial:down</code>, <code>ground:up</code>, <code>bow:forward</code> — the same string a weapon file uses to address it. Retune only; see the warning above.</td><td><code>displayName</code> · <code>input</code> · <code>description</code> · <code>cost</code></td></tr>
+    <tr><td><code>[Ability:]</code></td><td><b>Permanent.</b> A movement verb — the wall jump, the dash. Retune only, and note these also drive which rooms the generator believes are clearable.</td><td><code>displayName</code> · <code>description</code> · <code>cost</code></td></tr>
+    <tr><td><code>[RunModifier:]</code></td><td><b>Per-run.</b> Picked up during a run and lost when it ends. These change <i>rules</i>, not numbers — "your up-air launches now" is not a number.</td><td><code>ComboCancels</code> · <code>AerialAttacks</code> · <code>Imbue</code></td></tr>
+  </table>
+  </div>
+  <p>An upgrade takes <code>perLevel</code> (how much one level grants), <code>maxLevel</code>, <code>baseCost</code> and <code>costGrowth</code> (added per level after the first). A modifier takes <code>maxStacks</code>.</p>
+
+  <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result.</div>
+
+  <div class="note warn"><b>This tier buys RETUNE, not EXTEND — and the difference is worth knowing before you plan around it.</b>
+  You can rename, reprice, redescribe, cap, reorder and disable <i>every</i> entry the game ships, and you can declare
+  your own <code>[NewUpgrade:]</code> and <code>[NewRunModifier:]</code>. You <b>cannot</b> add a ninth move, a third
+  ability, or a new kind of effect. <code>[NewMove:]</code> and <code>[NewAbility:]</code> are refused by name rather
+  than ignored, and the log says why: the vocabularies (<code>MoveSet</code>, <code>PlayerAbilities</code>,
+  <code>RunEffect</code>, <code>MetaEffect</code>, <code>AttackDirection</code>) are compiled enums read at fixed seams,
+  so a new entry would have no bit to grant and nothing would consult it — it would show up in the shop, be bought, and
+  do nothing at all. Refusing loudly beats selling that.
+  <br><br>
+  <b>Extend is deferred, not abandoned.</b> The eventual answer is string-keyed registries, and the reason it has not
+  happened yet is a real cost rather than a missing afternoon: <code>MoveSet</code> is an allocation-free bitset tested
+  on the per-swing path, and a registry lookup there is a per-hit cost paid by every player so that a few campaigns can
+  add a move. That trade gets made deliberately, on the way to <b>maker mode</b> — the destination where Gleamwood is a
+  2D roguelite maker that ships as its own first campaign — not by accident.</div>
+
+  <div class="note rule"><b>The name in the header is a save key.</b> <code>vigor</code>, <code>combo-cancels</code> — those strings are written into save files. You cannot set <code>id</code> from a file (the game says so if you try), and renaming a section in a campaign somebody has already played silently drops that upgrade from every save holding it. A <code>[NewUpgrade:]</code> or <code>[NewRunModifier:]</code> that repeats a shipped name is refused for the same reason.</div>
+
+  <h3>When it is wrong</h3>
+  <p>Refusal is <b>per entry, never per file</b>. A misspelled field, a value that is not a number, or an entry that could never do anything — an upgrade granting <code>0</code> per level, an <code>Imbue</code> modifier naming no move — is reported in the report (<a href="#report">§04</a>) and dropped, and the rest of the file still applies. A modded entry goes through the <em>same</em> validation a designer's does, so a mod cannot ship a reward that silently does nothing.</p>
+
+  <div class="note"><b>Not here yet: moves and abilities.</b> The directional moves the shop sells (the up-attack, the aerials) and the traversal abilities are still fixed in the game itself — a campaign cannot re-price or add those. They are waiting on the same asset migration the run modifiers have just had; when it lands they appear here as <code>[Move:]</code> and <code>[Ability:]</code> with no new grammar to learn.</div>
+</section>
+
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
     <li>This page is the player-facing umbrella over three deep dives — it must agree with all three: <a href="enemies.html#modding">enemies.html §10–12</a>, <a href="combat.html#modding">combat.html §10</a>, <a href="dialogue.html#modding">dialogue.html §09</a>.</li>
     <li>Weapon loaders: <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>.</li>
-    <li>Enemy loaders: <code>Assets/_Game/Enemies/Code/Definitions/EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>; dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code>.</li>
+    <li>Enemy loaders: <code>Assets/_Game/Enemies/Code/Definitions/EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>; dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code>; progression: <code>Assets/_Game/Systems/Modding/ProgressionOverrides.cs</code>. All five share the text&rarr;field applier in <code>Assets/_Game/Systems/Modding/IniFieldApplier.cs</code>.</li>
     <li>Campaign / run web (§07): <code>Assets/_Game/Systems/Modding/CampaignPlan.cs</code> (parse + the two-level clone), <code>Assets/_Game/Systems/Run/RunContentCatalog.cs</code> (name→asset at runtime; rebuild with <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Rebuild Content Catalog</span>), <code>RunWebValidator.cs</code> (is the web playable), <code>RunWebFingerprint.cs</code> (the suspended-run guard). The key names must stay in step with <code>Assets/_Game/Editor/ContentIniImporter.cs</code> — that parity is the whole copy-paste promise.</li>
     <li>Player skin (§06): <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code>, hook in <code>Assets/_Game/Player/Code/Animation/PlayerAnimation.cs</code> (Awake); the shared clip reader is <code>ModClipSetBuilder.ParseClipLine</code>.</li>
-    <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code> — all on the shared <code>TemplateBuildStepBase.cs</code> shell, with the field emitter in <code>IniFieldWriter.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
+    <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code>, <code>ProgressionTemplateBuildStep.cs</code> — all on the shared <code>TemplateBuildStepBase.cs</code> shell, with the field emitter in <code>IniFieldWriter.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
   </ul>
 </div>
 

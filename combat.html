@@ -17,6 +17,7 @@
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
   <a href="audio.html">Audio</a>
   <a href="tuning.html">Tuning &amp; INI</a>
   <a href="modding.html">Modding</a>
@@ -46,12 +47,12 @@
     <tr><td><code>BaseHitstop</code></td><td>float (default 0)</td><td><b>Fallback value.</b> Used whenever a swing/dash authors <code>HitstopDuration = 0</code>. Hitstop only fires when the final value is <b>&gt; 0</b> (<code>EnemyStateMachine.TakeHit</code> → <code>CombatTimeManager.TriggerHitstop</code>). This fallback used to be silently dead on melee — the greatsword authored 0.15 and got nothing — it is fixed and now real.</td></tr>
     <tr><td><code>ArmorPiercing</code></td><td>bool</td><td>Sets <code>HitInfo.armorPiercing</code> — hits punch through enemy super armor (the per-phase <code>SuperArmorHits</code> budget on <a href="enemies.html">enemy attacks</a>).</td></tr>
     <tr><td><code>StatusesToApply</code></td><td>List&lt;CombatStatusDefinition&gt;</td><td>Applied on <b>every</b> melee swing hit, every dash-attack hit, <b>and</b> every arrow hit — one <code>CombatStatusManager.AddStatus</code> per status per hit. See §07.</td></tr>
-    <tr><td><code>Description</code></td><td>string</td><td><b>DEAD</b> — never rendered anywhere. The Workbench hides it. See §08.</td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td><b>Player-visible — but only in the hub shop.</b> <code>ShopScreen.MakeWeaponRow</code> puts it in the <code>shop-row__desc</code> label under the weapon's name on every row of the <b>Weapon Unlocks</b> tab. That tab is <code>WeaponCatalog.LockedWeapons()</code>, so the text is only ever read on a weapon with <code>lockedUntilUnlocked = true</code> (bought or not — an owned row still shows it); on a weapon that is never gated, nothing renders it. <b>Still not shown</b> on the pedestal (<code>WeaponPedestal</code> draws <code>Icon</code> + the name only) or the HUD (<code>PlayerHUDController</code> draws <code>Icon</code> only). Write one for anything you sell — including a mod's shop-exclusive weapon, since <code>Description = …</code> overrides like any string field (§10). See <a href="progression.html#hub">progression §05</a>.</td></tr>
     <tr><td><code>BaseKnockback</code></td><td>float</td><td><b>Effectively DEAD</b> — melee never reads it; ranged reads it but the magnitude is never applied to any enemy. See §08.</td></tr>
   </table>
   </div>
 
-  <h3>Melee adds four things (<code>MeleeWeaponDefinition.cs</code>)</h3>
+  <h3>Melee adds six things (<code>MeleeWeaponDefinition.cs</code>)</h3>
   <div class="scrollx">
   <table>
     <tr><th>Field</th><th>Default</th><th>Behavior</th></tr>
@@ -59,6 +60,8 @@
     <tr><td><code>RecoveryTime</code></td><td>0.2</td><td>Lockout after the combo ends: the state enters a Recovery phase (timer resets) and cannot exit until <code>stateTimer ≥ RecoveryTime</code>.</td></tr>
     <tr><td><code>InputBufferTime</code></td><td>0.2</td><td>Lifetime of a buffered attack press, in seconds, before it expires.</td></tr>
     <tr><td><code>DashAttackConfig</code></td><td>—</td><td>One dash-attack struct per weapon — <b>not</b> per swing (§03).</td></tr>
+    <tr><td><code>AerialAttacks</code></td><td>empty</td><td>The airborne moveset: one <code>DirectionalAttack</code> per held direction, Neutral included (<a href="#directions">§02</a>). Empty = the grounded combo clip plays in mid-air, which is the old behaviour.</td></tr>
+    <tr><td><code>GroundAttacks</code></td><td>empty</td><td>The grounded moveset. <b>No Neutral entry</b> — holding nothing plays the combo step. Empty = the combo behaves exactly as it did before directions existed.</td></tr>
   </table>
   </div>
 
@@ -99,18 +102,20 @@
     <tr><td><code>DamageMultiplier</code></td><td>Multiplies <code>BaseDamage</code>. The Workbench prints the computed total next to it.</td><td>—</td></tr>
     <tr><td><code>HitstunDuration</code></td><td>Enemy stun length for this swing.</td><td>0 ⇒ <code>BaseHitstun</code></td></tr>
     <tr><td><code>HitstopDuration</code></td><td>Freeze-frame length for this swing.</td><td>0 ⇒ <code>BaseHitstop</code></td></tr>
-    <tr><td><code>JugglePoints</code></td><td>Added to the enemy's juggle meter <b>only while the enemy is grounded</b> (air hits build none). Scaled by <code>WeaponInstance.JuggleScale</code>. Meter hits 60 ⇒ launch.</td><td>—</td></tr>
     <tr><td><code>ExecutionPoints</code></td><td>Always added (meter caps at the threshold, 100). Scaled by <code>ExecutionScale</code>. Executions trigger on a <b>follow-up</b> hit after the meter is already full (§07).</td><td>—</td></tr>
     <tr><td><code>MovementForce</code></td><td>The lunge. <b>Only <code>.x</code> is read</b>: <code>velocityX = MovementForce.x × facing × 10</code> for the first 0.1&nbsp;s, then 50/s friction. The Workbench exposes it as a single float, "Lunge Speed". <code>.y</code> is dead.</td><td>—</td></tr>
     <tr><td><code>LockMovement</code></td><td>After the 0.1&nbsp;s lunge threshold, zeroes horizontal velocity for the rest of the step.</td><td>—</td></tr>
     <tr><td><code>HitboxReach</code></td><td>Horizontal reach from player center in the facing direction (§05).</td><td>≤ 0.01 ⇒ <b>1.2</b></td></tr>
     <tr><td><code>HitboxHeight</code></td><td>Vertical extent of the box (§05).</td><td>≤ 0.01 ⇒ <b>1.4</b></td></tr>
+    <tr><td><code>HitboxOffsetY</code></td><td>Shifts the box up (+) or down (−) from its default seat, in world units. <b>A down-air is unusable without it</b>: the box seats at <code>height × 0.45</code> above the player's <em>feet</em>, so by default it covers <code>[−0.05h, +0.95h]</code> and reaches almost nothing below them. The shipped down-airs author <code>−0.7 × height</code>, putting the span at roughly <code>[−0.75h, +0.25h]</code>.</td><td>0 ⇒ unchanged</td></tr>
     <tr><td><code>HitWindowStart</code></td><td>Fraction of Duration when the box goes live (Range 0–1). <b>0 is a valid start — no fallback here.</b></td><td>none — 0 is real</td></tr>
     <tr><td><code>HitWindowEnd</code></td><td>Fraction of Duration when the box stops.</td><td>≤ 0.01 ⇒ <b>0.9</b></td></tr>
     <tr><td><code>HitEffect</code></td><td>Prefab instantiated at the target's position on hit.</td><td>—</td></tr>
     <tr><td><code>AttackSound</code></td><td><code>PlayOneShot</code> on the player's AudioSource at swing start. The Workbench row has a ▶ Play preview.</td><td>—</td></tr>
     <tr><td><code>CustomPlayerAnimationState</code></td><td><code>[AnimatorStateRef(0)]</code> — a base-layer (layer&nbsp;0) player animator state, picked from a validated dropdown of real states. A wrong raw name is a <b>silent no-op in game</b> (the drawer flags unknown names in the editor).</td><td>empty ⇒ <code>PlayerMeleeAttack1</code> for step 0, <code>PlayerMeleeAttack2</code> for every later step</td></tr>
-    <tr><td><code>KnockbackForce</code> · <code>IsLauncher</code></td><td colspan="2"><b>Inert</b> — see the dead-fields table (§08). Launches actually come from JugglePoints.</td></tr>
+    <tr><td><code>IsLauncher</code></td><td><b>Launches on contact.</b> This is the ONLY way an enemy goes airborne — there is no meter to fill. Gated on the target's <code>CanBeJuggled</code> and on it being grounded; you cannot launch someone already up there. (Was inert until the directional movesets landed, and became the whole launch system when the juggle meter was deleted.)</td><td>—</td></tr>
+    <tr><td><code>KnockbackForce</code></td><td><code>.y</code>'s magnitude is the <b>spike speed</b> when <code>Reaction = Spike</code> (floored at 18). Otherwise still inert — only the normalized direction feeds <code>EnemyDashExecutionState</code>.</td><td>spike falls back to 18</td></tr>
+    <tr><td><code>Reaction</code></td><td>What the hit <em>does</em>, beyond its numbers. <b>Standard</b> = hitstun (or a launch, if IsLauncher). <b>Spike</b> = drive an airborne target at the floor, ending the juggle, and pay off on impact; against a grounded target it lands as ×1.5 hitstun instead of nothing. <b>Crumple</b> = no knockback and ×2 hitstun — the combo extender.</td><td>Standard</td></tr>
   </table>
   </div>
 
@@ -128,6 +133,44 @@
 
   <h3>Combo timing knobs (player-side, not per-weapon)</h3>
   <p>These live on <code>PlayerMeleeAttackConfig</code>, a sub-asset of <code>Assets/_Game/Player/Data/PlayerDef.asset</code> — edit via the Workbench Player category. Stamped values: <code>LungeTimeThreshold 0.1</code>, <code>LungeForceMultiplier 10</code>, <code>LungeFrictionRate 50</code>, <code>InputBufferTiming 0.6</code> (the next press can buffer from 60% of Duration), <code>ComboProgressTiming 0.7</code> (the chain fires from 70%), <code>BowTransitionTiming 0.8</code> (melee→bow branch — only from combo step index 1, while the range-attack button is held). Transition priorities: Dash 12 &gt; BowAim 11 &gt; Fall 10 &gt; Run 9 &gt; Idle 8.</p>
+
+  <h3 id="directions">The held direction picks the move</h3>
+  <p>A weapon authors two extra lists beside its combo: <code>AerialAttacks</code> and <code>GroundAttacks</code>, each a list of <code>DirectionalAttack</code> (<code>Direction</code>, <code>AnimationState</code>, <code>OverrideConfig</code>, <code>Config</code>). The stick is read <b>once, at the moment the swing starts</b>, and never re-read while it plays — a move you committed to should not change identity because the stick moved mid-swing.</p>
+  <ul>
+    <li><b>Vertical beats horizontal.</b> <code>AttackDirections.FromInput</code> tests up, then down, then any held horizontal. Reversing that would make up unreachable in motion, because the player is nearly always holding some horizontal while moving. Threshold is <code>0.5</code>, the same constant the drop-through check uses, so "holding down" cannot mean two different things.</li>
+    <li><b>There is no Back.</b> Holding away from your facing turns you around; it does not produce a backward attack. A real one needs a lock-on or a back-dash to face away <em>from</em>, and neither exists.</li>
+    <li><b><code>OverrideConfig</code> is what makes a direction a MOVE.</b> Left off, the variant borrows the combo step's numbers and only changes the drawing — a costume. Turned on, it carries its own damage, reach, timing and reaction. Every shipped Up, Down and Forward turns it on; the aerial <b>Neutral</b> entries deliberately leave it off, because Neutral <em>is</em> the combo step's swing taken in mid-air and has no numbers of its own to declare.</li>
+  </ul>
+
+  <div class="rule note"><b>Air and ground resolve differently, on purpose.</b> An aerial direction with no entry falls back to the <b>Neutral</b> aerial, because in mid-air there is no other swing to play. A ground direction has <b>no fallback and no Neutral entry at all</b> — the neutral ground swing already exists, it <em>is</em> the combo step. A Neutral ground entry would either duplicate that step or quietly replace it, and holding no direction would stop advancing the string. <code>TryResolve</code> vs <code>TryResolveExact</code>; a single shared resolver would look tidier right up until the combo stopped working.</div>
+
+  <h4>The shipped grammar</h4>
+  <div class="scrollx">
+  <table>
+    <tr><th>Direction</th><th>On the ground</th><th>In the air</th></tr>
+    <tr><td><b>Up</b></td><td>The <b>launcher</b>, by default and by design — tall box, short reach, <code>IsLauncher</code>. It is the <em>only</em> move in the shipped data that puts a target in the air, and therefore the only way the aerial moveset is reachable inside a combo. Never for sale, for that reason.</td><td>Anti-air. <b>Not</b> a launcher — <b>Updraft</b> imbues one <em>rolled</em> move per run with that property (<a href="progression.html#runmods">per-run modifiers</a>), and this is only its default target.</td></tr>
+    <tr><td><b>Down</b></td><td><b>Crumple</b> — a low sweep with no knockback and the longest hitstun on the weapon. It buys the next hit its window.</td><td><b>Spike</b> — drives an airborne target into the floor and ends the juggle. On a grounded target it lands as ×1.5 hitstun instead of whiffing.</td></tr>
+    <tr><td><b>Forward</b></td><td>The <b>running attack</b>. Longest reach, carries its own <code>MovementForce.x</code>, does not lock movement.</td><td>The committed air lunge — out-reaches every other aerial.</td></tr>
+    <tr><td><b>Neutral</b></td><td>— (the combo step)</td><td>The plain aerial swing; also the fallback for any unauthored direction.</td></tr>
+  </table>
+  </div>
+
+  <p><b>A ground direction branches the string rather than ending it.</b> Its <code>ComboWindow</code> is authored wider than its <code>Duration</code> (×1.7 on every shipped move), so the combo continues out of a directional swing. Aerials do the opposite — window equals duration — because one attack per airtime is the rule up there.</p>
+
+  <div class="rule note"><b>Five of these nine moves are BOUGHT.</b> Only the ground up-attack and the neutral air are free; the rest are permanent purchases at the shopkeeper's <b>Ground</b>, <b>Air</b> and <b>Bow</b> tabs (<a href="progression.html#moves">progression §04d</a>). A withheld move resolves exactly as an <em>unauthored</em> one does — an aerial falls back to the neutral air, a ground direction resolves to nothing and the combo step plays — so nothing goes silent and the string keeps advancing. The <code>*Owned</code> resolvers carry the gate; <code>TryGetAerial</code>/<code>TryGetGrounded</code> stay the asset's answer, because the Workbench has to show a move nobody has bought.</div>
+
+  <div class="rule note"><b>Exactly ONE authored launcher per weapon: the ground up-attack.</b> The sword's and greatsword's combo <i>step 2</i> also carried <code>IsLauncher</code>, left over from when the flag did nothing — so the neutral string popped enemies into the air on its own, which is not a decision the player made. Cleared. The aerial up-attack's flag went with it, because "the up-air also launches" is a thing a run should <em>earn</em>. If you author a second launcher, be able to say what decision it rewards.</div>
+
+  <h4 id="cancel">Cancelling the last hit</h4>
+  <p>The <b>final</b> hit of a ground string can be cancelled into a directional attack instead of dead-ending into recovery — hold a direction and press attack again during the same window an ordinary chain uses (<code>ComboProgressTiming</code>). Mechanically the cancel <i>restarts the same combo index</i>; its identity as a different move comes entirely from the directional variant the stick resolves.</p>
+  <ul>
+    <li><b>Budgeted, and the budget is a safety property.</b> One per string by default. A cancel zeroes the state timer, so an unbounded budget means a player holding a direction never reaches recovery and never leaves the attack state. The budget is raised by the <b>Chain Break</b> <a href="progression.html#runmods">run modifier</a>, which is capped for the same reason. <code>ComboCancelTests</code> counts swings to pin both halves.</li>
+    <li><b>Ground only, and only into a direction the weapon has.</b> Ground resolution is exact with no Neutral fallback, so holding nothing leaves the string ending exactly as it did before. Without that check the last step would silently replay itself as a free extra hit.</li>
+    <li><b>The chain is checked first.</b> A mid-string press always advances the combo — the cancel is what the <em>final</em> hit does, not an alternative to chaining.</li>
+    <li>The bow window (<code>ShouldTransitionToBow</code>, keyed on combo step 1) is closed during a cancel. On a two-step weapon the last step <i>is</i> index 1, so a cancel's fresh timer would otherwise re-open it and yank the directional attack into <code>bowAim</code>.</li>
+  </ul>
+
+  <div class="warn note"><b>These clips are whole-body on layer 0, and the split rig is switched OFF while they play.</b> One drawing has no waist join to reconcile, so there is no seam to hide — the same contract the dash attack's custom states use. <code>PlayerRunState</code> switches the split back on when the player next moves. A directional clip that arrives carrying a <code>slot</code> would be routed to a split half and cut in two; the wiring tests assert the slot is empty rather than assuming it.</div>
 </section>
 
 <section id="dash">
@@ -139,7 +182,7 @@
     <li><b>Damage type is <code>DASH_SLASH</code></b> — this is what triggers the execution on Juggled enemies. <code>isLauncher</code> is always false on the dash path.</li>
     <li><b>Exit:</b> after <code>DashAttackDuration</code>, gravity returns to 1 and the player decelerates at <code>DecelerationRate</code>.</li>
   </ul>
-  <p>The struct's fields mirror a swing: <code>DamageMultiplier</code>, <code>HitstunDuration</code> / <code>HitstopDuration</code> (0 ⇒ Base, same rule), <code>JugglePoints</code>, <code>ExecutionPoints</code> (this one was once dropped on the floor — the dash's authored execution points never landed; fixed), <code>HitEffect</code>, <code>AttackSound</code>, <code>HitboxReach</code> / <code>HitboxHeight</code> (0 ⇒ 1.2 / 1.4), <code>CustomPlayerAnimationState</code>, and the inert <code>KnockbackForce</code>.</p>
+  <p>The struct's fields mirror a swing: <code>DamageMultiplier</code>, <code>HitstunDuration</code> / <code>HitstopDuration</code> (0 ⇒ Base, same rule), <code>ExecutionPoints</code> (this one was once dropped on the floor — the dash's authored execution points never landed; fixed), <code>HitEffect</code>, <code>AttackSound</code>, <code>HitboxReach</code> / <code>HitboxHeight</code> (0 ⇒ 1.2 / 1.4), <code>CustomPlayerAnimationState</code>, and the inert <code>KnockbackForce</code>.</p>
 
   <h3>The dash animation contract: full-body vs the legacy overlay</h3>
   <div class="scrollx">
@@ -161,12 +204,13 @@
     <tr><td><code>DrawTime</code></td><td>Releasing before <code>aimTimer ≥ DrawTime</code> <b>cancels the shot</b> — nothing fires. Also gates the hold-anim switch and the stand-draw resume point.</td></tr>
     <tr><td><code>PerfectTimingStart</code> / <code>PerfectTimingEnd</code></td><td>Seconds from aim start; releasing inside the window is a <b>perfect shot</b>. The HUD ring is fed <code>clamp01(value / MaxChargeTime)</code>.</td></tr>
     <tr><td><code>PerfectDamageMultiplier</code></td><td>Damage multiplier on a perfect release (shipped: 1.5).</td></tr>
-    <tr><td><code>JugglePoints</code> / <code>ExecutionPoints</code></td><td>Flat per arrow hit, scaled by the ranged <code>WeaponInstance</code>'s Juggle/ExecutionScale.</td></tr>
+    <tr><td><code>ExecutionPoints</code></td><td>Flat per arrow hit, scaled by the ranged <code>WeaponInstance</code>'s ExecutionScale.</td></tr>
     <tr><td><code>HitEffect</code></td><td>Instantiated at the cast's <code>hit.point</code>.</td></tr>
     <tr><td><code>ReleaseSound</code> / <code>PerfectReleaseSound</code></td><td>Chosen by normal vs perfect; played if <code>PlayerBowAimConfig.UseAudioFeedback</code>.</td></tr>
-    <tr><td><code>DrawAnimationState</code></td><td><code>[AnimatorStateRef(0)]</code>, default <code>StandBowDraw</code>. Overrides only the <b>planted</b> draw — while moving, the hardcoded <code>RunBowCharge</code> / <code>RunBowShoot</code> cycles play regardless.</td></tr>
-    <tr><td><code>HoldAnimationState</code></td><td><code>[AnimatorStateRef(1)]</code>, default <code>Upper_BowHold</code> — layer 1, plays once <code>aimTimer ≥ DrawTime</code> while held.</td></tr>
-    <tr><td><code>ReleaseAnimationState</code></td><td><code>[AnimatorStateRef(1)]</code>, default <code>Upper_BowRelease</code> — layer 1, on fire.</td></tr>
+    <tr><td><code>DrawAnimationState</code></td><td><code>[AnimatorStateRef(0)]</code>, default <code>StandBowDraw</code>. Overrides only the <b>planted</b> draw; planted hold and release are the hardcoded <code>StandBowHold</code> / <code>StandBowRelease</code> and cannot be overridden. While moving the <b>legs</b> stay on <code>RunBowCharge</code> for the whole draw <i>and</i> the shot — only the torso changes.</td></tr>
+    <tr><td><code>HoldAnimationState</code></td><td><code>[AnimatorStateRef(1)]</code>, default <code>Upper_RunBowCharge</code> — layer 1, and <b>only while moving</b>; planted, it is never read. It is the torso half of the run-and-aim drawing whose legs half plays underneath, started at the legs' phase, which is what makes the waist join invisible.</td></tr>
+    <tr><td><code>ReleaseAnimationState</code></td><td><code>[AnimatorStateRef(1)]</code>, default <code>Upper_RunBowShoot</code> — layer 1, on fire, <b>only while moving</b>; a planted release is the hardcoded <code>StandBowRelease</code> on layer 0. The default resumes at the legs' current phase (a custom clip starts at 0), and firing swaps layer 1 only, so the stride never restarts however fast you shoot.</td></tr>
+    <tr><td colspan="2"><div class="rule note"><b>Overriding either layer-1 clip re-opens the waist seam.</b> While running and aiming the player is drawn as ONE drawing cut at the waist by a shader — <code>RunBowCharge</code> below, <code>Upper_RunBowCharge</code> (identical frames) above. That is the only arrangement that hides the join: measured on the shipped archer it sits at 2.7px, where a standing bow pose over running legs sat at 11px and no pivot, canvas size, slice angle or frame remap got near. Point these fields at a clip from any other drawing and the character comes apart at the belt.</div></td></tr>
     <tr><td><code>ProjectilePrefab</code> · <code>DrawSound</code> · <code>PerfectForceMultiplier</code></td><td><b>Dead</b> — §08. The Workbench lists all three in its "Not yet in game" note on the Presentation sub-tab and keeps them off the editable form.</td></tr>
   </table>
   </div>
@@ -236,8 +280,8 @@ size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height
 </section>
 
 <section id="statuses">
-  <h2><span class="num">07</span>Statuses, juggle &amp; executions</h2>
-  <p class="lead">Every hit carries three payloads besides damage: statuses, juggle points, execution points. All three land in the enemy's <code>CombatStatusManager</code>.</p>
+  <h2><span class="num">07</span>Statuses, launches &amp; executions</h2>
+  <p class="lead">Every hit carries two payloads besides damage — statuses and execution points — and both land in the enemy's <code>CombatStatusManager</code>. Getting an enemy AIRBORNE is not a payload at all: it is a single flag, <code>IsLauncher</code>, on the swing that does it.</p>
 
   <h3>CombatStatusDefinition (<span class="kbd">Assets ▸ Create ▸ Combat ▸ Status Definition</span>)</h3>
   <div class="scrollx">
@@ -251,13 +295,55 @@ size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height
   </div>
   <p>Shipped: <code>Ignite</code> (decay 5, max 3 — applied by SolarGreatsword) and <code>StickyArrows</code> (decay 5, max 10 — applied by DefaultBow), in <code>Assets/_Game/Enemies/Data/StatusDefinitions/</code>. Statuses gate executions (<code>ExecutionDefinition.RequiredStatus</code>) and enemy transitions — a weapon that applies the right status is the key that unlocks the finisher.</p>
 
-  <h3>The two meters</h3>
+  <h3>The execution meter</h3>
   <ul>
-    <li><b>Juggle:</b> points accrue <b>only while the enemy is grounded</b>. Threshold 60 ⇒ launch. Decay: 20/s after 2&nbsp;s.</li>
     <li><b>Execution:</b> points always accrue, capped at the threshold (100). Decay: 25/s after 3&nbsp;s.</li>
   </ul>
-  <div class="rule note"><b>Executions are a two-hit contract.</b> The readiness check in <code>EnemyStateMachine.TakeHit</code> runs <b>before</b> the hit lands, so the swing that tops the meter never executes on the same frame — the <em>next</em> hit does. A dash attack (<code>DASH_SLASH</code>) is what triggers the execution on a Juggled enemy. And enemies with <code>MaxHealth 0</code> cannot die from plain damage at all — executions only.</div>
-  <p class="dim"><code>CombatStatusManager</code> serialized tuning on enemy prefabs: <code>launchThreshold 60</code>, <code>juggleDecayRate 20</code>, <code>timeToDecay 2</code>, <code>executionThreshold 100</code>, <code>executionDecayRate 25</code>, <code>executionTimeToDecay 3</code>. Its <code>defaultStatusDecayTime 5</code> field is never consulted — <code>AddStatus</code> always uses the definition's own DecayTime.</p>
+  <div class="rule note"><b>The hit that fills the meter can never be the hit that spends it.</b> The readiness check in <code>EnemyStateMachine.TakeHit</code> is captured <b>before</b> this hit's points land, so a <em>distinct later</em> hit must arrive while the meter is still full.
+  <br><br><b>In practice that is three hits minimum, never two.</b> No shipped attack reaches the 100-point threshold in one blow — the largest is the greatsword down-air at 65, and the maximum <code>ExecutionScale</code> (1.45, forge level 3) only takes it to 94.25. So: two or more hits to fill, plus one to cash. Worth knowing before you tune <code>ExecutionPoints</code>.
+  <br><br>The window afterwards is generous, not tight: points clamp at the threshold, decay starts after 3&nbsp;s and then bleeds 25/s, so a full meter lasts ~3&nbsp;s guaranteed and ~7&nbsp;s in total. Nothing <i>consumes</i> the meter on a successful execution either — the once-per-enemy limit is a separate flag (<code>_executionReported</code>), so after one execution that enemy is permanently ineligible whatever the meter says. And enemies with <code>MaxHealth 0</code> cannot die from plain damage at all — executions only.</div>
+  <p class="dim"><code>CombatStatusManager</code> serialized tuning on enemy prefabs: <code>executionThreshold 100</code>, <code>executionDecayRate 25</code>, <code>executionTimeToDecay 3</code>. Its <code>defaultStatusDecayTime 5</code> field is never consulted — <code>AddStatus</code> always uses the definition's own DecayTime.</p>
+
+  <h3 id="exectriggers">Execution triggers — three states, ten executions</h3>
+  <p>There are only three execution <em>states</em> in the game (<code>bowExecution</code>, <code>dashExecution</code>, <code>explosiveExecution</code>), and that is fine. <b>The state is the payoff you watch; the trigger is the move that earned it.</b> Widening the trigger vocabulary turns three animations into ten distinct executions with no new graph wiring — every enemy already registers those three states, deduped by <code>StateName</code>, straight from its <code>Executions</code> list. Adding a definition that reuses one costs nothing.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Condition</th><th>Asks</th><th>Default</th></tr>
+    <tr><td><code>RequiredDamageType</code></td><td>Exact match on the hit's type. Always checked.</td><td><code>MELEE_SLASH</code></td></tr>
+    <tr><td><code>MustBeAirborne</code> / <code>MustBeGrounded</code></td><td>Where the target is. Airborne additionally requires it to be in <code>EnemyJuggledState</code>, not merely off the floor.</td><td>off</td></tr>
+    <tr><td><code>RequireSpecificReaction</code> + <code>RequiredReaction</code></td><td><b>What this hit IS</b> — a spike, a crumple.</td><td>off</td></tr>
+    <tr><td><code>RequireRecentlySpiked</code></td><td><b>What just happened to them.</b> True for <code>SpikeWindow</code> (0.6&nbsp;s) after they LAND from a spike.</td><td>off</td></tr>
+    <tr><td><code>RequiredStatus</code> + <code>MinStatusCount</code></td><td>Stacks of a status. <code>ConsumeStatusOnTrigger</code> clears them.</td><td>none</td></tr>
+  </table>
+  </div>
+
+  <div class="rule note"><b>Why <code>RequireRecentlySpiked</code> is not just <code>RequiredReaction = Spike</code>.</b> An execution is gated on a <em>follow-up</em> hit — the meter must already have been full when the swing landed — so an execution meant to reward a spike cannot ask whether <em>this</em> hit was the spike. It has to ask whether they are still lying in the crater. Both exist because both are useful: <b>Meteor</b> fires on the spiking blow itself (mid-air), <b>Groundbreaker</b> fires on whatever you hit them with once they are down.</div>
+
+  <h4 id="execroster">The ten, and exactly how to trigger each</h4>
+  <p>Every enemy in the roster carries all ten, in this order. <b>First match wins</b>, so the order is authored data and it is load-bearing. Each row assumes the meter is <em>already full</em> — that is the entry price for all of them.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>#</th><th>Execution</th><th>Plays</th><th>Trigger</th><th>How you actually do it</th></tr>
+    <tr><td>1</td><td><b>Meteor</b></td><td>explosive</td><td>melee + juggled + <code>Spike</code></td><td>Launch them (ground up-attack), then hit them mid-juggle with the <b>down-air</b>.</td></tr>
+    <tr><td>2</td><td><b>Groundbreaker</b></td><td>explosive</td><td>melee + grounded + recently spiked</td><td><b>Spike</b> an airborne target into the floor, let it land, then <b>any melee</b> within 0.6&nbsp;s.</td></tr>
+    <tr><td>3</td><td><b>Pinfall</b></td><td>dash</td><td>melee + grounded + <code>Crumple</code></td><td>Hold <b>down</b> and attack on the floor — the ground down-attack is the only <code>Crumple</code> move.</td></tr>
+    <tr><td>4</td><td><b>Skyhook</b></td><td>dash</td><td>melee + juggled</td><td>Launch them, then <b>any non-spike aerial melee</b>. The airborne melee catch-all.</td></tr>
+    <tr><td>5</td><td><b>Nailed</b></td><td>bow</td><td>ranged + grounded + recently spiked</td><td>Spike, land, then <b>shoot</b> within 0.6&nbsp;s.</td></tr>
+    <tr><td>6</td><td><b>OffScreenKill</b></td><td>bow</td><td>ranged + juggled</td><td>Launch them, then <b>shoot them out of the air</b>.</td></tr>
+    <tr><td>7</td><td><b>Overload</b></td><td>explosive</td><td>dash + grounded + recently spiked</td><td>Spike, land, then <b>dash-attack</b> within 0.6&nbsp;s.</td></tr>
+    <tr><td>8</td><td><b>SamuraiSlice</b></td><td>dash</td><td>dash + juggled</td><td>Launch them, then <b>air-dash-attack</b> into the hang.</td></tr>
+    <tr><td>9</td><td><b>Explosion</b></td><td>explosive</td><td>dash + StickyArrows ≥ 3</td><td>Land <b>3 bow arrows</b> inside 5&nbsp;s (each refreshes the decay), then <b>dash-attack</b>. Position irrelevant.</td></tr>
+    <tr><td>10</td><td><b>Firestorm</b></td><td>explosive</td><td>melee + Ignite ≥ 1</td><td>Any melee swing carrying the <b>Solar Greatsword</b> — the only Ignite source, and it applies the stack on the very hit being checked. Effectively "the greatsword's default execution".</td></tr>
+  </table>
+  </div>
+
+  <div class="rule note"><b>Two ordering rules, and both were bugs before they were rules.</b>
+  <br><br><b>Most specific first.</b> Skyhook (juggled) is a strict superset of Meteor (juggled + Spike) — with Skyhook first, the down-air's mid-juggle payoff simply never fires. <code>ExecutionTriggerTests.NoExecution_IsShadowedByAnEarlierOneOnTheSameEnemy</code> refuses any such pair, on every enemy, because an inspector drag reorders the list in one click.
+  <br><br><b>Status catch-alls last.</b> A status gate is a state the player <em>carries around</em>, not a thing they just did. Firestorm used to sit at slot 4 — so with the greatsword equipped, Groundbreaker, Meteor, Pinfall <i>and</i> Skyhook were all unreachable, and nothing said why. Same shape for Explosion against SamuraiSlice and Overload while sticky arrows are up. Both now sit at the bottom, where they mean "the execution when nothing better applied".</div>
+
+  <h4>Why an execution didn't fire</h4>
+  <p>Turn on <span class="kbd">F1 ▸ Run (dev) ▸ Execution gates ▸ Explain executions</span>. Every hit then records which gate closed on each of the ten — <code>"Skyhook — must be airborne, target is on the floor"</code> — plus the two reasons the roster is never consulted at all: the meter was not full <em>before</em> the hit, or this enemy has already been executed once. <b>"…and log each one"</b> mirrors it to the console so the history survives the next hit.</p>
+  <p class="dim">Off by default: it builds a string per hit, and combat is the hottest path in the game. <code>ExecutionDefinition.CheckConditions</code> gained an <code>out string reason</code> overload; the passing path allocates nothing.</p>
 </section>
 
 <section id="dead">
@@ -266,18 +352,18 @@ size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height
   <div class="scrollx">
   <table>
     <tr><th>Field</th><th>Why it's dead</th></tr>
-    <tr><td><code>WeaponDefinition.Description</code></td><td>Never rendered anywhere.</td></tr>
     <tr><td><code>WeaponDefinition.BaseKnockback</code></td><td>Melee never reads it. Ranged writes it into <code>HitInfo.knockbackForce</code>, but the only consumer normalizes it for <em>direction</em> (<code>EnemyDashExecutionState</code>) — the magnitude never pushes anyone. <code>HitInfo.GetKnockbackDirection</code> has zero callers.</td></tr>
     <tr><td><code>MeleeAttackConfig.MovementForce.y</code></td><td>Only <code>.x</code> is read (the lunge).</td></tr>
-    <tr><td><code>MeleeAttackConfig.KnockbackForce</code> · <code>DashAttackConfig.KnockbackForce</code></td><td>Magnitude inert; only the normalized direction feeds <code>EnemyDashExecutionState</code>.</td></tr>
-    <tr><td><code>MeleeAttackConfig.IsLauncher</code></td><td>Feeds a method with no callers. Real launches come from JugglePoints ≥ 60. (Still authored on shipped assets — harmless.)</td></tr>
-    <tr><td><code>RangedWeaponDefinition.ProjectilePrefab</code></td><td>Only referenced inside a commented-out block; shots are instant CircleCasts.</td></tr>
+    <tr><td><code>DashAttackConfig.KnockbackForce</code></td><td>Magnitude inert; only the normalized direction feeds <code>EnemyDashExecutionState</code>. (<code>MeleeAttackConfig.KnockbackForce</code> is <b>no longer here</b> — see below.)</td></tr>
+    <tr><td><code>RangedWeaponDefinition.ProjectilePrefab</code></td><td>The only read is a live <code>!= null</code> check in <code>PlayerBowAimState</code> whose body is entirely commented out; shots are instant CircleCasts either way.</td></tr>
     <tr><td><code>RangedWeaponDefinition.DrawSound</code></td><td>Never played by any runtime code.</td></tr>
     <tr><td><code>RangedWeaponDefinition.PerfectForceMultiplier</code></td><td>Multiplies the dead <code>BaseKnockback</code>.</td></tr>
     <tr><td><code>CombatStatusDefinition.Description</code> / <code>.Icon</code></td><td>Not shown in game yet.</td></tr>
     <tr><td><code>HitInfo.hitTime</code> (attacker-set)</td><td>Overwritten in <code>EnemyStateMachine.TakeHit</code> with <code>Time.time</code>.</td></tr>
   </table>
   </div>
+  <div class="rule note"><b>No longer dead: <code>MeleeAttackConfig.IsLauncher</code> and <code>MeleeAttackConfig.KnockbackForce</code>.</b> Both sat in this table until the directional movesets landed. <code>IsLauncher</code> now launches on contact (gated on <code>CanBeJuggled</code> + grounded), because an anti-air that needs a full juggle meter first cannot be the move that <em>opens</em> a combo. <code>KnockbackForce.y</code>'s magnitude is now the spike speed for a <code>Reaction = Spike</code> swing, so a heavier weapon's down-air drives harder without a second set of numbers to keep in sync. Everything else about both fields is unchanged. See <a href="#swings">§02</a>.</div>
+  <div class="rule note"><b>No longer dead: <code>WeaponDefinition.Description</code>.</b> It used to sit in this table. The hub shopkeeper's <b>Weapon Unlocks</b> tab now renders it under each weapon's name (<code>ShopScreen.MakeWeaponRow</code> → <code>shop-row__desc</code>), so any weapon with <code>lockedUntilUnlocked = true</code> shows its description to the player. Pedestals and the HUD still ignore it. See §01.</div>
 </section>
 
 <section id="recipe">
@@ -294,7 +380,7 @@ size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height
   </ol>
   <h3>What happens at runtime (so you can test it)</h3>
   <p>The hub <code>WeaponPedestal</code> (interact = gamepad North / keyboard <span class="kbd">V</span>) rolls from its loot table on scene load, excluding your currently-held melee + ranged (best-effort: if nothing new qualifies it re-rolls without the exclusion). Interacting swaps the weapon into <code>PlayerContext</code> with a fresh level-0 <code>WeaponInstance</code> and calls <code>RunDirector.SetPendingWeapon</code> (warns and no-ops mid-run); the pedestal then holds what you gave up, so you can swap back. <code>StartRun</code> equips the catalog defaults, then <code>ApplyPendingLoadout()</code> overrides with your picks. In sandbox scenes with no run active, the player loads <code>"Weapons/DefaultSword"</code> / <code>"Weapons/DefaultBow"</code> from Resources at level 0.</p>
-  <div class="rule note"><b>Upgrades never touch your asset.</b> All level scaling rides the per-run <code>WeaponInstance</code> (<code>DamageScale/JuggleScale/ExecutionScale = 1 + level × perLevel</code>) — never the shared definition. A mutated SO silently persists in-editor, which is exactly why the rule exists.</div>
+  <div class="rule note"><b>Upgrades never touch your asset.</b> All level scaling rides the per-run <code>WeaponInstance</code> (<code>DamageScale/ExecutionScale = 1 + level × perLevel</code>) — never the shared definition. A mutated SO silently persists in-editor, which is exactly why the rule exists.</div>
 </section>
 
 <section id="modding">
@@ -310,9 +396,20 @@ DamageMultiplier = <span class="a">2.5</span>
 HitboxReach      = <span class="a">2.0</span>
 
 [<span class="a">Weapon:DefaultSword.dash</span>]       <span class="c">; the dash-attack</span>
-DamageMultiplier = <span class="a">30</span></code></pre>
+DamageMultiplier = <span class="a">30</span>
 
-  <div class="note rule"><b>Sections address SUB-PARTS, and that is the whole point.</b> A blade's feel is not one number — it is the per-swing damage, reach and timing of each combo step, plus the dash. Those live in a <code>List&lt;MeleeAttackConfig&gt;</code> and a <code>DashAttackConfig</code>, addressed by <code>.attack:&lt;n&gt;</code> (0-based) and <code>.dash</code>. A bow has no sub-parts, so <code>[Weapon:DefaultBow]</code> alone covers it.</div>
+[<span class="a">Weapon:DefaultSword.aerial:down</span>] <span class="c">; the down-air — addressed by DIRECTION, not index</span>
+DamageMultiplier = <span class="a">2.0</span>
+KnockbackForce   = <span class="a">2, -26</span>          <span class="c">; a Spike's .y magnitude IS its speed</span>
+
+[<span class="a">Weapon:DefaultSword.ground:forward</span>] <span class="c">; the running attack</span>
+Reaction = <span class="a">Crumple</span>              <span class="c">; enums resolve by name</span></code></pre>
+
+  <div class="note rule"><b>Sections address SUB-PARTS, and that is the whole point.</b> A blade's feel is not one number — it is the per-swing damage, reach and timing of each combo step, plus the dash and the two directional movesets. Those live in a <code>List&lt;MeleeAttackConfig&gt;</code>, a <code>DashAttackConfig</code> and two <code>List&lt;DirectionalAttack&gt;</code>, addressed by <code>.attack:&lt;n&gt;</code> (0-based), <code>.dash</code>, <code>.aerial:&lt;direction&gt;</code> and <code>.ground:&lt;direction&gt;</code>. A bow has no sub-parts, so <code>[Weapon:DefaultBow]</code> alone covers it.</div>
+
+  <div class="note rule"><b>Directions are addressed by NAME; combo steps by index. That asymmetry is deliberate.</b> The combo is an ordered string where "step 2" is a real idea, so an index means something. A moveset is a <em>set</em> the stick picks between, and its list order is an implementation detail — addressing it by index would let a harmless reorder in the inspector silently repoint every published mod at the wrong move. Directions accept <code>neutral</code>, <code>up</code>, <code>down</code>, <code>forward</code>, case-insensitively.</div>
+
+  <div class="warn note"><b>A retune EDITS a move; it cannot add one.</b> <code>[.aerial:up]</code> on a weapon with no up-air is reported and skipped, because the clip such a move would play has to exist in the player's clip set and no <code>.ini</code> can put it there. <code>OverrideConfig</code> and <code>AnimationState</code> are settable in these sections — they live on the variant rather than on its <code>Config</code>, and the reader routes them accordingly.</div>
 
   <div class="scrollx">
   <table>
@@ -327,12 +424,16 @@ DamageMultiplier = <span class="a">30</span></code></pre>
   <h3 id="newweapon">Declaring a new weapon</h3>
   <p>A mod can also add a weapon, built by cloning a shipped one:</p>
 <pre><code>[<span class="a">NewWeapon:Frostbite</span>]
-basedOn         = <span class="a">DefaultBow</span>      <span class="c">; whose type and stats to reuse</span>
-icon            = <span class="a">frostbite.png</span>   <span class="c">; from Weapons/sprites/</span>
-weight          = <span class="a">1</span>               <span class="c">; loot weight; 0 = declared but never offered</span>
+<span class="c">; whose type and stats to reuse</span>
+basedOn         = <span class="a">DefaultBow</span>
+<span class="c">; from Weapons/sprites/</span>
+icon            = <span class="a">frostbite.png</span>
+<span class="c">; loot weight; 0 = declared but never offered</span>
+weight          = <span class="a">1</span>
 WeaponName      = <span class="a">Frostbite</span>
 BaseDamage      = <span class="a">14</span>
-StatusesToApply = <span class="a">Ignite</span>          <span class="c">; resolved by name through the StatusCatalog</span></code></pre>
+<span class="c">; resolved by name through the StatusCatalog</span>
+StatusesToApply = <span class="a">Ignite</span></code></pre>
 
   <div class="note rule"><b>Why <code>basedOn</code> rather than declaring from nothing.</b> A weapon's TYPE — bow or blade — decides which player states drive it and which animator states it names. A clone inherits all of that from the donor, so a mod weapon can never point the combat code at a state that does not exist. The mod supplies numbers, an icon and a status; the donor supplies the machinery. <b>Weapons have no state graph</b>, so unlike enemies there is no <code>[Graph:]</code> tier — this is the only declaration weapons have.</div>
 
@@ -363,9 +464,11 @@ lockedUntilUnlocked = <span class="a">false</span>
 <span class="c">; a weapon of your own, sold rather than dropped</span>
 [<span class="a">NewWeapon:Frostbite</span>]
 basedOn             = <span class="a">DefaultBow</span>
-weight              = <span class="a">0</span>       <span class="c">; never dropped...</span>
-lockedUntilUnlocked = <span class="a">true</span>    <span class="c">; ...only bought</span>
+<span class="c">; weight 0 = never dropped, only bought</span>
+weight              = <span class="a">0</span>
+lockedUntilUnlocked = <span class="a">true</span>
 unlockCost          = <span class="a">90</span></code></pre>
+  <div class="note warn"><b>Notes go on their own line, not after the value.</b> In <code>Weapons/</code>, <code>Enemies/</code> and <code>Player/</code> a <code>;</code> only opens a comment at the <b>start</b> of a line — written after a value it stays <i>part of</i> that value, which then fails to convert and silently keeps the shipped number. (<code>mod.ini</code> and <code>Campaign/</code> use a different reader that <em>does</em> strip a trailing <code>;</code>, which is exactly how the habit gets learned.) The loader now names this cause in the log when a value will not parse.</div>
   <p>The Weapon Unlocks tab reads <b>resolved</b> definitions, so a retuned price is the price the till charges and a retuned flag genuinely adds or removes a row. A declared weapon appears there whenever it sets <code>lockedUntilUnlocked</code>, whatever its <code>weight</code> — <code>weight = 0</code> is how you make it shop-exclusive.</p>
   <div class="note"><b>The gate is at OFFER time, never at resolve time.</b> A locked weapon still <i>resolves</i>, so a suspended run that already holds one restores instead of bricking; what the lock withholds is the loot roll, the pedestal and the shop row. That is why the unlock check lives in <code>LootTable</code> and the shop, and never in <code>WeaponCatalog.Resolve</code>. See <a href="progression.html">Progression</a> for the Gleam economy the price is denominated in.</div>
 
@@ -385,7 +488,7 @@ unlockCost          = <span class="a">90</span></code></pre>
   </table>
   </div>
 
-  <div class="note warn"><b>Some fields are settable but inert.</b> The parser will happily write <code>KnockbackForce</code> on a swing or the dash, but the <a href="#dead">dead-fields table (§08)</a> notes the magnitude is never read — only its normalized direction feeds an execution. A retune there parses cleanly and changes nothing you can feel. The template lists it because it is a real field; §08 says why not to bother.</div>
+  <div class="note warn"><b>Some fields are settable but inert — <code>KnockbackForce</code> is no longer one of them.</b> On a swing whose <code>Reaction</code> is <code>Spike</code>, the <code>.y</code> magnitude <b>is</b> the spike speed (floored at 18), so retuning it there is the loudest change you can make. Everywhere else — the dash, and any swing that is not a Spike — the magnitude is still never read and only the normalized direction feeds an execution, so a retune parses cleanly and changes nothing you can feel. See the <a href="#dead">dead-fields table (§08)</a>.</div>
 
   <h3 id="modding-refusals">What it refuses, and why</h3>
   <div class="scrollx">
@@ -393,7 +496,9 @@ unlockCost          = <span class="a">90</span></code></pre>
     <tr><th>Refused</th><th>Because</th></tr>
     <tr><td>a field the weapon does not have</td><td>Reported by name and ignored; the weapon keeps its shipped value. One bad line cannot break a run.</td></tr>
     <tr><td><code>.attack:&lt;n&gt;</code> past the last swing</td><td>Reported with the real range (e.g. "0-1"); otherwise a typo'd index would land nowhere and look like nothing happened.</td></tr>
-    <tr><td><code>.attack:</code> / <code>.dash</code> on a bow</td><td>A ranged weapon has no combo or dash; the section is reported rather than silently dropped.</td></tr>
+    <tr><td><code>.attack:</code> / <code>.dash</code> / <code>.aerial:</code> / <code>.ground:</code> on a bow</td><td>A ranged weapon has no combo, dash or moveset; the section is reported rather than silently dropped.</td></tr>
+    <tr><td>a direction the weapon has no move for</td><td>Reported. A retune edits an existing move — it cannot add one, because the clip it would play has to exist in the player's clip set.</td></tr>
+    <tr><td>a direction that is not <code>neutral</code>/<code>up</code>/<code>down</code>/<code>forward</code></td><td>Reported with the four valid names, so a typo does not read as "this weapon has no such move".</td></tr>
     <tr><td>a <code>basedOn</code> that is not a shipped weapon</td><td>Reported <i>with the valid names listed</i> — a misspelled donor otherwise makes the whole weapon vanish with no clue why.</td></tr>
     <tr><td>a status name with no catalog match</td><td>Reported with the known names; the other statuses in the line still apply.</td></tr>
     <tr><td>an object reference (prefab, clip, sound)</td><td>Text has no way to name one, so those fields are not offered at all — refusing at the template stage, not at load.</td></tr>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI &amp; HUD — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a class="on" href="ui.html">UI &amp; HUD</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>UI &amp; the <span class="flame">HUD</span></h1>
+  <p class="lead">Every screen in Gleamwood is <b>UI Toolkit</b> — a <code>PanelRenderer</code> per panel, a <code>.uxml</code> for the structure and a <code>.uss</code> for the look. This page covers the two that run <i>during</i> play: the player HUD and the combat read. The menus (title, settings, shop, save slots) are built on the <a href="framework.html">menu framework</a> instead.</p>
+</header>
+
+<section id="anatomy">
+  <h2><span class="num">01</span>Where the pieces live</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>Thing</th><th>Files</th><th>In which scenes</th></tr>
+    <tr><td><b>Player HUD</b> — health pips, combo, weapon chips, bow ring, damage vignette, Gleam, run modifiers, dev stamp</td><td><code>UI/Code/HUD/PlayerHUDController.cs</code> + <code>UI/Panels/PlayerHUD/PlayerHUD.uxml|.uss</code>, shipped on <code>Prefabs/UI/PlayerHUD.prefab</code></td><td>2.Hub, 3.BiomeHost, 4.RestHost</td></tr>
+    <tr><td><b>Combat read</b> — per-enemy tags (EXECUTE, health, execution meter, status chips) and the boss bar</td><td><code>UI/Code/HUD/EnemyUIController.cs</code> + <code>UI/Panels/EnemyUI/EnemyUI.uxml|.uss</code>, shipped on <code>Prefabs/UI/CombatHUD.prefab</code></td><td>3.BiomeHost only — enemies exist nowhere else</td></tr>
+    <tr><td><b>Minimap</b></td><td><code>UI/Code/HUD/MinimapController.cs</code></td><td>3.BiomeHost</td></tr>
+    <tr><td><b>Bow charge ring</b></td><td><code>UI/Code/HUD/BowChargeRing.cs</code> — a custom <code>VisualElement</code> that paints itself, added in code rather than authored in UXML</td><td>with the player HUD</td></tr>
+  </table>
+  </div>
+
+  <div class="note rule"><b>Per-enemy markup is built in CODE, not in UXML.</b> <code>EnemyUI.uxml</code> declares only two things: an empty root the tags are added to, and the boss bar. Everything per-enemy is constructed by <code>EnemyUIController.BuildVisuals</code>, because the number of enemies is not known until they spawn. Look there, not in the UXML, when a tag renders wrong.</div>
+</section>
+
+<section id="reload">
+  <h2><span class="num">02</span>The one rule: the tree is rebuilt behind your back</h2>
+  <p>A <code>PanelRenderer</code> hands its visual tree to a controller through <code>RegisterUIReloadCallback</code>, and it can fire <b>more than once</b> — a window resize is enough. Every element reference a controller holds is stale after a reload.</p>
+  <p>So both HUD controllers follow the same shape, and anything new must too:</p>
+  <ul>
+    <li><b>Re-query every element</b> in the reload callback. Never cache across it.</li>
+    <li><b>Re-parent code-built elements</b> into the fresh tree (<code>EnsureBowRing</code> is the template: construct once, <code>root.Add</code> every reload).</li>
+    <li><b>Subscribe to the model exactly once</b>, behind a latch. The tree is rebuilt; the model is not.</li>
+    <li><b>Re-read remembered state.</b> The boss bar is the worked example — see §04.</li>
+  </ul>
+  <div class="note warn"><b>In a test, yield twice.</b> The reload callback fires on the frame <i>after</i> enable. A single <code>yield return null</code> reads a tree the controller has not populated, and it fails as "the element is null", which reads like a missing element rather than a timing bug.</div>
+</section>
+
+<section id="readouts">
+  <h2><span class="num">03</span>What the HUD shows, and where each number comes from</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>Readout</th><th>Source</th><th>How it updates</th></tr>
+    <tr><td>Health pips</td><td><code>PlayerContext.Health / MaxHealth</code></td><td><code>OnPropertyChanged</code> subscription</td></tr>
+    <tr><td>Combo counter</td><td><code>PlayerContext.ComboCount</code></td><td><code>OnPropertyChanged</code> subscription</td></tr>
+    <tr><td>Weapon chips</td><td><code>PlayerContext.EquippedMeleeWeapon / EquippedRangedWeapon</code></td><td><code>GameSignals.WeaponsChanged</code></td></tr>
+    <tr><td>Bow charge ring</td><td><code>PlayerContext.BowCharge / BowPerfectStart / BowPerfectEnd</code></td><td>polled in <code>LateUpdate</code>, positioned over the player</td></tr>
+    <tr><td><b>Gleam</b></td><td><code>RunDirector.RunCurrency</code></td><td>polled against its last value</td></tr>
+    <tr><td><b>Run modifiers</b></td><td><code>RunModifiers.Owned()</code></td><td>polled against <code>RunModifiers.Revision</code></td></tr>
+    <tr><td><b>Enemy health</b></td><td><code>EnemyContext.Health / MaxHealth</code></td><td>polled per tag; hidden until the enemy is hurt</td></tr>
+    <tr><td><b>Execution meter</b></td><td><code>CombatStatusManager.CurrentExecutionPoints / ExecutionThreshold</code></td><td>polled per tag; hidden at zero</td></tr>
+    <tr><td><b>Boss health</b></td><td>the engaged boss's <code>EnemyContext</code></td><td><code>GameSignals.BossEngaged</code> / <code>BossDisengaged</code></td></tr>
+  </table>
+  </div>
+
+  <div class="note"><b>Why some are polled and some are events.</b> An event is right when the publisher already raises one and the value changes rarely. Gleam moves on every kill, the modifier set at a reward and the seed once a run — three different publishers, none of which raised anything, and adding three events to serve one view is more machinery than the view is worth. Each poll is a single comparison; the modifier strip compares <code>RunModifiers.Revision</code> rather than diffing the list, so the allocating rebuild only runs when the set actually changed.</div>
+
+  <div class="note warn"><b>Never poll <code>RunDirector.CurrencyBalance</code>.</b> It calls <code>SaveSystem.Load</code> — a disk read — on every get. The in-run number the HUD wants is <code>RunCurrency</code>; the banked total is read once on entering the hub.</div>
+
+  <h3>Two bars that hide themselves</h3>
+  <p>The enemy health bar appears on the first point of damage and the execution meter on the first point of EP. A room of eight untouched enemies each wearing a full bar is noise that makes the one you have actually hurt harder to find.</p>
+  <p>The execution meter exists because the <code>EXECUTE</code> flash is <b>binary</b>. The points underneath it are continuous and they decay, so before the meter "am I getting there" had no answer at all — the state was fully visible in a test and invisible in play.</p>
+</section>
+
+<section id="boss">
+  <h2><span class="num">04</span>The boss bar, and remembered signals</h2>
+  <p>A boss is not a property of a creature — the same prefab rolled from a spawn table is an ordinary enemy. Only <code>BossArenaSequence</code> knows which one came through the boss door, so the bar is driven by a signal:</p>
+  <pre><code>GameSignals.<span class="a">RaiseBossEngaged</span>(boss, displayName);   <span class="c">// step 4, "fight on"</span>
+GameSignals.<span class="a">RaiseBossDisengaged</span>();               <span class="c">// the gate opened, or the arena was destroyed</span></code></pre>
+  <p>It goes up when the fight is <b>armed</b>, not when the boss spawns: the boss stands dormant through its entrance and the whole dialogue exchange, and a health bar over something that cannot yet be hit — held there for the length of a conversation — reads as a bug and steps on the one beat that is deliberately not a fight.</p>
+
+  <div class="note rule"><b>The signal REMEMBERS its value, and that is load-bearing.</b> <code>GameSignals.CurrentBoss</code> is set before the listener check, exactly as <code>CurrentObjective</code> is. A panel rebuilt mid-fight — a window resize is enough — was not subscribed when the signal fired, so a bar driven only by the live event would vanish and never return. The reload callback re-reads <code>CurrentBoss</code> instead. The same property is why <code>BossArenaSequence.OnDestroy</code> must clear it: a stale value survives into the next scene and raises a bar over the hub.</div>
+
+  <p>Name it with <code>BossDefinition.displayName</code>, which falls back to the enemy definition's asset name. It lives on the boss definition rather than on the enemy so a campaign can name its boss in the player's language.</p>
+</section>
+
+<section id="dev">
+  <h2><span class="num">05</span>The dev stamp</h2>
+  <p>Bottom-right of the HUD, in the editor and in development builds only: <b>version · commit · seed</b>.</p>
+  <p>The seed is the point. A playtest report is worth far more with the number that reproduces the level in it, and it is the one value that is neither in the build nor in any log a player would think to send. Version and commit ride along because "which build was that" is the other question every report needs answered.</p>
+  <p>It is gated by <code>#if UNITY_EDITOR || DEVELOPMENT_BUILD</code> and, outside that, the text is <b>cleared</b> rather than merely hidden — a populated-but-invisible label is one stylesheet edit away from shipping.</p>
+  <div class="note warn"><b><code>BuildInfo</code> must live in a <code>Resources/</code> folder.</b> Two runtime readers resolve it with <code>Resources.Load&lt;BuildInfo&gt;("BuildInfo")</code> — this stamp and the debug panel's Troubleshoot tab — and that call returns null for anything outside <code>Resources/</code> <b>in a build as well as in the editor</b>. It sits at <code>Assets/Resources/BuildInfo.asset</code>; its GUID is referenced by three scenes, so it must be moved, never re-created.</div>
+</section>
+
+<section id="testing">
+  <h2><span class="num">06</span>Testing a screen</h2>
+  <p>Two fixtures show the pattern: <code>DialogueRenderTests</code> and <code>RunHudTests</code>. Both do the same three things.</p>
+  <ol>
+    <li><b>Instantiate the shipped prefab</b> from <code>Assets/Prefabs/UI/</code>. Not a fixture built by hand — the prefab is what the game loads, and the difference between the two is where UI bugs hide.</li>
+    <li><b>Yield twice</b>, for enable then the first UI reload.</li>
+    <li><b>Read the controller's own cached element</b> by reflection, rather than querying the panel tree. The root is handed to the controller through a callback and is not reachable from outside — and reading the cache asserts something stronger, that the controller <i>found</i> the element, which is the half that breaks when a UXML name is renamed.</li>
+  </ol>
+  <p>Pixels are out of reach headlessly. Colour, layout and the shake kick are what the preview tools are for; a screen test asserts the wiring and the numbers, which is where the bugs actually are.</p>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li><code>Assets/_Game/UI/Code/HUD/</code> — <code>PlayerHUDController.cs</code>, <code>EnemyUIController.cs</code>, <code>BowChargeRing.cs</code>, <code>MinimapController.cs</code></li>
+    <li><code>Assets/_Game/UI/Code/Framework/WorldToPanel.cs</code> — the shared world→panel projection both HUDs use</li>
+    <li><code>Assets/_Game/UI/Panels/PlayerHUD/</code> and <code>Assets/_Game/UI/Panels/EnemyUI/</code> — the <code>.uxml</code>/<code>.uss</code> pairs</li>
+    <li><code>Assets/Prefabs/UI/PlayerHUD.prefab</code>, <code>Assets/Prefabs/UI/CombatHUD.prefab</code></li>
+    <li><code>Assets/_Game/Systems/Boot/GameSignals.cs</code> — <code>BossEngaged</code>/<code>BossDisengaged</code> and the remembered <code>CurrentBoss</code></li>
+    <li><code>Assets/_Game/Systems/Run/ProcGen/BossArenaSequence.cs</code> — where the boss signal is raised and cleared</li>
+    <li><code>Assets/_Game/Systems/Run/RunModifiers.cs</code> — <code>Owned()</code> and <code>Revision</code></li>
+    <li><code>Assets/Tests/PlayMode/RunHudTests.cs</code>, <code>Assets/Tests/PlayMode/DialogueRenderTests.cs</code></li>
+  </ul>
+</div>
+
+</body>
+</html>
