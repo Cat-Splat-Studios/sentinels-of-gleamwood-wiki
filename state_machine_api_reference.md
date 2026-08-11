@@ -1,270 +1,218 @@
-# State Machine Library API Reference
+# State Machine — API reference
 
-[← Back to Tool Guide](state_machine_tool_guide.md) | [Wiki Index](wiki_index.md)
-
-## Core Classes
-
-### `StateMachine<TContext>`
-**Namespace**: `StateMachine`
-**Inherits**: `MonoBehaviour`
-
-The core component that manages states and transitions for an entity.
-
-#### Public Properties
-- `IState<TContext> CurrentState { get; }`: The currently active state.
-- `IState<TContext> PreviousState { get; }`: The state active before the current one.
-- `TContext Context { get; }`: The context data container shared by all states.
-
-#### Public Methods
-- `void Initialize(TContext context)`: Initializes the state machine with the given context.
-- `T RegisterState<T>(string stateId, T state)`: Registers a state instance with a string ID. Returns the registered state.
-  ```csharp
-  var idle = RegisterState("idle", new IdleState());
-  ```
-
-- `IState<TContext> GetState(string stateId)`: Retrieves a registered state by its ID. **Throws** if not registered.
-- `bool TryGetState(string stateId, out IState<TContext> state)`: Safe lookup — returns `false` (no throw) if not registered. Prefer this for optional/fallback lookups.
-- `T GetState<T>()`: Retrieves the first registered state of the specified type.
-- `Transition<TContext> AddTransition(IState<TContext> from, IState<TContext> to, Func<bool> condition, Action onTransition = null, int priority = 0)`: Adds a transition between two states.
-  ```csharp
-  AddTransition(idle, run, () => context.velocity > 0.1f);
-  ```
-
-- `void SetInitialState(string stateId)`: Sets the starting state by ID.
-- `void SetInitialState(IState<TContext> state)`: Sets the starting state by reference.
-- `void ChangeState(string stateId)`: Exits current state and enters the new state by ID.
-- `void ChangeState(IState<TContext> newState)`: Exits current state and enters the new state by reference.
-- `void RevertToPreviousState()`: Changes state back to `PreviousState`.
-
-#### Events
-- `event Action<IState<TContext>, IState<TContext>> OnStateChanged`: Fired when a state change occurs (Previous, Current).
+> **This is the only state-machine markdown page.** It replaces four that used to sit beside it —
+> a manual, a tool guide, a code-examples page and a wiki index. They described a UI that no longer
+> exists, an NPC module that was deleted, and a snippet that did not compile; between them they
+> never once mentioned `DynamicCondition`, the two condition lists, or the `SetupTransitions`
+> contract, which is most of what the data-driven path actually is.
+>
+> **Concepts, recipes, editor menu paths and the known-bug list live on
+> [`framework.html`](framework.html)** — that page has the screenshots and is kept in step with the
+> code. This page is the type-and-member reference it points at.
+>
+> Verified against the code 2026-08-09.
 
 ---
 
-### `StateConfig<TContext>`
-**Namespace**: `StateMachine`
-**Inherits**: `ScriptableObject`
+## Core
 
-Base class for all state configuration assets. Acts as a factory for runtime states.
+### `StateMachine<TContext>` — `MonoBehaviour`
 
-#### Abstract Methods
-- `IState<TContext> CreateState()`: Creates and returns a new instance of the state logic associated with this config.
+The component that owns states and transitions for one entity. It has **no abstract members**: a
+concrete machine builds its context in `Awake` and calls `Initialize(context)`.
+
+**Properties** — `CurrentState`, `PreviousState`, `Context`.
+
+**Methods**
+- `void Initialize(TContext context)`
+- `T RegisterState<T>(string stateId, T state)` — returns the registered state.
+- `IState<TContext> GetState(string stateId)` — **throws** if not registered.
+- `bool TryGetState(string stateId, out IState<TContext> state)` — no throw. Prefer this for optional and fallback lookups.
+- `T GetState<T>()` — first registered state of that type.
+- `Transition<TContext> AddTransition(IState from, IState to, Func<bool> condition, Action onTransition = null, int priority = 0)`
+- `void SetInitialState(string stateId)` / `(IState<TContext>)`
+- `void ChangeState(string stateId)` / `(IState<TContext>)`
+- `void RevertToPreviousState()`
+
+**Event** — `Action<IState, IState> OnStateChanged` *(previous, current)*.
+
+> ### `AddTransition` REPLACES same-target edges — it does not stack
+> `list.RemoveAll(t => t.TargetState == toState)`. A code-registered edge **deletes the authored
+> one** to the same target. Four of `meleeAtk`'s five authored edges in `PlayerDef.asset` died this
+> way, and one carries a condition nobody noticed was wrong *because it never ran*.
+>
+> The replacement itself is correct — `CheckTransitions` takes the first match, so two edges to one
+> target would leave the second unreachable anyway. What was wrong was doing it silently; it now
+> reports and names both sides. **The fix is always the same: one edge, one condition, ORing the two
+> cases together.** Any state whose edges are half data and half code is one refactor from this.
+
+Insertion is a **stable** highest-priority-first insert, deliberately not `List.Sort` — that is an
+unstable quicksort, and since `CheckTransitions` takes the first match, re-sorting would turn
+authored order into a coin flip.
 
 ---
-
-### `StateMachineDefinition<TConfig>`
-**Namespace**: `StateMachine`
-**Inherits**: `ScriptableObject`
-
-Base class for defining the set of states available to an entity.
-
-#### Public Fields
-- `List<TConfig> States`: List of state configurations available to the entity.
-- `TConfig InitialState`: The configuration for the starting state.
-
----
-
-### `Transition<TContext>`
-**Namespace**: `StateMachine`
-
-Represents a conditional link between two states.
-
-#### Public Properties
-- `IState<TContext> TargetState { get; }`: The state to transition to.
-- `int Priority { get; }`: The priority of this transition (higher values checked first).
-- `int TransitionCount { get; }`: Number of times this transition has occurred.
-
-#### Public Methods
-- `bool ShouldTransition()`: Evaluates the condition. Returns true if the transition should occur.
-- `void PerformTransitionAction()`: Executes the optional action associated with the transition.
-
----
-
-## Interfaces
 
 ### `IState<TContext>`
-**Namespace**: `StateMachine`
 
-Interface that all states must implement.
+- `void Init(StateMachine<TContext> stateMachine, TContext context)` — dependency injection at registration.
+- `void Enter()` / `void Exit()` / `void Update()` / `void FixedUpdate()`
+- **`void SetupTransitions()`** — called after initialization. **This is the seam the whole
+  data-driven path hangs off**, and it is on the interface, not a convention.
 
-#### Methods
-- `void Init(StateMachine<TContext> stateMachine, TContext context)`: Called once during registration to inject dependencies.
-- `void Enter()`: Called when the state becomes active.
-- `void Exit()`: Called when the state becomes inactive.
-- `void Update()`: Called every frame while active.
-- `void FixedUpdate()`: Called every physics frame while active.
+**Two-pass contract**: every state is registered *first*, then every state's `SetupTransitions()`
+runs. That ordering is what lets an edge name a state that had not been created when its own config
+was read.
 
----
+### `StateBase<TContext, TStateMachine>`
 
-## Editor Classes
+**Two generic parameters.** There is no single-generic `StateBase<TContext>` — a snippet written
+against one does not compile, which is exactly what the deleted code-examples page shipped.
+`SetupTransitions`, `Enter`, `Exit`, `Update` and `FixedUpdate` are all `virtual` no-ops; `Init` is
+non-virtual.
 
-### `StateMachineDefinitionEditor`
-**Namespace**: `StateMachine.Editor`
-**Inherits**: `UnityEditor.Editor`
+### `ConfigurableState<TContext, TConfig, TStateMachine>` — `: StateBase<TContext, TStateMachine>`
 
-UI Toolkit custom editor for `StateMachineDefinition` assets (`CreateInspectorGUI`): a styled title banner,
-live validation, a Configuration card, and an inline States list (each state expands to its config editor).
-Styled by `StateMachineInspector.uss`.
-
-#### Protected Methods (Overridable — return a `VisualElement`, or `null` for none)
-- `virtual VisualElement CreateCustomContent()`: Feature-specific UI shown between Configuration and the
-  States list (e.g. the enemy "Global Behaviors" toggle).
-- `virtual VisualElement CreatePostStateListContent()`: Feature-specific UI shown after the States list
-  (e.g. the enemy "Executions" list).
+State driven by a config asset. Protected field `config`. Its `Enter()` override plays the state's
+animation when `TConfig` implements `IStateConfigWithAnimation`, and it overrides
+`SetupTransitions()` to register the edges the config authored.
 
 ---
 
-# Enemy System API Reference
+### `StateConfig<TContext>` — `ScriptableObject`
 
-## Core Classes
+- `abstract IState<TContext> CreateState()` — the factory.
+- **`virtual string StateId => name`** — defaults to the asset name; subclasses override it to use a
+  dedicated field. `EnemyStateConfig` does exactly that, which is why an enemy state's id is its
+  `StateName` and not its filename.
 
-### `EnemyStateMachine`
-**Inherits**: `StateMachine<EnemyContext>`, `IHittable`
+### `StateMachineDefinition<TConfig>` — `ScriptableObject`
 
-The concrete state machine implementation for enemies.
+`List<TConfig> States` · `TConfig InitialState`.
 
-#### Key Responsibilities
-- **Initialization**: Sets up `EnemyContext` with components (`Rigidbody2D`, `Animator`, `CombatStatusManager`).
-- **State Registration**: Loads states from `EnemyDefinition`.
-- **Global Transitions**: Manages transitions to `JuggledState` and `HitState`.
-- **Hit Handling**: Implements `IHittable.TakeHit` to process damage, status effects, and trigger Executions.
+### `Transition<TContext>`
 
-#### Public Methods
-- `void TakeHit(HitInfo hit)`: Processes incoming hits. Applies damage, status effects, and checks for Execution triggers.
-- `bool CanBeHit()`: Returns true if the enemy is alive.
+`TargetState` · `Priority` (higher checked first) · `TransitionCount` ·
+`bool ShouldTransition()` · `void PerformTransitionAction()`.
 
----
+### `TransitionDefinition<TStateConfig, TContext>` — the authored edge
 
-### `EnemyContext`
-**Inherits**: `LightweightReactiveContext<EnemyContext>`
+- `TStateConfig ToState`
+- **`List<TransitionCondition<TContext>> Conditions`** — typed condition assets.
+- **`List<DynamicCondition> DynamicConditions`** — reflection-driven: name a context property, pick
+  an operator, give a value.
 
-Runtime data container for enemies.
+**Both lists gate the same edge.** This is the pair no previous page mentioned, and it matters when
+reading an authored graph: an edge that "has no conditions" may have all of them in the other list.
 
-#### Public Properties
-- `Rigidbody2D Rigidbody`: Reference to the enemy's Rigidbody.
-- `Animator Animator`: Reference to the enemy's Animator.
-- `CombatStatusManager CombatStatus`: Manages status effects (Poison, Stun, etc.).
-- `bool IsGrounded`: True if the enemy is touching the ground layer.
-- `bool ShouldLaunch`: Flag to trigger a launch into the air (for Juggles).
-- `bool IsDead`: True if the enemy has 0 health.
-- `HitInfo LastHit`: Stores details of the last received hit.
+### `DynamicCondition` — `ScriptableObject`
 
----
+`PropertyName` (a property on the context) · `Operator` · `FloatValue` (int/float compares) ·
+`BoolValue` (Equal/NotEqual).
 
-## Definitions
-
-### `EnemyDefinition`
-**Inherits**: `StateMachineDefinition<EnemyStateConfig>`
-
-Defines the behavior profile for an enemy type.
-
-#### Public Fields
-- `bool CanBeJuggled`: If true, the enemy can be launched into the air.
-- `List<ExecutionDefinition> Executions`: List of special execution attacks available to this enemy.
+> Because binding is by **name and type**, a context property that changes type breaks the edge at
+> runtime with no compile error. A `bool` read by a DynamicCondition must stay a `bool`.
 
 ---
 
-### `EnemyStateConfig`
-**Inherits**: `StateConfig<EnemyContext>`, `IStateConfigWithAnimation`
+### Animation interfaces
 
-Base class for all enemy state configurations.
+| Interface | Member | Implemented by |
+|---|---|---|
+| `IHasAnimator` | `Animator Animator { get; }` | `EnemyContext` |
+| `IHasAnimationDriver` | `IAnimationDriver AnimationDriver { get; }` | `PlayerContext`, `EnemyContext` |
+| `IStateConfigWithAnimation` | `Animation`, `AnimatorStateName`, `AnimatorLayerName` | every `EnemyStateConfig` **and** every `PlayerStateConfig` |
 
-#### Public Fields
-- `string StateName`: Unique identifier for the state.
-- `List<TransitionDefinition> Transitions`: Data-driven transitions to other states.
+**The player has no `UnityEngine.Animator` to expose.** Its rig is split across two animator layers
+(legs and upper body), so it drives animation through `IHasAnimationDriver` instead.
 
----
-
-### `ExecutionDefinition`
-**Inherits**: `ScriptableObject`
-
-Defines the conditions and target state for a special execution attack.
-
-#### Public Fields
-- `string ExecutionName`: Descriptive name.
-- `ExecutionStateConfig ExecutionConfig`: The state to enter when triggered.
-- `DamageType RequiredDamageType`: The damage type required to trigger this execution (e.g., `Melee`, `Ranged`).
-- `CombatStatusDefinition RequiredStatus`: Optional status required on the enemy.
-- `int MinStatusCount`: Required stacks of `RequiredStatus` (e.g. 3 sticky arrows).
-- `bool MustBeAirborne`: If true, enemy must be in the air.
-- `bool MustBeGrounded`: If true, enemy must be on the ground.
-- `bool ConsumeStatusOnTrigger`: If true, clears `RequiredStatus` when the execution fires.
+> **`context.Animator` exists on both — and is a different type on each.** On `EnemyContext` it is a
+> `UnityEngine.Animator`; on `PlayerContext` it is a `Gleamwood.Player.Animation.PlayerAnimation`
+> (`PlayerContext.cs:121`), which is also what its `AnimationDriver` returns. Same member name, same
+> apparent shape, no compile error until you use it — so code and docs copied from the enemy side
+> read as if they apply to the player when they do not.
 
 ---
 
-## States
+## Enemy system
 
-### `ConfigurableState<TContext, TConfig, TStateMachine>`
-**Namespace**: `StateMachine`
-**Inherits**: `StateBase<TContext, TStateMachine>`
+### `EnemyStateMachine` — `: StateMachine<EnemyContext>`, `IHittable`
 
-Base class for states that are driven by a configuration asset.
+Builds `EnemyContext` from components, registers states from the `EnemyDefinition`, owns the global
+edges into `juggled`/`hitstun`, and implements `TakeHit`.
 
-#### Protected Fields
-- `TConfig config`: The configuration asset for this state.
+- `void TakeHit(HitInfo hit)` · `bool CanBeHit()`
 
-#### Public Methods
-- `ConfigurableState(TConfig config)`: Constructor that initializes the state with the given config.
-- `virtual void Enter()`: Automatically plays the state's animation if `TConfig` implements `IStateConfigWithAnimation`.
+The order inside `TakeHit` is load-bearing and documented as a numbered pipeline on
+[`enemies.html` §04](enemies.html) — including the rule that **spike beats launch beats armor**, and
+that death bypasses armor entirely.
 
----
+### `EnemyContext` — `: LightweightReactiveContext<EnemyContext>`, `IHasAnimator`, `IHasAnimationDriver`
 
-### `IStateConfigWithAnimation`
-**Namespace**: `StateMachine`
+`Rigidbody` · `Animator` · `CombatStatus` · `IsGrounded` · `ShouldLaunch` · `IsDead` · `LastHit`.
 
-Interface for state configurations that provide animation details.
+### `EnemyDefinition` — `: StateMachineDefinition<EnemyStateConfig>`
 
-#### Properties
-- `AnimationClip Animation { get; }`: The default animation clip.
-- `string AnimatorStateName { get; }`: The explicit state name in the Animator (optional).
-- `string AnimatorLayerName { get; }`: The layer name in the Animator.
+- `int MaxHealth = 3` — **`0` means the enemy cannot be killed by damage.** Not a bug and not a
+  placeholder; it is how a scripted or invulnerable creature is authored.
+- `float ExecutionThreshold = 100f` — per-enemy, so a hound and an imp need different work.
+- `bool CanBeJuggled = true`
+- `List<ExecutionDefinition> Executions` — **ordered, first-match-wins.** An entry asking for
+  strictly less than a later one makes that later one unreachable, silently. Most-specific first,
+  status-gated catch-alls last; tests enforce both.
 
----
+### `EnemyStateConfig` — `: StateConfig<EnemyContext>`, `IStateConfigWithAnimation`
 
-### `IHasAnimator`
-**Namespace**: `StateMachine`
+`StateName` (and `StateId => StateName` when set, else the asset name) · `Animation` ·
+`AnimatorLayerName = "Base Layer"` · `AnimatorStateName` · `EnterSound` · `EnterSoundVolume` ·
+`List<TransitionDefinition> Transitions`.
 
-Implemented by a context that exposes an `Animator`, so `ConfigurableState` can play state animations
-directly instead of via reflection. Implemented by `PlayerContext`, `EnemyContext`, `NPCContext`.
+### `ExecutionDefinition` — `ScriptableObject`
 
-#### Properties
-- `Animator Animator { get; }`
+`ExecutionName` · `ExecutionConfig` · `RequiredDamageType` · `MustBeAirborne` · `MustBeGrounded` ·
+`RequireSpecificReaction` + `RequiredReaction` · `RequireRecentlySpiked` · `RequiredStatus` +
+`MinStatusCount` · `ConsumeStatusOnTrigger`.
+`CheckConditions(context, hit)` has an `out string reason` overload, and `DescribeGates()` renders
+the entry for tooling — use them rather than re-deriving why an execution did not fire.
 
----
+### The state roster
 
-## States
+`Assets/_Game/Enemies/Code/States/`, each with a matching config in `Definitions/States/`:
 
-### `EnemyState`
-**Status**: *Removed* (Refactored to use `ConfigurableState`)
+| | |
+|---|---|
+| **Movement** | `EnemyIdleState` · `EnemyChaseState` · `EnemyFloatChaseState` · `EnemyRelocateState` |
+| **Offence** | `EnemyAttackPhaseState` (the phase chain) · `EnemyProjectileAttackState` · `EnemySummonState` · `EnemyHazardPhaseState` |
+| **Reactions** | `EnemyHitState` · `EnemyJuggledState` · `EnemyDeathState` |
+| **Executions** | `EnemyBowExecutionState` · `EnemyDashExecutionState` · `EnemyExplosiveExecutionState` |
 
-All enemy states now inherit from `ConfigurableState<EnemyContext, TConfig, EnemyStateMachine>`. This provides standard access to the config and automatic animation handling.
+`EnemyState` as a base class is **gone** — every enemy state is a
+`ConfigurableState<EnemyContext, TConfig, EnemyStateMachine>`.
 
----
-
-### Common States
-
-#### `EnemyIdleState`
-Standard idle behavior. Plays an idle animation.
-
-#### `EnemyHitState`
-Handles hit reactions (flinch/stun).
-- **Config**: `EnemyHitConfig` (Duration, Animation).
-
-#### `EnemyDeathState`
-Handles death logic. Disables collider and plays death animation.
-
-#### `EnemyJuggledState`
-Handles being launched and suspended in the air.
-- **Logic**: Applies gravity modification and handles "air juggle" hits to keep the enemy airborne.
+**`IEnemySuperArmor`** — `bool TryAbsorbHit(in HitInfo hit)`. Implemented by
+`EnemyAttackPhaseState` and `EnemySummonState`; `EnemyStateMachine.TakeHit` consults it in the
+hitstun fallback branch. Any new state that should shrug off hits implements the same interface.
 
 ---
 
-### Execution States
+## Editor
 
-#### `EnemyBowExecutionState`
-Cinematic execution triggered by ranged attacks.
-- **Behavior**: Freezes time (Hitstop), plays a specific animation, and applies massive damage.
+### `StateMachineDefinitionEditor` — `UnityEditor.Editor`
 
-#### `EnemyDashExecutionState`
-Cinematic execution triggered by dash attacks.
-- **Behavior**: Dashes through the enemy, applying a "slice" effect.
+UI Toolkit inspector for `StateMachineDefinition` assets (`CreateInspectorGUI`): title banner, live
+validation, a Configuration card, and an inline States list where each state expands into its config
+editor. Styled by `StateMachineInspector.uss`.
+
+**Override points** — return a `VisualElement`, or `null` for none:
+- `virtual VisualElement CreateCustomContent()` — between Configuration and the States list (the
+  enemy "Global Behaviors" toggle).
+- `virtual VisualElement CreatePostStateListContent()` — after the States list (the enemy
+  "Executions" list).
+
+### The creator window
+
+**Code generation only: State Creator + Condition Creator.** The Config Creator, State Config Editor
+and Assembler tabs were removed in the 2026-07-20 consolidation — building a machine is the Content
+Workbench's States tab now. Generated states land under
+`Assets/_Game/<Feature>/Code/Definitions/States/` and stub `Enter()` only.
+
+Exact menu paths are on [`framework.html` §05](framework.html).

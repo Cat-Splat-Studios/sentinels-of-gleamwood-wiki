@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -36,13 +39,14 @@
 
 <section id="ids">
   <h2><span class="num">01</span>The constants</h2>
+  <p class="lead">Frozen values you look up rather than decide. Two of them — the pinned executable name and the product identity — are contracts that install fine and break the game afterwards if you change them (§04).</p>
   <div class="scrollx">
   <table>
     <tr><th>Thing</th><th>Value</th><th>Why it matters</th></tr>
     <tr><td>App ID</td><td><code>2953370</code></td><td>The product on Steam.</td></tr>
     <tr><td>Windows depot</td><td><code>2953371</code></td><td>The file container testers download.</td></tr>
-    <tr><td>Executable</td><td><code>sentinels-of-gleamwood.exe</code></td><td>Pinned. This exact string is the Steamworks launch option — §3.</td></tr>
-    <tr><td>Identity</td><td><code>Cat Splat Studios</code> / <code>sentinels-of-gleamwood</code></td><td>Saves live at <code>AppData/LocalLow/Cat Splat Studios/sentinels-of-gleamwood</code> — §3.</td></tr>
+    <tr><td>Executable</td><td><code>sentinels-of-gleamwood.exe</code></td><td>Pinned. This exact string is the Steamworks launch option — §04.</td></tr>
+    <tr><td>Identity</td><td><code>Cat Splat Studios</code> / <code>sentinels-of-gleamwood</code></td><td>Saves live at <code>AppData/LocalLow/Cat Splat Studios/sentinels-of-gleamwood</code> — §04.</td></tr>
     <tr><td>Tooling</td><td><code>Tools/Steam/</code></td><td>Build scripts + the upload script. <code>Tools/Steam/README.md</code> is the terse runbook.</td></tr>
   </table>
   </div>
@@ -52,10 +56,12 @@
   <h2><span class="num">02</span>The loop — build, upload, set live</h2>
   <p class="lead">Three steps, every time. The upload script only <b>finds</b> a build; it never runs Unity, so you always build first.</p>
   <ol class="steps">
-    <li><b>Build.</b> <span class="kbd">Build System ▸ Build Manager</span> → build Windows. Output lands at <code>Builds/StandaloneWindows64/&lt;version&gt;/sentinels-of-gleamwood.exe</code>. The version bumps automatically.</li>
-    <li><b>Upload.</b> From <code>Tools/Steam</code>: <code>.\Upload-SteamBuild.ps1 -Preview</code> first (uploads nothing, writes a manifest so you can check the file list), then <code>.\Upload-SteamBuild.ps1</code> for real.</li>
+    <li><b>Build.</b> <span class="kbd">Build System ▸ Build Manager</span> → build Windows. Output lands at <code>Builds/StandaloneWindows64/&lt;version&gt;/sentinels-of-gleamwood.exe</code>. The version bumps automatically — and <b>rolls back if the build fails or is cancelled</b>, so a dead build never consumes a number out of the same monotonic sequence the Steam releases draw from. A successful <b>release</b> build then offers to create and push the tag <code>build-&lt;version&gt;</code>: that dialog writes to the <b>shared</b> repository, so skip it for anything that is not going to Steam — the build is complete either way. A development build never tags (§03).</li>
+    <li><b>Upload.</b> From <code>Tools/Steam</code>: <code>.\Upload-SteamBuild.ps1 -Preview</code> first (uploads nothing, writes a manifest so you can check the file list), then <code>.\Upload-SteamBuild.ps1</code> for real. The real run is <b>not unattended</b> — it prints the folder it auto-selected and then stops on a <code>[y/N]</code> confirm naming the channel, because an auto-selected folder makes this the last point at which a wrong choice is cheap. <code>-Preview</code> skips the prompt.</li>
     <li><b>Set it live.</b> Partner site → <b>SteamPipe ▸ Builds</b> → find the build → <i>Preview Change</i> → <b>Set Build Live Now</b>. Immediate; no review, no store approval.</li>
   </ol>
+
+  <div class="note"><b>First time on this app, or adding a tester?</b> Do <a href="#firsttime">§05</a> and <a href="#access">§06</a> first. Skip them and the upload succeeds while nobody can install or start the game.</div>
 
 <pre><code><span class="c"># one time per machine - your Steam LOGIN NAME, not email, not password</span>
 setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW terminal</span>
@@ -64,17 +70,36 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 .\Upload-SteamBuild.ps1 -Preview             <span class="c"># dry run</span>
 .\Upload-SteamBuild.ps1                      <span class="c"># real upload</span></code></pre>
 
-  <p>The script picks the newest folder under <code>Builds/StandaloneWindows64</code> that contains an exe, stamps the git sha into the build description (so a build in SteamPipe traces back to a commit), excludes Unity's <code>_BurstDebugInformation_DoNotShip</code> folder and <code>.pdb</code>s, and hands off to steamcmd.</p>
+  <p>The script picks the <b>highest-versioned</b> folder under <code>Builds/StandaloneWindows64</code> that contains an exe — parsed as a <i>version</i>, deliberately not by modified time and not by name, because <b>both of those invert on this repo's own folder set</b>. Modified time was wrong because touching anything inside an older folder (dropping in a <code>steam_appid.txt</code>, deleting a <code>_DoNotShip</code>, unzipping a sibling archive) promotes that older build to the upload candidate; by name, <code>0.0.0.10</code> sorts below <code>0.0.0.2</code> and <code>0.1.0.9</code> above <code>0.1.0.11</code>. A folder whose name is not a version is skipped with a warning. It then stamps the git sha into the build description (so a build in SteamPipe traces back to a commit), excludes Unity's <code>_BurstDebugInformation_DoNotShip</code> folder, the IL2CPP <code>_BackUpThisFolder_ButDontShipItWithYourGame</code> folder and <code>.pdb</code>s, and hands off to steamcmd.</p>
 
   <div class="rule note"><b>Credentials never touch this repo.</b> The script passes only your account <i>name</i>. steamcmd prompts for the password and Steam Guard itself, then caches the session locally — that cache is what stops it asking every time. Never put a Steam password in the repo, an environment variable, or the command line.</div>
 
   <h3>steamcmd — no PATH setup</h3>
-  <p>Unzip the Steamworks SDK into <code>Tools/Steam/sdk/</code> and you're done. Resolution order is <code>-SteamCmd</code> → <code>$env:STEAMCMD</code> → <b>anything named <code>steamcmd.exe</code> at any depth under <code>Tools/Steam/</code></b> → common install spots → PATH. If the zip extracts into its own versioned folder, that still works. When it can't find steamcmd, the error lists every location it checked.</p>
+  <p>Unzip the Steamworks SDK into <code>Tools/Steam/sdk/</code> and you're done. Resolution order is <code>-SteamCmd</code> → <code>$env:STEAMCMD</code> → the three <i>expected</i> spots under <code>Tools/Steam/</code> (<code>sdk/tools/ContentBuilder/builder/</code>, <code>steamcmd/</code>, the folder root) → common install spots (<code>C:\steamcmd\…</code>, <code>C:\SteamworksSDK\…</code>) → <b>a recursive sweep of <code>Tools/Steam/</code> up to six levels deep</b> → PATH. The sweep is a fallback, not an early step: it means a zip that extracts into its own versioned folder still works, but a machine that <i>also</i> has <code>C:\steamcmd</code> installed will use that one first. When nothing matches, the error lists every location it checked.</p>
   <p class="dim">The SDK folders are gitignored — it's large, and this repo already carries history bloat from vendored binaries. First steamcmd run self-updates for a minute or two; that's normal, not a hang.</p>
 </section>
 
+<section id="channels">
+  <h2><span class="num">03</span>Release and development channels</h2>
+  <p class="lead">A development player carries the F1 debug panel, script debugging, the profiler hook and the dev cheats — so it never shares a folder with a release build. The <b>folder separation</b>, not a flag, is what keeps it off the store.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Channel</th><th>Built by</th><th>Lands at</th><th>Uploaded with</th></tr>
+    <tr><td><b>release</b> (the default)</td><td>Build Manager, <i>Development Build</i> unticked</td><td><code>Builds/&lt;target&gt;/&lt;version&gt;</code></td><td><code>.\Upload-SteamBuild.ps1</code></td></tr>
+    <tr><td><b>development</b></td><td>Build Manager, <i>Development Build</i> ticked</td><td><code>Builds/&lt;target&gt;/Development/&lt;version&gt;</code></td><td><code>.\Upload-SteamBuild.ps1 -Channel development -Branch playtest</code></td></tr>
+  </table>
+  </div>
+
+  <p><b>A development build gets its own tier, not a suffix.</b> The uploader enumerates the <i>direct children</i> of one channel's root, so a <code>&lt;version&gt;-dev</code> sibling would still be a candidate and correctness would rest on a PowerShell filter. A separate <code>Development/</code> tier removes it from the release scan set entirely — the uploader cannot see it even if its guard is removed. The toggle lives in the Build Manager (persisted in <code>EditorPrefs</code>, defaulting to <b>off</b>) and the window prints which channel the next build will use, because a channel you cannot see is a channel you ship by accident. Ticking Unity's own <i>Development Build</i> in Build Settings does <b>not</b> do this: a scripted <code>BuildPipeline.BuildPlayer</code> takes its options as authoritative and ignores that flag.</p>
+
+  <p><b><code>build-channel.txt</code> is the marker.</b> The Build Manager writes it beside the executable as plain text, because nothing else about the folder tells you which channel it is: same pinned exe name, same version, and <code>BuildInfo</code> is baked inside <code>*_Data</code> where a PowerShell script cannot read it. The uploader reads it and <b>throws on a mismatch in either direction</b>. The direction that matters is an explicit <code>-BuildPath</code> aimed at a development folder while <code>-Channel</code> says release — that would otherwise sail through, because the tier check only runs during auto-selection. A folder with no marker predates it, so the script <i>warns</i> instead of throwing and says plainly that the guard did not run.</p>
+
+  <div class="warn note"><b>Pushing a development build is supported, and sometimes exactly what you want</b> — playtesters need the F1 panel and the on-screen version/commit/seed stamp to file a useful report. What is guarded is doing it <i>by accident</i>. Set one live on a <b>beta branch only</b> (<code>-Branch playtest</code> — §07), never default; its Steam description is prefixed <code>[DEVELOPMENT - DO NOT SET LIVE ON DEFAULT]</code> because SteamPipe ▸ Builds is the last place the mistake can be caught by eye. Development builds are also never git-tagged: a throwaway playtest build publishing a <code>build-x.y.z.n</code> tag into the same namespace as the Steam releases is not recoverable without a force-delete on a shared ref.</div>
+</section>
+
 <section id="contracts">
-  <h2><span class="num">03</span>Two contracts you must not casually change</h2>
+  <h2><span class="num">04</span>The contracts you must not casually change</h2>
+  <p class="lead">Two settled decisions. Both fail <i>after</i> a successful install, which is why they are written down instead of remembered.</p>
   <div class="grid c2">
     <div class="card accent-red">
       <h4>The executable name is pinned</h4>
@@ -90,7 +115,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 </section>
 
 <section id="firsttime">
-  <h2><span class="num">04</span>One-time partner-site setup</h2>
+  <h2><span class="num">05</span>One-time partner-site setup</h2>
   <p class="lead">Skip these and the upload succeeds while the game still won't run — the most confusing possible failure.</p>
   <ol class="steps">
     <li><b>General Installation Settings</b> → add a launch option pointing at <code>sentinels-of-gleamwood.exe</code>. Without one, the build installs and does nothing.</li>
@@ -101,7 +126,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 </section>
 
 <section id="access">
-  <h2><span class="num">05</span>Who can actually play it</h2>
+  <h2><span class="num">06</span>Who can actually play it</h2>
   <p class="lead">Uploading grants nobody anything. Access is a separate axis, and it is the step people forget.</p>
   <p><b>For a small internal team: add them as Steamworks users.</b> Partner site → <i>Add/Manage Users</i>, invite by email; <code>Visibility Only</code> permission is enough. They land in the "Everyone" group, which auto-grants the <b>Developer Comp</b> package — and its contents are <i>"immediately playable regardless of the Release State."</i> No keys, no waiting. An admin approves the invite within 7 days; the tester should restart Steam afterwards.</p>
   <div class="scrollx">
@@ -116,7 +141,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 </section>
 
 <section id="branches">
-  <h2><span class="num">06</span>Branches — when you need a private track</h2>
+  <h2><span class="num">07</span>Branches — when you need a private track</h2>
   <p class="lead">Pre-release you don't need one. The <code>default</code> branch is only reachable by accounts holding a license, and pre-release the only licenses that exist are the ones you handed out — so default <i>is</i> your private track.</p>
   <p>Reach for a named branch when you want <b>hands-off uploads</b> (the script can publish automatically), a place to test something risky without disturbing the build the team is playing, or external testers who shouldn't see work-in-progress.</p>
   <ol class="steps">
@@ -131,7 +156,8 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
-    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §2 in step).</li>
+    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> (folder pick, the channel guard, steamcmd resolution, the confirm prompt) · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> (the exclusion list in §02) · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §02 in step).</li>
+    <li>The build side: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildManagerWindow.cs</code> — <code>GetBuildPath</code> (the channel tier), <code>WriteChannelMarker</code>, <code>BeginPendingVersion</code>/<code>DiscardPendingVersion</code> (the version rollback) and <code>CreateGitTagForBuild</code>. <b>Two doc comments in that file are stale and contradict the shipped script</b> — they call a development folder "NOT uploadable"; <code>Upload-SteamBuild.ps1</code> supports <code>-Channel development</code> on purpose. Write §03 from the PowerShell.</li>
     <li>The pinned exe: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildNaming.cs</code>, consumed by <code>BuildManagerWindow.GetBuildPath</code>. Identity lives in <code>ProjectSettings/ProjectSettings.asset</code>.</li>
     <li>Valve's rules (branches, Dev Comp autogrant, key waiting periods) come from the Steamworks partner docs and <b>do drift</b> — re-verify against <code>partner.steamgames.com/doc/</code> before trusting a detail that costs you an afternoon.</li>
   </ul>

@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Programmer Onboarding — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a class="on" href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Programmer <span class="flame">Onboarding</span></h1>
+  <p class="tag">Day one, for an engineer who is good at their craft and knows nothing about this project. What the architecture is and why, the ten rules that were each paid for with a real bug, the directory and assembly map, the state machine that is the spine of every character, the Content Workbench in full, how to prove you did not break anything, and the recipes for the things you will be asked for first.</p>
+</header>
+
+<main>
+
+<section id="what">
+  <h2><span class="num">01</span>What this is, architecturally, in one screen</h2>
+  <p class="lead"><b>Sentinels of Gleamwood</b> is a 2D side-on action roguelite in <b>Unity 6000.5.2f1</b> on the <b>2D Universal Render Pipeline</b>. A run walks a web of biome nodes, each biome generates its rooms from a pool, and the player keeps permanent currency between runs. That is the game. The <i>architecture</i> is decided by something bigger than the game.</p>
+
+  <div class="rule note">
+    <b>The north star: a campaign is a whole game.</b> The destination is a <b>maker mode</b> — Gleamwood becomes a 2D roguelite maker, and the game you can play today ships as its own first campaign. Test every design you propose against one question: <i>"if a campaign supplied all of it, would anything of mine still be load-bearing?"</i>
+    <br><br>That is why <b>data-driven is not a preference here, it is the architecture</b>. A feature that only a C# edit can author is a feature the maker mode cannot offer. If you find yourself writing a <code>switch</code> over content, or hard-coding a list of weapons, or adding a per-type branch to a tool — stop. The shape you want is a ScriptableObject that declares itself and a system that discovers it. Source: the root <a href="../../CLAUDE.md"><code>CLAUDE.md</code></a>.
+  </div>
+
+  <p>Three consequences you will feel within an hour:</p>
+  <div class="grid c3">
+    <div class="card accent-ember"><h4>Content is assets, never code</h4><p>Weapons, enemies, biomes, statuses, run modifiers, moves, abilities, dialogue — every one is a ScriptableObject. The runtime reads definitions; it never names a specific one except through a catalog asset.</p></div>
+    <div class="card accent-cyan"><h4>Tools are grown by declaration</h4><p><code>[WorkbenchCategory]</code> grows a Workbench tab. <code>[Tunable]</code> grows an <span class="kbd">F1</span> slider. <code>[AnimatorStateRef]</code> turns a string into a validated dropdown. You never edit the tool.</p></div>
+    <div class="card accent-green"><h4>Say "deferred to X" out loud</h4><p>Descoping silently reads as abandonment. When you cut something, write the deferral into the doc in the same commit. This is a stated project rule, not politeness.</p></div>
+  </div>
+
+  <h3>The two documents that outrank everything else</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Document</th><th>Answers</th></tr>
+    <tr><td><a href="../../CLAUDE.md"><code>CLAUDE.md</code></a> (repo root)</td><td>The working guidelines. The north star, the ten rules of §02, and the verification loop of §06. <b>Read it before changing anything.</b></td></tr>
+    <tr><td><a href="../FINALIZATION-PLAN.md"><code>Documentation/FINALIZATION-PLAN.md</code></a></td><td>What is <b>NEXT</b> — the verdict, the debt list, the build order, the open questions. This wiki documents what is <b>BUILT</b>. Never let the two blur.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Where either disagrees with the code, the code is right and the doc is stale — and you fix the doc in the same commit as the code that made it stale.</b> That rule is why this wiki is trustworthy, and it is binding on you from your first change. See <a href="maintaining.html">Maintaining</a>.</div>
+
+  <h3>The scenes</h3>
+  <p>Five scenes ship in the build, in this order (<code>ProjectSettings/EditorBuildSettings.asset</code>):</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>#</th><th>Scene</th><th>What it is</th></tr>
+    <tr><td>0</td><td><code>Assets/_Scenes/0.Bootstrapper.unity</code></td><td>Entry. Waits for <code>GameBootstrap.CoreReady</code>, plays the splash, loads the first scene named by <code>BootConfig</code>.</td></tr>
+    <tr><td>1</td><td><code>1.Title.unity</code></td><td>Title, save slots, campaign picker.</td></tr>
+    <tr><td>2</td><td><code>2.Hub.unity</code></td><td>The between-runs hub: shopkeeper, weapon pedestals, the run start portal.</td></tr>
+    <tr><td>3</td><td><code>3.BiomeHost.unity</code></td><td>The one gameplay scene. Rooms are generated into it per biome — there is no scene per level.</td></tr>
+    <tr><td>4</td><td><code>4.RestHost.unity</code></td><td>The rest node between biomes.</td></tr>
+  </table>
+  </div>
+  <p><code>Assets/_Scenes/3.TestSandbox.unity</code> also exists and is deliberately <b>not</b> in the build list — it is the scratch scene for hand-testing a mechanic without a run. Expect it to have no HUD; some signals (<code>BossEngaged</code>) are exempt from their missing-listener warning precisely because of it.</p>
+</section>
+
+<section id="rules">
+  <h2><span class="num">02</span>The ten rules this codebase paid for</h2>
+  <p class="lead">These are in <a href="../../CLAUDE.md"><code>CLAUDE.md</code></a>, ordered by what each one cost. <b>Every one of them is a bug that actually happened.</b> The story is the part that makes the rule stick, so the stories are here too — and every claim below was re-checked against live code while this page was written.</p>
+
+  <h3>1 — Never author a gameplay value into a file the F1 panel shadows</h3>
+  <p>A field marked <code>[Tunable(…, Save = true)]</code> is persisted by the runtime debug panel into <code>DebugSettings/DebugSettings.json</code> — <b>a tracked file</b> — and the panel <b>re-applies it at boot, over</b> whatever the serialized asset says. Retuning <code>PlayerSettings.asset</code> then does nothing at all, and the reason lives three directories away with no error anywhere.</p>
+  <p>The rule: gameplay values belong to the asset (<code>Save = false</code>). Only genuine <i>panel preferences</i> — camera offsets — persist. This has cost the project once already, on hub camera follow.</p>
+  <div class="warn note"><b>The other half of the lesson: when you un-shadow one, transcribe the LIVE persisted value into the asset. Do not assume the asset's number was ever running.</b> Flipping <code>SkinWidth</code> to <code>Save = false</code> <i>changed behaviour</i>, because the persisted <code>0.015</code> was what the game had actually been running on and the prefab's <code>0.05</code> was fiction. <code>KinematicMover2D.skinWidth</code>'s C# initializer is <code>0.015f</code> today for exactly that reason. Source: <a href="../FINALIZATION-PLAN.md"><code>FINALIZATION-PLAN.md</code></a>, <i>"Two things worth knowing before touching anything"</i>.</div>
+  <ul>
+    <li><b>The guard:</b> <code>Assets/Tests/PlayMode/TunableParityTests.cs</code> sweeps <code>PlayerContext</code> <i>and</i> <code>KinematicMover2D</code> for tunables on the gameplay tabs — <code>Movement</code>, <code>Jump</code>, <code>Dash</code>, <code>Wall Slide</code> — and fails any that persist. It swept <code>PlayerContext</code> alone for months while four mover properties sat at <code>Save = true</code>; a guard that covers half a tab is worse than none, because it reads as coverage.</li>
+    <li><b>To retire a stale persisted value, bump the key, do not edit the JSON.</b> The save key is <code>tab.field</code>, so renaming the tab or the field invalidates the old entry automatically.</li>
+  </ul>
+  <p class="dim">The attribute lives at <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code>. Full tour on <a href="tuning.html#tunable">Tuning &amp; INI §02</a>.</p>
+
+  <h3>2 — The test rig must be the shipped asset</h3>
+  <p>Two one-way-platform bugs shipped <b>green</b>. <code>OneWayPlatformTests</code> built a mover in code and set <code>OneWayMask</code> by hand, so it proved the mechanism and said nothing about the game. The real <code>Assets/Prefabs/Player.prefab</code> had no <code>oneWayMask</code> at all — Unity does not write a newly added serialized field into an already-serialized asset, so it deserialized to <code>0</code>, the mover's <code>oneWayMask.value != 0</code> guard short-circuited, and every thin platform in the game was air. It was found by a human walking a build.</p>
+  <p>The rule: prefer sweeping <code>AssetDatabase.FindAssets("t:X")</code> over hand-built fixtures, and assert the invariant across <b>every shipped asset</b> rather than the one you were thinking about. <code>Assets/Tests/PlayMode/ShippedPlayerPlatformWiringTests.cs</code> is the model — it loads the real prefab and refuses an empty mask.</p>
+
+  <h3>3 — Assert the behaviour, not the flag that causes it</h3>
+  <p>A test that reads <code>RunModifiers.Count(id)</code> passes happily when the seam that is supposed to consume the modifier never reads it. <b>"Granted but not wired" is this project's most common bug shape.</b></p>
+  <p>Measure through the game instead: count the swings that actually came out, read the <code>HitInfo</code> the enemy received, check the <i>resolved</i> config. <code>ComboCancelTests</code> is the example worth copying — its oracle is <code>AttackProgress</code> falling, because that is the only externally visible signal that distinguishes "the cancel fired" from "the combo chained".</p>
+
+  <h3>4 — Frames are not seconds, and <code>Time.timeScale</code> leaks</h3>
+  <p>Hitstop drives <code>Time.timeScale</code> to <b>0.05</b> and it <b>survives into the next test fixture</b>. A loop that counts frames while the code under test counts <code>Time.deltaTime</code> is measuring two different things — and that alone looked exactly like a soft-lock in the attack state for an entire evening.</p>
+  <ul>
+    <li><b>Reset <code>Time.timeScale = 1f</code> in <code>SetUp</code></b>, and restore it in <code>TearDown</code> so your fixture cannot be the one that leaks.</li>
+    <li><b>Wait on <code>Time.time</code> deadlines, never frame counts.</b> vSync is on, so 240 frames is 4s at 60Hz and 1.7s at 144Hz.</li>
+    <li>When a test must press once per frame against a window measured in seconds, set <code>Time.captureDeltaTime = 1f / 60f</code> in <code>SetUp</code> and clear it in <code>TearDown</code>. That makes the engine advance a fixed slice per frame regardless of how long the frame took — which turns "mash for four seconds" into a statement about the game rather than about the editor. Leaving it set freezes wall-clock time for every fixture that follows.</li>
+  </ul>
+  <p class="dim">A related trap has its own memory: a rate test must accumulate a window (~50 ms) and assert the <i>window</i> count. Clamping a zero-length frame manufactures a discontinuity; skipping short frames measures nothing.</p>
+
+  <h3>5 — <code>StateMachine.AddTransition</code> silently deletes same-target edges</h3>
+  <p>The call does <code>list.RemoveAll(t =&gt; t.TargetState == toState)</code> before inserting. So a <b>code-registered edge deletes the authored one</b> to the same target. Four of <code>meleeAtk</code>'s five authored edges in <code>PlayerDef.asset</code> are already dead this way, and one of them carries a condition nobody has ever noticed is wrong <i>because it never runs</i>.</p>
+  <p>The removal itself is correct — <code>CheckTransitions</code> takes the first match, so two edges to one target would leave the second unreachable regardless. What was wrong was doing it in silence. <b>It now warns</b>, naming both sides, deduped once per <code>(from-type → to-type)</code> pair per session. Play once and that warning list <i>is</i> the inventory of authored edges your code has overwritten.</p>
+  <div class="rule note"><b>The fix is always the same shape: ONE edge whose condition ORs both cases together.</b> <code>PlayerMeleeAttackState</code> does this for its idle/run edges and says so in a comment. And when you are reading a graph: <b>check the live dictionary, never the asset</b> — the asset shows edges that may not exist at runtime. Full mechanics in <a href="#fsm">§04</a>.</div>
+
+  <h3>6 — Never bump <code>SaveSystem.CurrentVersion</code></h3>
+  <p><code>SaveSystem.Load()</code> treats a file whose <code>version &lt; CurrentVersion</code> as an <b>empty slot</b>. A bump does not migrate a save — <b>it destroys the permanent profile behind it</b>: playtime, Gleam, every unlock. The constant is <code>2</code> (<code>Assets/_Game/Systems/Save/SaveSystem.cs</code>) and two separate test fixtures assert that exact number so that changing it is a deliberate act, not a side effect.</p>
+  <p>New save fields are <b>additive</b>, with a C# initializer whose default already means the right thing. If the natural default is wrong, change the field, not the version.</p>
+  <div class="warn note"><b>The companion rule: read parallel save arrays PER INDEX, never joined under one <code>Math.Min</code>.</b> <code>SaveSlot</code> carries parallel arrays (<code>weaponIds</code>/<code>weaponLevels</code>, <code>modifierIds</code>/<code>modifierStacks</code>/targets). A save written before a third array existed has 2 ids, 2 stacks and 0 targets — and a shared <code>Math.Min</code> bound would read that as <b>zero of everything</b>.</div>
+
+  <h3>7 — Every budget needs a cap, and the cap is a safety property</h3>
+  <p>Several run modifiers raise a budget that is the only thing bounding a loop. The combo cancel is the clearest: a cancel restarts the same combo index with a fresh timer, so an <b>unbounded budget is an attack state the player never leaves</b> — a soft-lock reachable by holding a direction and mashing.</p>
+  <p><code>maxStacks</code> on <code>RunModifierDefinition</code> is therefore <b>not balance, it is the loop guard</b>. It defaults to <code>1</code>, <code>RunModifierDef</code>'s constructor clamps it with <code>Mathf.Max(1, …)</code>, the definition's own validation rejects anything below 1, and <code>RunModifierOffer</code> stops offering a modifier once <code>RunModifiers.Count(id) &gt;= maxStacks</code>. <b>"We cannot prove this terminates" is sufficient reason to lower it.</b></p>
+
+  <h3>8 — Ordered content lists are behaviour</h3>
+  <p><code>EnemyDefinition.Executions</code> is <b>first-match-wins</b>. An entry asking for strictly less than a later one makes that later one <b>unreachable — silently</b>. Two rules hold it: <b>most-specific first</b>, and <b>status-gated catch-alls last</b>. An inspector drag breaks both in one click, which is why <code>Assets/Tests/PlayMode/ExecutionTriggerTests.cs</code> sweeps every shipped enemy and compares every pair <code>(i, j)</code> for the shadowing relation.</p>
+  <p>Generalise it: any list whose order decides which element runs is behaviour, and it needs a test, not a comment.</p>
+
+  <h3>9 — Invisible counts as broken</h3>
+  <p>A mechanic the player cannot see is not shipped. The named example was run modifiers: they were visible only in a dev panel compiled out of release builds, and <code>CLAUDE.md</code> calls that <i>a bug, not a backlog item</i>.</p>
+  <div class="note"><b>Code check, 2026-08-10: this specific instance has since been fixed, and <code>CLAUDE.md</code>'s wording is now the stale copy.</b> <code>PlayerHUDController.RefreshRunModifiers()</code> renders a chip strip on the real HUD (repainting off <code>RunModifiers.Revision</code> rather than diffing the list), and <code>LoadoutScreen</code> builds its boon rows from the same <code>RunModifiers.Owned()</code> call. <code>RunHudTests</code> pins the <b>HUD strip</b> by name — a held modifier renders a chip (that test's message is literally <i>"this is the 'invisible counts as broken' case"</i>), an empty run renders none, and a mid-scene grant repaints without a reload. <b><code>LoadoutScreen</code> itself has no coverage</b>: the identifier appears nowhere under <code>Assets/Tests/</code>. <b>The rule stands, the example is now a worked one — and half of the worked example is still unpinned.</b></div>
+
+  <h3>10 — Never mutate a shared ScriptableObject at runtime</h3>
+  <p>Definitions are shared by every instance, and in the editor a runtime mutation <b>persists to disk</b>. The pattern is always <b>clone-then-override</b>:</p>
+  <ul>
+    <li>A run's weapon upgrades ride a per-run <code>WeaponInstance</code> wrapper; the <code>WeaponDefinition</code> is never written.</li>
+    <li><code>PlayerStateMachine.Awake()</code> assigns <code>context = Instantiate(Resources.Load&lt;PlayerContext&gt;("PlayerSettings"))</code> — the runtime player is a <b>clone</b>, which is also what makes it safe to re-stamp multiplicative run modifiers on every scene load.</li>
+    <li>The campaign/mod tier clones before it overrides — <code>CampaignPlan</code> <code>Instantiate</code>s the shipped <code>RunPlan</code> and each <code>BiomeDefinition</code>, and <code>ProgressionOverrides</code> carries the comment <code>// clone-then-override (rule 10)</code> at the seam.</li>
+    <li>An imbue writes into a <b>by-value struct copy</b> of the resolved config, never back into the asset.</li>
+  </ul>
+
+  <div class="note"><b>Two more that are not in the ten but will bite you in week one.</b> <b>(a)</b> Serialized assets store enums <b>by index</b> — append members, never reorder or delete, or every asset silently shifts to the wrong value. <b>(b)</b> A newly added serialized field is <b>not</b> written into already-serialized assets; it reads as the type default, not your C# initializer. After adding a field, open the affected assets and stamp real values (rule 2's bug was exactly this). Both are on <a href="quickstart.html#dont-break">Quick Start §04</a>.</div>
+</section>
+
+<section id="map">
+  <h2><span class="num">03</span>The map — what lives where</h2>
+  <p class="lead">Two roots matter. <code>Assets/_Framework/</code> is reusable, game-agnostic machinery. <code>Assets/_Game/</code> is Gleamwood. The underscore prefix is there to sort them to the top of the Project window.</p>
+
+  <h3>Top level</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Path</th><th>What it holds</th></tr>
+    <tr><td><code>Assets/_Framework/StateMachine/</code></td><td>The FSM package — <code>Core/</code> (machine, configs, transitions, conditions, contexts), <code>State/</code> (state bases, builders), <code>Editor/</code> (visualizer, creator, inspectors). Six markdown docs travel <i>inside</i> the package; treat <a href="state_machine_api_reference.md"><code>Wiki/state_machine_api_reference.md</code></a> as the verified one.</td></tr>
+    <tr><td><code>Assets/_Framework/DebugUI/</code></td><td>The runtime debug panel (<span class="kbd">F1</span>) and <code>[Tunable]</code>. Vendored from an upstream package — see <code>Documentation/DEBUGUI_UPSTREAM.md</code>.</td></tr>
+    <tr><td><code>Assets/_Game/</code></td><td>All game code and content. Walked in the next table.</td></tr>
+    <tr><td><code>Assets/_Scenes/</code></td><td>The six scenes of <a href="#what">§01</a>.</td></tr>
+    <tr><td><code>Assets/Tests/PlayMode/</code></td><td>The entire automated suite. <b>PlayMode only</b> — there is no EditMode assembly.</td></tr>
+    <tr><td><code>Assets/Prefabs/</code></td><td><code>Player.prefab</code> lives here (not under <code>_Game/Player/</code>) — several tools hard-code that path, including the <code>AnimatorStateRef</code> drawer's controller resolution.</td></tr>
+    <tr><td><code>Assets/_Sprites/</code> · <code>Assets/UI Toolkit/</code> · <code>Assets/Settings/</code></td><td>Art source, UXML/USS + <code>PanelSettings.asset</code>, URP render assets.</td></tr>
+    <tr><td><code>DebugSettings/</code> (repo root)</td><td><code>DebugSettings.json</code> — <b>tracked</b>, and the file rule 1 is about.</td></tr>
+    <tr><td><code>Tools/</code> · <code>Documentation/</code> · <code>Logs/</code></td><td><code>run-tests.sh</code> and the art pipeline · the plan, the wiki, mod templates · test results.</td></tr>
+  </table>
+  </div>
+
+  <h3>Inside <code>Assets/_Game/</code></h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Folder</th><th>Contains</th><th>Deep dive</th></tr>
+    <tr><td><code>Player/</code></td><td><code>Code/</code> — <code>PlayerStateMachine.cs</code>, <code>PlayerContext.cs</code>, <code>PlayerInputHandler.cs</code>, <code>States/MovementStates/</code> (Idle, Run, Jump, Fall, Dash, WallSlide), <code>States/AttackStates/</code> (MeleeAttack, DashAttack, BowAim), <code>States/PlayerDeathState.cs</code>, <code>Definitions/</code> (config + transition types), <code>Animation/</code>, <code>PlayerSkinOverrides.cs</code>. <code>Data/PlayerDef.asset</code> is the state graph; <code>Data/SharedRules/</code> holds the <code>Dy_*</code> conditions; <code>Resources/PlayerSettings.asset</code> is the tuning asset.</td><td><a href="#fsm">§04</a> · <a href="combat.html">Combat</a></td></tr>
+    <tr><td><code>Enemies/</code></td><td><code>Code/EnemyStateMachine.cs</code> + <code>EnemyContext.cs</code>, <code>Code/States/</code> (the eleven behaviour states plus three execution states), <code>Code/Definitions/</code>. <code>Data/EnemyDefinitions/</code> holds each definition and its state sub-assets; <code>Prefabs/</code> is where a definition's prefab must live for the Workbench to find it.</td><td><a href="enemies.html">Enemies &amp; Bosses</a></td></tr>
+    <tr><td><code>Combat/</code></td><td><code>Code/</code> — <code>CombatStatusManager</code>, <code>CombatStatusDefinition</code>, <code>CombatTimeManager</code> (hitstop), <code>ArrowProjectile</code>, <code>DamageType</code>, <code>StatusCatalog</code>, <code>AnimatorStateRefAttribute</code>, the hitbox viewer and range preview. <code>Definitions/</code> holds <code>WeaponDefinition</code> and its melee/ranged subclasses. <code>FX/</code> holds hit sparks.</td><td><a href="combat.html">Combat</a></td></tr>
+    <tr><td><code>Systems/</code></td><td>The spine. <code>Boot/</code> (<code>GameBootstrap</code>, <code>GameSignals</code>, <code>BootConfig</code>, <code>GameServices.prefab</code>) · <code>Run/</code> (<code>RunDirector</code>, <code>RunPlan</code>, biomes, bosses, run modifiers, meta upgrades, <code>ProcGen/</code>, <code>Rooms/</code>, <code>Weapons/</code>) · <code>Save/</code> · <code>Modding/</code> (campaign tier, overrides) · <code>Dialogue/</code> · <code>Movement/</code> (<code>KinematicMover2D</code>) · <code>Audio/</code> · <code>Settings/</code> · <code>Inputs/</code> · <code>Authoring/</code> (the Workbench attributes) · <code>Utils/</code>.</td><td><a href="framework.html#boot">Framework §07</a> · <a href="progression.html">Progression</a></td></tr>
+    <tr><td><code>UI/</code></td><td><code>Code/Framework/</code> (<code>MenuScreen</code>, <code>MenuRouter</code>, <code>NavRepeat</code>, <code>MenuList</code>, <code>MenuTabBar</code>, <code>ConfirmPrompt</code>…) · <code>Code/HUD/</code> · <code>Code/Screens/</code> · <code>Panels/</code> (UXML) · <code>Theme/</code>.</td><td><a href="ui.html">UI &amp; HUD</a> · <a href="framework.html#menuframework">Framework §09</a></td></tr>
+    <tr><td><code>Editor/</code></td><td><b>All editor tooling.</b> <code>ContentWorkbench.cs</code> + <code>Workbench/</code> (<a href="#workbench">§05</a>), <code>ContentIniImporter.cs</code>, <code>GameContentSync.cs</code>, <code>RunContentValidator.cs</code>, <code>RoomReachability.cs</code>, <code>PlayModeTestMenu.cs</code>, <code>WikiScreenshotTool.cs</code>, plus per-domain drawers under <code>Combat/</code>, <code>Enemies/</code>, <code>Player/</code>, <code>Run/</code>, <code>Dialogue/</code>, <code>Art/</code>.</td><td><a href="#workbench">§05</a> · <a href="extending.html">Extending</a></td></tr>
+    <tr><td><code>Content/</code></td><td><code>GameContent.ini</code> — the text authoring layer for biomes, bosses and the run web — plus <code>Dialogue/</code> (<code>.dlg</code> files) and <code>Voice/</code>.</td><td><a href="tuning.html#gamecontent">Tuning §08</a></td></tr>
+    <tr><td><code>Biomes/</code> · <code>Audio/</code> · <code>Shaders/</code></td><td>Biome + boss + rest assets and the room prefabs; music/SFX and the <code>MusicSet</code>; the parallax shader.</td><td><a href="levels.html">Levels</a> · <a href="audio.html">Audio</a></td></tr>
+  </table>
+  </div>
+
+  <h3>The assemblies, and what each may reference</h3>
+  <p>Eight <code>.asmdef</code>s. The direction of the arrows is the whole design: the framework knows nothing about the game, and the game's editor code may see everything while the runtime may not see the editor. <code>GameScripts</code> crosses that line <b>twice</b> — once deliberately, once by accident.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Assembly</th><th>Root</th><th>Platforms</th><th>References</th></tr>
+    <tr><td><code>CatSplatStudios.StateMachine</code></td><td><code>_Framework/StateMachine/</code></td><td>all</td><td><code>Unity.InputSystem</code>, <code>UnityEditor.UI</code>. <b>Nothing from the game.</b></td></tr>
+    <tr><td><code>CatSplatStudios.StateMachine.Editor</code></td><td><code>_Framework/StateMachine/Editor/</code></td><td>Editor</td><td><code>CatSplatStudios.StateMachine</code></td></tr>
+    <tr><td><code>com.CatSplatStudios.RuntimeDebugUI</code></td><td><code>_Framework/DebugUI/</code></td><td>all</td><td><code>Unity.Nuget.Newtonsoft-Json</code></td></tr>
+    <tr><td><code>com.CatSplatStudios.RuntimeDebugUI.Editor</code></td><td><code>_Framework/DebugUI/Editor/</code></td><td>Editor</td><td>the runtime DebugUI</td></tr>
+    <tr><td><b><code>GameScripts</code></b></td><td><code>_Game/</code></td><td>all</td><td>both StateMachine assemblies, both DebugUI assemblies, <code>Unity.InputSystem</code>, <code>Unity.TextMeshPro</code>, <code>Unity.RenderPipelines.Universal.2D.Runtime</code>, <code>com.rlabrecque.steamworks.net</code></td></tr>
+    <tr><td><code>GameScripts.Editor</code></td><td><code>_Game/Editor/</code></td><td>Editor</td><td><code>GameScripts</code>, both StateMachine assemblies, the TestRunner pair</td></tr>
+    <tr><td><code>GameScripts.Utils.Build.Editor</code></td><td><code>_Game/Systems/Utils/Build/Editor/</code></td><td>Editor</td><td><code>GameScripts</code>, <code>CatSplatStudios.StateMachine</code></td></tr>
+    <tr><td><code>CatSplatStudios.Tests.PlayMode</code></td><td><code>Tests/PlayMode/</code></td><td>all, gated on <code>UNITY_INCLUDE_TESTS</code></td><td><code>GameScripts</code>, <code>GameScripts.Editor</code>, <code>CatSplatStudios.StateMachine</code>, DebugUI, URP 2D, the TestRunner pair, <code>nunit.framework.dll</code></td></tr>
+  </table>
+  </div>
+  <div class="rule note"><b>The exception, and why it exists.</b> <code>GameScripts</code> — a runtime assembly — references <code>CatSplatStudios.StateMachine.Editor</code>, which is Editor-only. That is legal because every use is fenced: <code>PlayerStateMachine.cs</code> opens with <code>#if UNITY_EDITOR using StateMachine.Editor;</code> and only calls <code>StateMachineRegistry.RegisterStateMachine(this, …)</code> inside the same fence, so the live machine shows up in the Visualizer without the registry existing in a player build. <b>If you add a call to that namespace and forget the fence, the editor stays green and the build breaks.</b>
+  <br><br><b>The second crossing is not deliberate — it is dead weight, and it is a loaded gun.</b> <code>GameScripts.asmdef</code> also references <code>com.CatSplatStudios.RuntimeDebugUI.Editor</code>, which is likewise <code>"includePlatforms": ["Editor"]</code>. Nothing under <code>_Game/</code> uses it, so there is nothing to fence — but the reference is live, so the first unfenced call into it will compile green in the editor and break the player build exactly as above. Resolve the GUIDs in <code>GameScripts.asmdef</code> against the <code>.asmdef.meta</code> files if you want to see it: <code>6ad088aa…</code> is the StateMachine editor assembly, <code>44b1933b…</code> is this one.
+  <br><br>Note the second consequence: because the test assembly references <code>GameScripts.Editor</code>, a PlayMode test may call <code>AssetDatabase</code>. That is what makes rule 2's shipped-asset sweeps possible — and it is why those tests wrap their editor-only bodies in <code>#if UNITY_EDITOR</code>.</div>
+</section>
+
+<section id="fsm">
+  <h2><span class="num">04</span>The state machine — the spine of the player and every enemy</h2>
+  <p class="lead">One generic FSM drives both characters. <a href="framework.html#model">Framework §01–§05</a> is the reference for the type model and the editor tools, and <a href="state_machine_api_reference.md"><code>state_machine_api_reference.md</code></a> carries the signatures. This section is the part you need in your head <b>before</b> you read either: how a graph is assembled at runtime, why the asset is not the truth, and the four ways an edge dies without an error.</p>
+
+  <h3>The shape</h3>
+<pre><code><span class="t">StateMachine</span>&lt;<span class="t">TContext</span>&gt;            <span class="c">// MonoBehaviour. Owns states + transitions.</span>
+  └─ <span class="t">PlayerStateMachine</span>          <span class="c">// : StateMachine&lt;PlayerContext&gt;   [DefaultExecutionOrder(-110)]</span>
+  └─ <span class="t">EnemyStateMachine</span>           <span class="c">// : StateMachine&lt;EnemyContext&gt;, IHittable</span>
+
+<span class="t">IState</span>&lt;<span class="t">TContext</span>&gt;
+  └─ <span class="t">StateBase</span>&lt;<span class="t">TContext</span>, <span class="t">TStateMachine</span>&gt;                 <span class="c">// TWO generics. There is no single-generic base.</span>
+       └─ <span class="t">ConfigurableState</span>&lt;<span class="t">TContext</span>, <span class="t">TConfig</span>, <span class="t">TStateMachine</span>&gt;
+            └─ <span class="t">PlayerState</span> / every <span class="t">Enemy*State</span></code></pre>
+  <p>A state is a plain C# object, not a component. It is constructed from a <b>config ScriptableObject</b> which is a <b>sub-asset of the definition</b> (<code>PlayerDef.asset</code>, each <code>*Def.asset</code> under <code>Enemies/Data/</code>). Expand the <code>.asset</code> in the Project window and the configs are inside it.</p>
+
+  <h3>How a graph is actually assembled — two passes, and this is the seam</h3>
+  <ol class="steps">
+    <li><b>Register every state first.</b> <code>PlayerStateMachine.InitializeFromDefinition()</code> walks <code>Definition.States</code>, calls <code>config.CreateState()</code>, and registers it under <code>config.StateName</code> — <b>falling back to the sub-asset's name when <code>StateName</code> is blank</b>. <code>RegisterState</code> calls <code>state.Init(this, context)</code> and <b>throws</b> on a duplicate id.</li>
+    <li><b>Then call <code>SetupTransitions()</code> on every registered state.</b> Two passes, in that order, is what lets an edge name a state that had not been created when its own config was read. Both machines do it.</li>
+    <li><code>ConfigurableState.SetupTransitions()</code> walks the config's <code>Transitions</code> list, resolves each <code>ToState</code> by <code>StateId</code>, <b>pre-compiles</b> the dynamic predicates, folds every condition into one composite <code>Func&lt;bool&gt;</code>, and registers it — <b>always at priority 0, never with an <code>onTransition</code> action</b>. An unresolvable target logs a warning and is skipped.</li>
+    <li>A <b>hybrid</b> state then adds its own hardcoded edges after <code>base.SetupTransitions()</code>. That is where rule 5 lives.</li>
+  </ol>
+
+  <div class="warn note"><b><code>StateName</code> vs <code>StateId</code> vs the asset name — three things, and they are not the same.</b> <b>The two machines register differently.</b> <code>EnemyStateMachine</code> registers under the <b>raw</b> <code>StateName</code>; <code>PlayerStateMachine</code> falls back to the sub-asset's name when <code>StateName</code> is blank, exactly as <code>StateId</code> does (step 1 above). Transitions on <i>both</i> sides resolve by <code>StateId</code>, which is <code>StateName</code> if set and the <b>asset name</b> otherwise. Two failure modes fall out and neither is visible until something breaks mid-run:
+  <ul>
+    <li>A <b>blank</b> <code>StateName</code> on an <b>enemy</b> config registers a state under <code>""</code> that no transition can ever reach. This is the one the player's fallback saves you from — and only the player's.</li>
+    <li>A <b>duplicate</b> <code>StateName</code> makes <code>RegisterState</code> throw, on either machine.</li>
+  </ul>
+  <b>This is live in the shipped player graph, and it is legal there:</b> the sub-asset <code>PlayerRunConfig</code> inside <code>PlayerDef.asset</code> has an empty <code>StateName</code>, so the run state is registered and addressed as <code>PlayerRunConfig</code>, not as <code>"run"</code>. Nothing breaks because no player code looks the run state up by string — the only string lookup in <code>PlayerStateMachine</code> is <code>TryGetState("idle", …)</code> for the sandbox respawn edge, and everything else uses <code>GetState&lt;T&gt;()</code>. <b>Do not "fix" it casually, and do not assume an id from a state's colloquial name.</b> The Workbench's <a href="workbench.html#states">States sub-tab</a> shows blanks and duplicates as red rows before you leave the window.</div>
+
+  <h3>Authored transitions — two condition lists, both ANDed</h3>
+  <p>A <code>TransitionDefinition</code> row carries a target plus <b>two</b> lists, and this is the pair that catches people reading an authored graph: <b>an edge that "has no conditions" may have all of them in the other list.</b></p>
+  <div class="scrollx">
+  <table>
+    <tr><th>List</th><th>Type</th><th>What it is</th></tr>
+    <tr><td><code>Conditions</code></td><td><code>TransitionCondition&lt;TContext&gt;</code> (ScriptableObject)</td><td>Hand-written, type-safe: override <code>bool Check(TContext context)</code>. The Creator's Condition Creator tab (<a href="framework.html#tooling">Framework §05</a>) generates one into <code>…/Definitions/Transitions/Conditions/</code> — but <b>it emits ENEMY conditions only</b>. The namespace and the base class are hard-coded to <code>Enemies.Definitions.Transitions</code> regardless of the Target System you picked, while the <code>Check</code> parameter follows the selector — so a condition generated with Target System = <b>Player</b> lands under <code>Player/Code/</code> overriding <code>Check(PlayerContext)</code> on a base whose method takes <code>EnemyContext</code>, and does not compile. Hand-write player conditions against <code>StateMachine.Core.TransitionCondition&lt;PlayerContext&gt;</code>, or reach for a <code>DynamicCondition</code> instead.</td></tr>
+    <tr><td><code>DynamicConditions</code></td><td><code>DynamicCondition</code> (ScriptableObject)</td><td>No-code: name a <b>property</b> on the context, pick an operator (<code>Equal</code>, <code>NotEqual</code>, <code>Greater</code>, <code>Less</code>, <code>GreaterOrEqual</code>, <code>LessOrEqual</code>, <code>IsTrue</code>, <code>IsFalse</code>), give a value. Create via <span class="kbd">Assets ▸ Create ▸ StateMachine ▸ Dynamic Condition</span>. The player's live set is <code>Assets/_Game/Player/Data/SharedRules/Dy_*.asset</code> — <code>Dy_IsGrounded</code>, <code>Dy_CanGroundJump</code>, <code>Dy_AerialAttackNotUsed</code>, <code>Dy_IsDashReady</code> and the rest of the <code>Dy_</code> family. <b>Look there before authoring a new one</b>; they are shared across edges by design, and the enemy side has its own set under <code>Assets/_Game/Enemies/Data/EnemyDefinitions/SharedRules/</code>.</td></tr>
+  </table>
+  </div>
+  <p><b>Everything ANDs.</b> Every condition in both lists must pass. An empty pair of lists means <i>fires unconditionally the moment it is checked</i>.</p>
+
+  <div class="warn note"><b>Three things about <code>DynamicCondition</code> that will cost you an afternoon each.</b>
+    <ul>
+      <li><b>Only PROPERTIES are addressable.</b> It builds <code>Expression.Property(param, PropertyName)</code>. A <code>public</code> <b>field</b> with the right name compiles nothing and fails — the error message says so explicitly.</li>
+      <li><b>It fails closed and it caches the failure.</b> A bad <code>PropertyName</code> logs one error and the predicate <b>permanently returns <code>false</code> for the rest of the session</b>. The edge does not error, it just never fires. Caching the failure is deliberate: <code>SetupTransitions</code> runs per machine <i>instance</i>, so an uncached failure re-threw on every single enemy spawn.</li>
+      <li><b>Binding is by name and type, so a type change breaks the edge with no compile error.</b> A <code>bool</code> read by a DynamicCondition must stay a <code>bool</code> — this is why <code>PlayerContext.AerialAttackUsed</code> is a bool and not a count.</li>
+    </ul>
+    The compiled-predicate cache is keyed by <code>(asset instance id, context type)</code> and both halves survive a play session with Disable Domain Reload on — which is why <code>GameBootstrap.ResetStatics</code> calls <code>DynamicCondition.ClearCache()</code> every play session. Without it an edited condition keeps evaluating the OLD expression until the editor restarts.</div>
+
+  <h3>Runtime behaviour you must know before you debug one</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Fact</th><th>Consequence</th></tr>
+    <tr><td><code>Update()</code> runs <code>CheckTransitions()</code> <b>before</b> <code>currentState.Update()</code></td><td>Anything that must be read <i>before</i> the graph gets a chance to move must be called above <code>base.Update()</code>. <code>PlayerStateMachine.DropThroughCheck()</code> is exactly this, and it shipped below <code>base.Update()</code>: the jump edge consumed the input buffer first, so a clean down+jump could never drop through and the symptom read as "requires mashing the button".</td></tr>
+    <tr><td><b>At most one transition per frame</b>, first match wins, then <code>break</code></td><td>Order within a priority band is behaviour. Two edges that could both fire are a decision, not a coincidence.</td></tr>
+    <tr><td><code>AddTransition</code> does a <b>stable</b> highest-priority-first insert — deliberately not <code>List.Sort</code></td><td><code>List.Sort</code> is an unstable quicksort, and since config edges all register at priority 0 it would have made authored order a coin flip between runs. Equal priorities keep <b>insertion order</b>, and <code>PlayerJumpState</code> relies on it: its bow edge shares a priority with the melee edge and registers <i>after</i> it, so melee wins a simultaneous press.</td></tr>
+    <tr><td><code>FixedUpdate()</code> only forwards to the state</td><td>It never checks transitions.</td></tr>
+    <tr><td><code>SetInitialState</code> calls <code>Enter()</code> immediately</td><td>Entry side effects run during <code>Awake</code>-time setup, not on the first frame.</td></tr>
+    <tr><td><code>states</code> and <code>stateTransitions</code> are <b>public</b> fields</td><td>Convenient and unguarded. Treat as read-only. <code>stateTransitions</code> is keyed by <b>source</b> state, so an edge only ever constrains where you may go <i>from</i> somewhere. <b>Nothing anywhere needs a <code>→Death</code> edge</b> — but the reason is that <code>PlayerStateMachine.EnterDeath()</code> calls <code>ChangeState(_death)</code> off the <code>Health</code> subscription, and <code>ChangeState</code> bypasses the table entirely (it only checks that the target is registered). Death is <i>not</i> terminal, whatever the comment beside it says: its own list carries exactly one edge, the sandbox respawn back to <code>idle</code> when <code>Health &gt; 0</code>. And an empty list never distinguishes a state anyway — <code>RegisterState</code> gives every state a fresh empty one.</td></tr>
+  </table>
+  </div>
+
+  <h3>Reading a graph: the live dictionary, never the asset</h3>
+  <p>This is the single most useful habit on this page. <code>PlayerDef.asset</code> lists edges that <b>may not exist at runtime</b>, because a hybrid state's hardcoded <code>AddTransition</code> deleted them (rule 5). Four of <code>meleeAtk</code>'s five authored edges are already in that state.</p>
+  <ol class="steps">
+    <li><b>Play once and read the console.</b> Every collision logs <code>[StateMachine] FromType-&gt;ToType: a registered transition REPLACED n existing one(s)…</code>, once per pair per session. That list <i>is</i> the set of authored edges your code has overwritten — no file reading required.</li>
+    <li><b>Open the Visualizer</b> — <span class="kbd">Cat Splat State Machine ▸ State Machine Visualizer</span>. One state centred, incoming edges left, outgoing right, with a <b>Live View</b> toggle. Machines self-register at runtime: the player as <code>PlayerStateMachine</code>, enemies as <code>"Name (EntityId)"</code>.</li>
+    <li><b>Or tick <code>debugMode</code></b> on the machine component (or call <code>EnableDebug()</code>) for a console line on every state change.</li>
+    <li>Only then open the asset — and read it as a <i>proposal</i>, not as the graph.</li>
+  </ol>
+  <p>Which player states are pure data (your config edits win) and which are hybrids (they may not) is tabulated on <a href="framework.html#hybrid">Framework §04</a>. <code>PlayerRunState</code>, <code>PlayerIdleState</code> and <code>PlayerFallState</code> are nothing but <code>base.SetupTransitions()</code>; Jump, Dash, WallSlide, MeleeAttack, DashAttack and BowAim are hybrids.</p>
+
+  <div class="rule note"><b>Drive the real input, not <code>ChangeState</code>.</b> Player FSM edges live in <code>DynamicConditions</code> on the definition asset, not in string-named conditions. A test that forces <code>ChangeState</code> false-passes on every path the game never actually takes. Reproduce with buffered input, and log the clip / normalized time / sprite before asserting. <code>ChangeState</code> in a test is defensible only when the entry edges are covered elsewhere and everything under test happens <i>inside</i> one state entry — <code>ComboCancelTests</code> says exactly that in its header, and that is the bar.</div>
+
+  <h3>Adding to the machine — the one correct route</h3>
+  <ol class="steps">
+    <li><b>Only if the state TYPE does not exist:</b> <span class="kbd">Cat Splat State Machine ▸ Tools ▸ State Machine Creator</span> → <b>State Creator</b> → pick the Target System, name it, choose the base config, add variables → Generate. It writes <b>two files into two different folders</b> under the feature's code root: <code>{Name}Config.cs</code> into <code>&lt;root&gt;/Definitions/States/</code> and <code>{Name}State.cs</code> into <code>&lt;root&gt;/States/</code> — so <code>Assets/_Game/Player/Code/Definitions/States/</code> <i>and</i> <code>Assets/_Game/Player/Code/States/</code>, or the same pair under <code>Assets/_Game/Enemies/Code/</code>. <b>The state class is the one you edit</b>, and its stub overrides <b>only</b> <code>Enter()</code>. Wait for the compile.</li>
+    <li><b>Create the state asset in the Workbench</b>, never by hand: <span class="kbd">Gleamwood ▸ Content Workbench</span> → <b>Enemies</b> (or <b>Bosses</b>) → the <b>States</b> sub-tab → <b>+ Create State</b>. On the <b>Player</b> tab there is no <b>States</b> sub-tab: select <b>Balen (State Machine)</b> and the whole page <i>is</i> that surface, <b>+ Create State</b> included. That one action creates the sub-asset, names it, <b>sets <code>StateName</code></b>, appends it to <code>States</code>, promotes it to <code>InitialState</code> if it is the first, and runs the <code>IStateMachineAssetPostProcessor</code> hooks — atomically. Doing it by hand is how you get a blank <code>StateName</code>.</li>
+    <li><b>Wire transitions on the same tab</b> — To State plus its Conditions and DynamicConditions.</li>
+    <li><b>Check the validation rows are green</b>, then watch it in the Visualizer.</li>
+  </ol>
+  <p>If you delete a state script, run <span class="kbd">Maintenance ▸ Cleanup Orphaned &amp; Broken Sub-Assets</span> on the States tab (or right-click the <code>.asset</code> → <span class="kbd">State Machine ▸ Cleanup Sub-Assets</span>) — sub-assets whose script is gone leave debris that nothing lists.</p>
+
+  <figure class="shot">
+    <img src="images/workbench-enemy-states.png" alt="Content Workbench, Enemies category, States sub-tab showing validation rows, the state roster and the selected state's transitions">
+    <figcaption><b>Real capture.</b> The States sub-tab: two green validation rows up top (<i>initial state set</i>, <i>names unique and non-empty</i>), the roster with each state's type, <code>idle (initial)</code> marked, then the selected state's fields and its wired transitions. This is the surface that turns §04's two silent runtime failures into red rows.</figcaption>
+  </figure>
+</section>
+
+<section id="workbench">
+  <h2><span class="num">05</span>The Content Workbench, in full</h2>
+  <p class="lead">The Workbench is the designer-facing authoring surface, and as a programmer you will extend it more often than you use it. <a href="workbench.html">The Workbench page</a> is the guided tour of every shipped tab and is the source of record for the tab list — <b>do not restate it</b>. This section is the <i>developer's</i> view: what the window actually is, the full form API with signatures, and two worked examples.</p>
+
+  <h3 id="wb-what">What it is</h3>
+  <p>Raw Unity inspectors show every serialized field, including the dead ones. The Workbench shows <b>only the fields the runtime actually reads</b>, split into sub-tabs, with effective values resolved through their fallbacks, sound preview, animator-state validation, and registration checks that tell you whether the asset is wired into the game at all.</p>
+  <p>Architecturally it is a <b>thin shell</b>. <code>Assets/_Game/Editor/ContentWorkbench.cs</code> contains <b>no hard-coded tab list and no per-type switch</b>. It discovers categories and drives the rail, banner and form entirely through one interface. That is what makes it maker-mode-shaped: a campaign that ships a new SO type gets a full authoring surface without a workbench edit.</p>
+
+  <figure class="shot">
+    <img src="images/workbench-melee.png" alt="Content Workbench, Melee category, SolarGreatsword Overview tab">
+    <figcaption><b>Real capture.</b> The whole anatomy: the 216px category rail on the left with its icon column and asset list, the 44px accent-tinted banner (icon, title, subtitle, upper-cased category chip), and the scrollable form. The two green <code>[ok]</code> registration rows sit <i>above</i> any stat, because "does this asset exist in the game at all" outranks every number on the page.
+    <br><b>Stale as of 2026-08-10 — do not read a tab count off it.</b> This capture predates four rail tabs and two Melee sub-tabs: the rail here shows <b>ten</b> where <code>WorkbenchCategoryRegistry.Discover()</code> now builds <b>fourteen</b> (seven <code>IWorkbenchCategory</code> classes plus seven <code>[WorkbenchCategory]</code> names), and the sub-tab strip shows <b>three</b> where <code>MeleeWeaponCategory</code> declares <b>five</b>. The <a href="#fsm">§04</a> capture is from the same session and carries the same rail. Regenerate both with <span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span>.</figcaption>
+  </figure>
+
+  <h3 id="wb-open">Opening it</h3>
+  <ul>
+    <li><span class="kbd">Gleamwood ▸ Content Workbench</span> — <code>[MenuItem("Gleamwood/Content Workbench")]</code> on <code>ContentWorkbench.Open()</code>. Minimum size <b>780×500</b>. A fresh window opens on tab index <code>1</code>, which is <b>Melee</b>.</li>
+    <li>Right-click a tunable asset in the Project window → <span class="kbd">Assets ▸ Open in Content Workbench</span>. The validator enables it for <code>WeaponDefinition</code>, <code>Enemies.Definitions.EnemyDefinition</code>, <code>PlayerContext</code>, <code>BiomeDefinition</code>, <code>MusicSet</code>, <b>or any <code>ScriptableObject</code> whose class carries <code>[WorkbenchCategory]</code></b>.</li>
+  </ul>
+  <p>Routing goes through <code>CategoryIndexFor(asset)</code>, which returns the first category whose <code>Owns(asset)</code> is true — and <b><code>return 0</code> when none does</b>. Index 0 is whichever category sorts first, which is <code>PlayerCategory</code> at <code>Order =&gt; 0</code>. So an unroutable asset silently lands on the Player tab; that is the fallback, not a bug.</p>
+  <div class="warn note"><b><code>Owns()</code> and the context-menu validator are two different gates, and they disagree on the player's own state graph.</b> <code>PlayerCategory.Owns</code> accepts <code>PlayerDefinition</code>, so <code>PlayerDef.asset</code> <i>routes</i> perfectly well — but the validator above does not list that type and it carries no <code>[WorkbenchCategory]</code>, so <span class="kbd">Open in Content Workbench</span> is <b>greyed out</b> on it. Reach it from the rail instead: <b>Player ▸ Balen (State Machine)</b>. <code>PlayerSettings.asset</code> (a <code>PlayerContext</code>) does open from the right-click menu.</div>
+
+  <h3 id="wb-discovery">How a category is registered — there is no registration</h3>
+  <p><code>WorkbenchCategoryRegistry.Discover()</code> (<code>Workbench/WorkbenchCategory.cs</code>) runs on the window's <code>OnEnable</code> and does exactly two sweeps:</p>
+<pre><code><span class="c">// 1. Every concrete IWorkbenchCategory implementation.</span>
+<span class="k">foreach</span> (<span class="t">Type</span> t <span class="k">in</span> <span class="t">TypeCache</span>.GetTypesDerivedFrom&lt;<span class="t">IWorkbenchCategory</span>&gt;())
+{
+    <span class="k">if</span> (t.IsAbstract || t.IsGenericTypeDefinition) <span class="k">continue</span>;
+    <span class="k">if</span> (t.GetConstructor(<span class="t">Type</span>.EmptyTypes) == <span class="k">null</span>) <span class="k">continue</span>;   <span class="c">// AttributeWorkbenchCategory takes args → skipped here</span>
+    list.Add((<span class="t">IWorkbenchCategory</span>)<span class="t">Activator</span>.CreateInstance(t));
+}
+
+<span class="c">// 2. Every [WorkbenchCategory]-tagged ScriptableObject, grouped by attribute Name.</span>
+<span class="k">foreach</span> (<span class="t">Type</span> t <span class="k">in</span> <span class="t">TypeCache</span>.GetTypesWithAttribute&lt;<span class="t">WorkbenchCategoryAttribute</span>&gt;()) { <span class="c">/* … one AttributeWorkbenchCategory per Name … */</span> }
+
+list.Sort((a, b) =&gt; a.Order != b.Order ? a.Order.CompareTo(b.Order)
+                                       : <span class="k">string</span>.Compare(a.Title, b.Title, <span class="t">StringComparison</span>.Ordinal));</code></pre>
+  <p>Consequences worth internalising: the no-parameterless-constructor filter is what stops <code>AttributeWorkbenchCategory</code> being double-counted as a class; ties in <code>Order</code> break by <b>ordinal</b> title; and untagged <code>Order</code> defaults to <b>100</b>, so a new tab lands after everything shipped. <b>You never edit <code>ContentWorkbench.cs</code> to add a tab.</b></p>
+
+  <h3 id="wb-attributes">The attribute surface — declare, do not wire</h3>
+  <p>Both attributes live in <b>runtime</b> code at <code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code>, so a data SO can carry them without depending on editor code. They are markers: <b>zero runtime cost</b>.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Member</th><th>Type / default</th><th>Meaning</th></tr>
+    <tr><td colspan="3"><b><code>[WorkbenchCategory(name)]</code></b> — on a <code>ScriptableObject</code> class. Types sharing a <code>Name</code> share one tab.</td></tr>
+    <tr><td><code>Name</code></td><td><code>string</code>, ctor arg</td><td>The tab title, and the grouping key.</td></tr>
+    <tr><td><code>Accent</code></td><td><code>string</code>, empty</td><td>HTML colour <code>"#RRGGBB"</code>. Empty = the neutral teal. The <b>first</b> type in a shared category wins.</td></tr>
+    <tr><td><code>Order</code></td><td><code>int</code>, <b>100</b></td><td>Rail position, lower = higher. Built-ins occupy 0–9.</td></tr>
+    <tr><td><code>Icon</code></td><td><code>string</code>, empty</td><td><code>"icon:&lt;builtin name&gt;"</code> for a Unity editor icon (themed, certain to render), or any other string drawn literally as a glyph. Empty = the tab's first letter, so the icon column always aligns.</td></tr>
+    <tr><td><code>NewAssetFolder</code></td><td><code>string</code>, <b>null</b></td><td>Opts the tab into the <b>New</b> button and names where new assets go. <b>Null is the default on purpose</b> — most content lives in a structure the workbench should not invent. First tagged type to name a folder claims the verb.</td></tr>
+    <tr><td colspan="3"><b><code>[WorkbenchField(section)]</code></b> — on a serialized field. Optional; see the two form modes below.</td></tr>
+    <tr><td><code>Section</code></td><td><code>string</code>, <code>"General"</code></td><td>Section header. A header is emitted <b>each time the section name changes</b> in declaration order — so <b>keep same-section fields contiguous</b> or you get the header twice.</td></tr>
+    <tr><td><code>Label</code> · <code>Tooltip</code></td><td><code>string</code></td><td>Row label (empty = the nicified field name) and its tooltip.</td></tr>
+    <tr><td><code>Note</code></td><td><code>string</code></td><td>Rendered under the field through <code>form.Effective</code>, i.e. as an <code>= …</code> hint.</td></tr>
+  </table>
+  </div>
+  <p><b>The generic form has two modes</b> (<code>WorkbenchGenericForm.Draw</code>). If <b>any</b> field on the type carries <code>[WorkbenchField]</code>, the form is <b>curated</b>: only attributed fields draw, in declaration order — dead fields stay hidden, which is the whole philosophy. If <b>no</b> field is attributed, every serialized field draws under one "Fields" section plus a tip suggesting you curate. In both modes <code>AudioClip</code> fields automatically become sound rows with a <b>Play</b> button, and custom property drawers (<code>AnimatorStateRef</code>, <code>EnemyStateNameRef</code>) apply on their own because rows are plain <code>PropertyField</code>s.</p>
+  <p class="dim"><code>CombatStatusDefinition</code> is the reference implementation — the whole Statuses tab is drawn from nothing but these attributes. The third declarative attribute in this family, <code>[Tunable]</code>, does the same job for the <span class="kbd">F1</span> panel; see <a href="tuning.html#tunable">Tuning §02</a> and <b>rule 1</b>.</p>
+
+  <h3 id="wb-form">The form API — every primitive, with signatures</h3>
+  <p><code>WorkbenchForm</code> (<code>Assets/_Game/Editor/Workbench/WorkbenchForm.cs</code>) is the documented seam. One instance is constructed <b>per repaint</b> and handed to <code>DrawForm</code>, carrying the active tab's <code>Accent</code> and a funnel into the window's save model. Everything below is public; a designer's own category calls the identical methods the built-in tabs do.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Signature</th><th>Draws</th><th>Use it when</th></tr>
+    <tr><td colspan="3"><b>Serialized access + the Auto-Save funnel</b></td></tr>
+    <tr><td><code>SerializedObject SO(Object obj)</code></td><td>—</td><td>Always. Returns the window's <b>cached</b> <code>SerializedObject</code> for an asset. Never <code>new SerializedObject(…)</code> yourself — the cache is what dirty-tracking and Auto-Save watch.</td></tr>
+    <tr><td><code>void Apply(SerializedObject so)</code></td><td>—</td><td>After editing a <b>secondary</b> asset. The window auto-applies the <i>selected</i> asset around <code>DrawForm</code>; every other object you touch needs its own <code>SO(x).Update()</code> … <code>Apply(x)</code> pair. Boss staging and the enemy prefab's hurt sound both do this.</td></tr>
+    <tr><td><code>readonly Color Accent</code></td><td>—</td><td>The active tab's colour, if you draw something custom.</td></tr>
+    <tr><td colspan="3"><b>Layout</b></td></tr>
+    <tr><td><code>void Section(string title)</code></td><td>Bold label + a 1px accent-tinted rule</td><td>To open a field group. Sub-tab structure should mirror these headers.</td></tr>
+    <tr><td><code>void Space(float px = 6)</code></td><td>Vertical gap</td><td>Sparingly — <code>Section</code> already spaces itself.</td></tr>
+    <tr><td><code>int SubTabs(params string[] names)</code></td><td>Accent-tinted toolbar, height 24</td><td>The page's <b>primary</b> sub-tab strip. Returns the selected index; selection is persisted on the window (and survives <code>OpenWithSubTab</code> and the wiki screenshot tool). Call it once and <code>switch</code> on the result.</td></tr>
+    <tr><td><code>int SwingTabs(string[] names)</code> · <code>int SwingIndex { get; set; }</code></td><td>A second toolbar</td><td>A <b>second, independent</b> selection strip inside one sub-tab — the per-swing selector on Melee. Also persisted on the window. The setter lets you jump to a newly added element.</td></tr>
+    <tr><td colspan="3"><b>Fields</b></td></tr>
+    <tr><td><code>void Prop(SerializedObject so, string path, string label = null, string tooltip = null)</code></td><td>A property row</td><td>The workhorse. <code>label</code> null = the property's display name.</td></tr>
+    <tr><td><code>void Rel(SerializedProperty parent, string relative, string label = null, string tooltip = null)</code></td><td>A property row</td><td>A field <i>inside</i> a serialized struct or array element — e.g. one swing of a combo.</td></tr>
+    <tr><td><code>void Field(SerializedProperty prop, string label, string tooltip = null)</code></td><td>A property row</td><td>When you already hold the <code>SerializedProperty</code> (you looked it up to read its value first).</td></tr>
+    <tr><td colspan="3"><b>Labels</b></td></tr>
+    <tr><td><code>void Effective(string text)</code></td><td><code>    = text</code>, small, indented</td><td><b>The signature move of this tool.</b> Print the <i>resolved</i> number after multipliers and fallbacks — <code>= deals 24 damage (before run upgrades)</code>. The designer never does arithmetic in their head.</td></tr>
+    <tr><td><code>void Note(string text)</code></td><td>Small wrapped label, no prefix</td><td>Plain contextual hints and tab footers ("Not yet in game: …").</td></tr>
+    <tr><td><code>void HelpBox(string text, MessageType type = MessageType.Info)</code></td><td>A Unity help box</td><td>When something needs to be impossible to skim past.</td></tr>
+    <tr><td colspan="3"><b>Checks</b></td></tr>
+    <tr><td><code>void Check(bool ok, string okText, string badText)</code></td><td>Green <code>[ok] …</code> / red <code>[!!] …</code></td><td>Any binary truth about the asset. Write the bad text as the <i>consequence</i>, not the fact: "not in any loot table - pedestals will never offer it".</td></tr>
+    <tr><td><code>bool Registration(string typeFilter, string assetPath, string okText, string badText)</code></td><td>The same row, and returns the result</td><td>"Is this asset wired in?" It asks whether any asset matching <code>typeFilter</code> (e.g. <code>"t:LootTable"</code>) under <code>Assets</code> has this path among its <b>direct</b> dependencies. Put these at the <b>top of every Overview tab</b>.</td></tr>
+    <tr><td colspan="3"><b>Audio</b></td></tr>
+    <tr><td><code>void SoundRow(SerializedProperty clipProp, string label)</code><br><code>void SoundRow(SerializedObject so, string path, string label)</code></td><td>Clip field + a 44px <b>Play</b> button (disabled when empty)</td><td>Every <code>AudioClip</code> field. Auditions in-editor via the reflection route into <code>UnityEditor.AudioUtil</code>.</td></tr>
+    <tr><td><code>void VolumeIf(SerializedObject so, string clipPath, string volumePath)</code></td><td>An indented "Volume" row, <b>only</b> when the clip is assigned</td><td>Paired volumes. A volume slider above an empty clip slot is noise.</td></tr>
+    <tr><td colspan="3"><b>Animation + buttons</b></td></tr>
+    <tr><td><code>void AnimState(SerializedProperty prop, string fallback)</code></td><td>The validated animator dropdown</td><td>Any <code>[AnimatorStateRef]</code> string. <code>fallback</code> is written into the tooltip as <i>"Empty = {fallback}"</i>; the drawer does the validation, the <code>[MISSING]</code> tinting and the <code>[T]</code> raw-text toggle.</td></tr>
+    <tr><td><code>bool Button(string label)</code></td><td>A button</td><td>Plain actions.</td></tr>
+    <tr><td><code>bool SelectButton(string label, Object target)</code></td><td>A button, or <b>nothing</b> when <code>target</code> is null</td><td>"Select Prefab", "Edit exchange →". Sets <code>Selection.activeObject</code> and returns true. The null-check is built in, so no <code>if</code> around it.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>The silent-skip family — the one class of bug this API can give you.</b> <code>Prop</code>, <code>Rel</code>, <code>Field</code>, <code>SoundRow</code> and <code>AnimState</code> all begin with a null check and <b>return quietly</b> when the property does not resolve. A typo in a path string therefore produces <b>a missing row and no error anywhere</b> — no exception, no console line, nothing red. If a field you just added does not appear on the form, suspect the path string before you suspect the field. (<code>VolumeIf</code> is the same shape but the skip is intentional there.)</div>
+
+  <p class="dim">Two helpers you may need but which are not on <code>WorkbenchForm</code>: <code>WorkbenchModel</code> (same file) caches the cross-asset lookups — <code>DependedOnBy(filter, path)</code>, <code>PrefabFor(def)</code>, <code>BossFor(def)</code>/<code>IsBoss(def)</code>, <code>ControllerFor(prefab)</code>, <code>ControllerHasState(controller, layer, name)</code>, <code>PreviewClip(clip)</code>, <code>ResetCaches()</code>. And <code>WorkbenchTabIcons</code> resolves rail icons — <code>Texture(spec)</code>, <code>Glyph(spec, title)</code>, <code>Draw(spec, title, tint, size = 16f)</code>, with the constant <code>BuiltinPrefix = "icon:"</code>. <b>It caches failures too</b>, because <code>IconContent</code> logs a console error for an unknown name and asking twice would complain twice per repaint.</p>
+  <div class="note"><b><code>ControllerHasState</code> returns <code>true</code> when it cannot verify</b> (no controller, layer index out of range). That is deliberate: a red animator message must always mean a real problem. Copy the posture — <b>checks that cry wolf get ignored, and then the real one gets ignored too.</b></div>
+
+  <h3 id="wb-subtabs">How sub-tabs work</h3>
+  <p>There is no sub-tab type. A sub-tab is a <code>switch</code> over the index <code>form.SubTabs(...)</code> returned:</p>
+<pre><code><span class="k">public override void</span> DrawForm(<span class="t">WorkbenchForm</span> form, <span class="t">Object</span> asset)
+{
+    <span class="k">var</span> weapon = (<span class="t">RangedWeaponDefinition</span>)asset;
+    <span class="k">var</span> so = form.SO(weapon);
+    <span class="k">switch</span> (form.SubTabs(<span class="s">"Overview"</span>, <span class="s">"Shot &amp; Timing"</span>, <span class="s">"Presentation"</span>))
+    {
+        <span class="k">case</span> <span class="a">0</span>: <span class="c">/* checks first, then Identity, then Base Combat */</span> <span class="k">break</span>;
+        <span class="k">case</span> <span class="a">1</span>: <span class="c">/* Draw, Perfect Release, On Hit, The Arrow          */</span> <span class="k">break</span>;
+        <span class="k">case</span> <span class="a">2</span>: <span class="c">/* Sound, Visuals, Animation, then a footer Note     */</span> <span class="k">break</span>;
+    }
+}</code></pre>
+  <p>The selected index lives on the window (<code>IWorkbenchHost.SubTab</code>), so it survives repaints — but <b>not a domain reload</b>. <code>_subTab</code>, <code>_swingIndex</code> and <code>_tab</code> are plain private fields with no <code>[SerializeField]</code>, so any script recompile drops you back on the default rail tab and the first sub-tab. It is also <b>reset to 0</b> whenever you switch rail tab or select a different asset. <code>SwingTabs</code> is a completely independent second strip backed by <code>IWorkbenchHost.SwingIndex</code>, reset at the same moments. <b>Both are single-instance per window</b> — you get one primary strip and one secondary strip per page, which is a deliberate ceiling on how deep a form may nest.</p>
+
+  <h3 id="wb-save">The save model</h3>
+  <p>It mirrors Unity's Input Actions editor. Edits hit the in-memory asset immediately; disk writes are explicit.</p>
+  <ul>
+    <li><b>Manual (default).</b> Editing marks the asset dirty; a red <i>unsaved changes</i> label appears and the window title becomes <b>Content Workbench*</b>. <b>Save Asset</b> flushes every dirty object in the cache.</li>
+    <li><b>Auto-Save.</b> The toolbar toggle writes after every change and immediately saves anything outstanding when switched on. Persisted per machine in <code>EditorPrefs</code> under <b><code>Gleamwood.Workbench.AutoSave</code></b>, default off. The <b>Save Asset</b> button is disabled <i>only</i> while Auto-Save owns saving — a clean-state click is a harmless no-op.</li>
+    <li><b>Sub-assets ride along.</b> Saving resolves each dirty object's path and calls <code>AssetDatabase.SaveAssetIfDirty</code> on the <b>main</b> asset, so enemy state configs and the bow-aim config save with their parent.</li>
+    <li><b>Undo works</b> — every edit goes through a <code>SerializedObject</code>, so <span class="kbd">Ctrl+Z</span> behaves exactly as in the raw inspector.</li>
+  </ul>
+  <div class="warn note"><b>These are the real, shared assets — there is no draft copy.</b> That is the point (tune, play, tune), but it also means never "experiment" on a shared SO you do not intend to commit. And note the interaction with rule 10: the Workbench edits assets at <b>edit time</b>, which is legitimate; mutating the same SO at <b>runtime</b> is the thing that is forbidden.</div>
+  <div class="note"><b>Every cache is cleared only on <code>OnEnable</code>.</b> <code>WorkbenchModel.ResetCaches()</code>, the <code>SerializedObject</code> cache and the category list are all rebuilt when the window opens. So after you fix a registration, add a <code>BossDefinition</code>, or add a new <code>[WorkbenchCategory]</code> type, <b>close and reopen the window</b> — the row will not turn green on its own.</div>
+
+  <h3 id="wb-new">The New verb</h3>
+  <p>The create row renders at the <b>foot</b> of the rail — below the asset list, deliberately, because creating is the rare action on a tab whose normal use is picking something that exists, and a New button above the list is the one people hit by accident. It appears <b>only</b> when the category declares <b>both</b> <code>CreatableType</code> and <code>NewAssetFolder</code>; every other tab shows nothing at all.</p>
+  <p><code>WorkbenchAssetFactory.Create(Type type, string folder, string niceName)</code> is a shared primitive rather than a button per tab, and it does the whole job:</p>
+  <ol class="steps">
+    <li><b>Sanitises</b> the typed name toward the project's lower-case-with-hyphens id convention: lower-cased, letters and digits kept, space / <code>-</code> / <code>_</code> collapsed to <code>-</code>, everything else dropped, trimmed of leading and trailing hyphens. An empty result falls back to the type name.</li>
+    <li>Takes a <b>uniquified</b> path via <code>GenerateUniqueAssetPath</code> — pressing New twice makes two assets, not an error or an overwrite. The folder is created if missing.</li>
+    <li><b>Seeds <code>id</code> and <code>displayName</code></b> when the type has those string fields and they are empty. Most content types carry an <code>id</code> that <i>is</i> a save key, and one defaulted to <code>""</code> is a trap a validator would only catch later.</li>
+    <li>Creates, registers an <b>Undo</b>, marks dirty, saves and re-imports.</li>
+    <li>Runs every discovered <code>IWorkbenchAssetCreatedHandler</code> that claims the type, then selects the asset and logs where it went.</li>
+  </ol>
+<pre><code><span class="c">// Assets/_Game/Editor/Workbench/WorkbenchAssetFactory.cs</span>
+<span class="k">public interface</span> <span class="t">IWorkbenchAssetCreatedHandler</span>
+{
+    <span class="k">bool</span> Handles(<span class="t">Type</span> assetType);
+    <span class="k">void</span> AfterCreate(<span class="t">ScriptableObject</span> asset);   <span class="c">// after it exists on disk and has been imported</span>
+}</code></pre>
+  <div class="rule note"><b>The created-handler hook is why "I made it and nothing happened" stopped being a bug.</b> A new <code>RunModifierDefinition</code> is not usable until the <b>ordered catalog</b> lists it — the runtime loads that catalog, not the folder, because <code>Resources.LoadAll</code> returns files in an order nobody controls and the offer roll walks the catalog to build its pool. So <code>RunModifierCreatedHandler</code> regenerates it on create. <b>The factory was never taught about run modifiers:</b> the side that <i>knows</i> declares a handler and the factory discovers it — the same declare-don't-wire mechanism as the category attribute itself. If your content type needs a post-create step, write a handler; do not touch the factory.</div>
+
+  <h3 id="wb-example-field">Worked example A — add a field to an existing page</h3>
+  <p>Goal: give the bow's arrow a downward drift, authored per weapon, on <b>Ranged ▸ Shot &amp; Timing ▸ The Arrow</b>.</p>
+  <ol class="steps">
+    <li><b>Add the serialized field to the definition.</b> <code>Assets/_Game/Combat/Code/Definitions/RangedWeaponDefinition.cs</code>. Give it a <code>[Tooltip]</code> and an initializer whose value means "unchanged", so the field is safe on assets that predate it:
+<pre><code>[<span class="a">Tooltip</span>(<span class="s">"Downward drift on the arrow, u/s². 0 = flat flight."</span>)]
+<span class="k">public float</span> ProjectileDrop = <span class="a">0f</span>;</code></pre></li>
+    <li><b>Make the runtime read it.</b> This is not optional politeness — a field nothing reads is exactly the "granted but not wired" shape of rule 3, and it is why the ranged tab already carries a footer listing two dead fields.</li>
+    <li><b>Add one line to the form.</b> In <code>Assets/_Game/Editor/Workbench/WorkbenchCategories.cs</code>, find <code>RangedWeaponCategory.DrawForm</code> → <code>case 1</code> → the block under <code>form.Section("The Arrow")</code>, and put the row where a designer would look for it — beside <code>Speed</code>, not at the bottom:
+<pre><code>form.Prop(so, <span class="s">"ProjectileDrop"</span>, <span class="s">"Drop (u/s²)"</span>,
+          <span class="s">"Downward drift while the arrow flies. 0 = flat."</span>);
+form.Effective(<span class="s">$"falls {weapon.ProjectileDrop * 0.5f:0.00} units over the first second"</span>);</code></pre>
+    The <code>Prop</code> path is the <b>C# field name</b>, and a typo yields a missing row with no error (see the silent-skip box above). Add the <code>Effective</code> line whenever the authored number is not the number the player experiences.</li>
+    <li><b>Stamp existing assets.</b> A newly added serialized field is not written into already-serialized assets — open each bow in the Workbench and set a real value rather than trusting the C# initializer. This is rule 2's bug in miniature.</li>
+    <li><b>Decide whether it belongs in the INI too.</b> If designers will retune it in text, add the key to <code>ContentIniImporter</code> and check <span class="kbd">Gleamwood ▸ Check Content INI Sync</span>. See <a href="tuning.html#gamecontent">Tuning §08</a>.</li>
+    <li><b>Update <a href="combat.html#ranged">combat.html §04</a> and <a href="workbench.html#ranged">workbench.html §06</a> in the same commit.</b> Those two pages tabulate this exact field group.</li>
+  </ol>
+  <div class="note"><b>Do not add a field to a rich category's form when an attribute would do.</b> If the type has no sub-tabs, no checks and no derived values, converting it to <code>[WorkbenchField]</code> curation is strictly less code to maintain. The decision rule is in Worked example B.</div>
+
+  <h3 id="wb-example-page">Worked example B — add a whole new page</h3>
+  <p>Two paths. Pick with one question: <b>does the page need anything beyond a flat list of fields in sections?</b></p>
+
+  <h4>Path 1 — the zero-code path (flat fields)</h4>
+  <p>Tag the ScriptableObject. That is the entire change; you do not open the <code>Editor</code> folder at all.</p>
+<pre><code><span class="c">// Anywhere under Assets/_Game/ — runtime code, no editor dependency.</span>
+[<span class="a">WorkbenchCategory</span>(<span class="s">"Hazards"</span>, Accent = <span class="s">"#4dd2ff"</span>, Order = <span class="a">20</span>,
+                   Icon = <span class="s">"icon:d_Light Icon"</span>,
+                   NewAssetFolder = <span class="s">"Assets/_Game/Hazards/Resources"</span>)]  <span class="c">// omit to disable New</span>
+[<span class="a">CreateAssetMenu</span>(menuName = <span class="s">"Gleamwood/Hazard Definition"</span>)]
+<span class="k">public class</span> <span class="t">HazardDefinition</span> : <span class="t">ScriptableObject</span>
+{
+    [<span class="a">WorkbenchField</span>(<span class="s">"Identity"</span>)] <span class="k">public string</span> id;            <span class="c">// New seeds `id` and `displayName`</span>
+    [<span class="a">WorkbenchField</span>(<span class="s">"Identity"</span>)] <span class="k">public string</span> displayName;
+
+    [<span class="a">WorkbenchField</span>(<span class="s">"Feel"</span>, Tooltip = <span class="s">"Seconds between pulses"</span>, Note = <span class="s">"0 = single burst"</span>)]
+    <span class="k">public float</span> PulseInterval = <span class="a">0.5f</span>;
+    [<span class="a">WorkbenchField</span>(<span class="s">"Feel"</span>)] <span class="k">public int</span> Damage = <span class="a">1</span>;      <span class="c">// SAME section, kept CONTIGUOUS</span>
+
+    [<span class="a">WorkbenchField</span>(<span class="s">"Presentation"</span>)] <span class="k">public</span> <span class="t">AudioClip</span> TriggerSound;  <span class="c">// → SoundRow + Play, free</span>
+}</code></pre>
+  <ol class="steps">
+    <li>Write the class. Sections are emitted in <b>declaration order</b>, so group same-section fields together.</li>
+    <li>Wait for the compile, then <b>reopen the Workbench</b> — categories are discovered on <code>OnEnable</code>.</li>
+    <li>If you named a <code>NewAssetFolder</code>, the create row appears at the foot of the rail and you can make your first asset without leaving the window.</li>
+    <li>If creating one needs a registration step, add an <code>IWorkbenchAssetCreatedHandler</code> in the <b>editor</b> assembly — never edit the factory.</li>
+  </ol>
+
+  <h4>Path 2 — <code>IWorkbenchCategory</code> (sub-tabs, checks, derived values, cross-asset editing)</h4>
+  <p>Subclass <code>WorkbenchCategory</code> for sensible defaults and override only what you need. It is discovered identically — <b>no registration, no window edit, ever</b>. Put the file in <code>Assets/_Game/Editor/Workbench/</code> beside the built-ins.</p>
+<pre><code><span class="k">public sealed class</span> <span class="t">HazardCategory</span> : <span class="t">WorkbenchCategory</span>
+{
+    <span class="k">public override string</span> Title    =&gt; <span class="s">"Hazards"</span>;
+    <span class="k">public override</span> <span class="t">Color</span>  Accent   =&gt; <span class="k">new</span>(<span class="a">0.30f</span>, <span class="a">0.82f</span>, <span class="a">0.94f</span>);
+    <span class="k">public override int</span>    Order    =&gt; <span class="a">20</span>;
+    <span class="k">public override string</span> IconSpec =&gt; <span class="s">"icon:d_Light Icon"</span>;
+
+    <span class="k">public override</span> IEnumerable&lt;<span class="t">Object</span>&gt; GetAssets() =&gt; Find(<span class="s">"t:HazardDefinition"</span>);  <span class="c">// base helper, name-ordered</span>
+    <span class="k">public override bool</span>   Owns(<span class="t">Object</span> a)     =&gt; a <span class="k">is</span> <span class="t">HazardDefinition</span>;   <span class="c">// routes right-click Open</span>
+    <span class="k">public override string</span> Subtitle(<span class="t">Object</span> a) =&gt; <span class="s">"hazard"</span>;               <span class="c">// banner line</span>
+
+    <span class="k">public override void</span> DrawForm(<span class="t">WorkbenchForm</span> form, <span class="t">Object</span> asset)
+    {
+        <span class="k">var</span> def = (<span class="t">HazardDefinition</span>)asset;
+        <span class="k">var</span> so  = form.SO(def);
+        <span class="k">switch</span> (form.SubTabs(<span class="s">"Overview"</span>, <span class="s">"Damage"</span>))
+        {
+            <span class="k">case</span> <span class="a">0</span>:
+                form.Registration(<span class="s">"t:BiomeDefinition"</span>, AssetDatabase.GetAssetPath(asset),
+                                  <span class="s">"placed by a biome"</span>,
+                                  <span class="s">"in no biome - it will never appear in a run"</span>);
+                form.Section(<span class="s">"Identity"</span>);
+                form.Prop(so, <span class="s">"displayName"</span>, <span class="s">"Name"</span>);
+                <span class="k">break</span>;
+            <span class="k">case</span> <span class="a">1</span>:
+                form.Section(<span class="s">"Damage"</span>);
+                form.Prop(so, <span class="s">"Damage"</span>, <span class="s">"Damage"</span>);
+                form.Effective(<span class="s">$"{def.Damage} per pulse, {def.PulseInterval}s apart"</span>);
+                form.SoundRow(so, <span class="s">"TriggerSound"</span>, <span class="s">"Trigger Sound"</span>);
+                <span class="k">break</span>;
+        }
+    }
+}</code></pre>
+  <div class="scrollx">
+  <table>
+    <tr><th>Member</th><th>Default</th><th>Controls</th></tr>
+    <tr><td><code>Title</code></td><td>abstract</td><td>Rail label + the upper-cased banner chip.</td></tr>
+    <tr><td><code>Accent</code></td><td>neutral teal</td><td>Rail highlight, banner tint, section rules, sub-tab tint.</td></tr>
+    <tr><td><code>Order</code></td><td>100</td><td>Rail position; ties break by ordinal title.</td></tr>
+    <tr><td><code>IconSpec</code></td><td>null</td><td><code>"icon:&lt;builtin&gt;"</code> or a literal glyph; null falls back to the title's initial.</td></tr>
+    <tr><td><code>GetAssets()</code></td><td>abstract</td><td>The list, <b>already ordered</b> — you control it. <code>Find("t:X", folder = "Assets/_Game")</code> is the base helper. Note the scope difference: this default is <code>Assets/_Game</code>, while an attribute-built tab scans all of <code>Assets</code>, so mod and package assets show up there.</td></tr>
+    <tr><td><code>Owns(asset)</code></td><td>list membership</td><td>Cheap routing test for <span class="kbd">Open in Content Workbench</span>. <b>Override it</b> — the default enumerates every asset.</td></tr>
+    <tr><td><code>DisplayName</code> · <code>Subtitle</code> · <code>Icon</code></td><td>asset name · <code>""</code> · mini-thumbnail</td><td>Rail label, banner subtitle, thumbnail.</td></tr>
+    <tr><td><code>DrawForm(form, asset)</code></td><td>abstract</td><td>The page. The window handles <code>Update</code>/<code>Apply</code> on the selected asset and Auto-Save for you.</td></tr>
+    <tr><td><code>CreatableType</code> · <code>NewAssetFolder</code></td><td>null · null</td><td>The New verb. <b>Both</b> must be non-null or the row does not render.</td></tr>
+  </table>
+  </div>
+  <p><b>The two paths coexist on one rail</b> and are discovered by the same code, so starting with Path 1 and graduating to Path 2 later costs you nothing but deleting the attribute. Seven shipped tabs are classes and seven are attribute-only — the exact split, and every tab's asset source, is tabulated on <a href="workbench.html#rail">workbench.html §02</a>.</p>
+  <div class="note"><b>Before you write a rich category, check whether the surface already exists.</b> <code>WorkbenchStates.Draw(form, definition, configBase)</code> is <b>generic over the definition type</b> and renders the entire state-machine authoring page — create/rename/delete, initial state, transitions, the validation rows, the maintenance cleanup. Enemies, Bosses and the Player all call it. Any future state machine gets it for one line. And <code>WorkbenchStates.CreateState(…)</code> is public precisely so other tooling calls it instead of re-deriving the four steps.</div>
+</section>
+
+<section id="verify">
+  <h2><span class="num">06</span>Verification — how to know you did not break it</h2>
+  <p class="lead">Four independent gates, and each catches a class the next cannot see: the compiler catches syntax and warnings, the validators catch wiring, the suite catches behaviour, and playing catches feel. This section expands <code>CLAUDE.md</code>'s <i>Verifying</i> list into something you can follow on day one.</p>
+
+  <div class="note"><b>Prerequisite: every shell block below is bash, and this is a Windows toolchain.</b> Run them from <b>Git Bash</b> or WSL. <code>Tools/run-tests.sh</code> opens with <code>#!/usr/bin/env bash</code> and uses <code>awk</code>, <code>sed</code> and <code>seq</code>; <code>grep</code> is not a PowerShell command; and neither PowerShell nor <code>cmd</code> will execute a <code>.sh</code> by path. If you want no shell at all, <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> is the same run from the menu bar.</div>
+
+  <h3>1 — Compile offline, without Unity</h3>
+  <p>Unity ships its own .NET SDK, so you can compile the game assemblies from a shell while the editor is busy:</p>
+<pre><code><span class="c"># Unity's bundled SDK — not whatever dotnet is on PATH.</span>
+DOTNET=<span class="s">"C:/Program Files/Unity/Hub/Editor/6000.5.2f1/Editor/Data/DotNetSdk/dotnet.exe"</span>
+
+<span class="s">"$DOTNET"</span> build GameScripts.csproj -t:Rebuild -v n --nologo 2&gt;&amp;1 | grep <span class="s">"warning CS"</span></code></pre>
+  <div class="rule note"><b><code>-t:Rebuild</code> is not optional, and this is the single highest-value line in the section.</b> An incremental build reports <code>0 Warning(s)</code> even when there are eighteen, because it re-emits nothing. That one fact is how the game assembly accumulated eighteen unnoticed warnings — <b>and one of them was a real bug</b>: a <code>private void Start()</code> hiding a base <code>protected virtual void Start()</code>, so the base never ran. The four assemblies <code>CLAUDE.md</code> tracks are at <b>zero</b> now, and that only stays true if the flag is used.</div>
+  <p>Build the four in turn: <code>GameScripts.csproj</code>, <code>GameScripts.Editor.csproj</code>, <code>CatSplatStudios.StateMachine.csproj</code>, <code>CatSplatStudios.StateMachine.Editor.csproj</code>. <b>The <code>.csproj</code> files are gitignored</b> — Unity regenerates them — so if you add a source file you must add a matching <code>&lt;Compile Include&gt;</code> before this check will see it. A fresh clone has no <code>.csproj</code> at all until the editor generates them.</p>
+
+  <h3>2 — The validators</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Menu item</th><th>Catches</th></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Validate Run Content</span></td><td>Everything <b>reachable from the <code>RunPlan</code></b>: plan and web integrity, room sockets and Entry/Exit fixtures, rest layouts, spawn-table sanity (an enemy with <code>MaxHealth &gt; 0</code> and no <code>dead</code> state can never die), and loot-table entries the <code>WeaponCatalog</code> cannot resolve. It walks <i>outward</i> from the plan and enumerates no biome or enemy assets of its own, so it <b>cannot see an orphan</b> — an enemy in no spawn table, or a biome in no run plan, is invisible to it. "Is this asset wired in at all?" is the Workbench's Overview <code>Registration</code> rows, not this. Also runs as a build preprocessor.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Audit Room Reachability</span></td><td>Rooms with a door you can arrive through that is a dead end. Run it after touching room geometry — see <a href="levels.html#reachability">Levels §04</a>.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Check Content INI Sync</span></td><td>Whether the assets and <code>Assets/_Game/Content/GameContent.ini</code> still agree. <span class="kbd">Gleamwood ▸ Import Content INI</span> is the write direction.</td></tr>
+  </table>
+  </div>
+
+  <h3>3 — The PlayMode suite</h3>
+  <p>The suite is <b>PlayMode only</b> and lives in <code>Assets/Tests/PlayMode/</code>. <b>The authoritative test count is <code>Logs/playmode_test_results.txt</code></b>, never a number written into prose — see <a href="maintaining.html#nocounts">Maintaining</a> for why that rule exists.</p>
+<pre><code>Tools/run-tests.sh              <span class="c"># run, wait, print the verdict</span>
+Tools/run-tests.sh --no-wait    <span class="c"># fire and return</span></code></pre>
+  <p>By hand: <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>. Either way the verdict lands in <code>Logs/playmode_test_results.txt</code>, and the script greps it for <code>^RUN FINISHED: Passed</code>.</p>
+  <p>What the script does for you, and why each step exists:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Step</th><th>Why</th></tr>
+    <tr><td><b>Stops play mode first</b>, then saves</td><td><code>save_all</code> <b>throws</b> in play mode and its output is discarded — so saving first would silently not save, which walks straight into the next row. An <i>unknown</i> play state is left alone: stopping play mode you cannot see is how you kill someone's hand-testing session.</td></tr>
+    <tr><td><b>Saves open scenes</b> (<code>save_all</code>, not just <code>File/Save Project</code>)</td><td>A dirty scene raises a silent "Scene(s) Have Been Modified" modal that <b>wedges the runner</b>. This is the single most common way a run appears to hang. <code>File/Save Project</code> writes assets and project settings — <b>not open scenes</b>.</td></tr>
+    <tr><td><b>Deletes the stale results file</b></td><td>A stale file is indistinguishable from a fresh one, so its reappearance <i>is</i> the completion signal.</td></tr>
+    <tr><td><b>Verifies the run STARTED via <code>editor_status</code>'s <code>playMode</code></b>, retrying up to three times</td><td>The trigger can be swallowed silently. The check used to grep the console — which returns empty once play mode begins, so a <b>healthy</b> run read as a dropped trigger and the retry fired a second run into the live session, aborting both. <b>Two full runs died that way.</b></td></tr>
+    <tr><td><b>Restores <code>DebugSettings/DebugSettings.json</code></b> and removes <code>Assets/InitTestScene*</code> — <b>on the waiting path only</b></td><td>A run strips ~126 <code>Camera.*</code> lines out of that tracked file every time. <code>--no-wait</code> returns <i>before</i> this step, so a fire-and-return run cleans up nothing. After one of those — or after a run by hand — do it yourself: <code>git checkout -- DebugSettings/DebugSettings.json</code> and delete <code>Assets/InitTestScene*</code>.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>A run that "hangs" is more often ABORTED than blocked — read the console before you go hunting a modal.</b> The signature is <code>InvalidOperationException: This cannot be used during play mode</code> from <code>SaveModifiedSceneTask</code>, followed by <i>"Playmode tests were aborted because the player was stopped"</i>. That is a <b>second</b> run fired into a live play session; no results file is ever written, so a wait loop just sits there.</div>
+  <div class="note"><b>Do not edit <code>run-tests.sh</code> while a copy of it is running.</b> Bash reads scripts lazily by byte offset, so an in-flight instance executes <i>shifted</i> lines from the new text. That has already eaten one results file. The whole body is wrapped in a <code>main</code> invoked on the last line so bash parses the file before executing anything — keep that shape if you touch it.</div>
+
+  <h3>4 — The Unity CLI (this is what makes the loop scriptable)</h3>
+  <p><b>The CLI drives the ALREADY-RUNNING editor</b> over its Pipeline port. It is not on <code>PATH</code>:</p>
+<pre><code>UNITY=<span class="s">"C:/Users/hisha/AppData/Local/Unity/bin/unity.exe"</span>
+
+<span class="s">"$UNITY"</span> status                                      <span class="c"># is an editor alive, and what state</span>
+<span class="s">"$UNITY"</span> cmd editor_status                           <span class="c"># includes "playMode" — the started-signal</span>
+<span class="s">"$UNITY"</span> cmd menu --path <span class="s">"Gleamwood/Content Workbench"</span>  <span class="c"># execute a menu item</span>
+<span class="s">"$UNITY"</span> cmd get_console_logs                        <span class="c"># read the console</span>
+<span class="s">"$UNITY"</span> cmd recompile   <span class="c">/</span>   <span class="s">"$UNITY"</span> cmd recompile_status</code></pre>
+  <div class="rule note"><b>Arguments are <code>--flag value</code>, NEVER <code>key=value</code>.</b> <code>unity cmd menu path=X</code> silently ignores the argument, <b>LISTS every menu item instead of executing one</b>, and still reports success. You will believe your menu item ran.</div>
+  <div class="scrollx">
+  <table>
+    <tr><th>Do NOT use</th><th>Because</th></tr>
+    <tr><td><code>unity test</code></td><td>It spawns its own batch-mode editor, and two Unity processes cannot open one project. It blocks on the project lock held by the editor you are working in.</td></tr>
+    <tr><td><code>unity cmd run_tests</code></td><td>It starts, then <code>test_status</code> sticks at <i>"running"</i> forever while the editor reports <code>ready</code> and no results are written.</td></tr>
+    <tr><td>Driving a <b>build</b> over MCP</td><td>It tags a commit on a shared repo.</td></tr>
+  </table>
+  </div>
+  <p>The Pipeline server warns that the editor is <b>not in <code>-automated</code> mode</b>: a modal can still block CLI commands, exactly like the dirty-scene wedge. Restarting the editor with <code>-automated</code> is the real fix but costs the open session, which is why the script saves first instead.</p>
+
+  <h3>Two false-pass traps</h3>
+  <ul>
+    <li><b>A stale DLL can produce a false pass.</b> "0 console errors" after an <code>Assets/Refresh</code> can mean the compile never happened and menus are running OLD code. Gate each assembly's DLL mtime against <b>its own</b> source files — a whole-<code>Assets/</code> mtime scan false-<i>fails</i> constantly and teaches you to ignore it.</li>
+    <li><b>Use <code>GetConsoleLogs</code>, not <code>ReadConsole</code>, for sticky compile errors.</b> The latter can miss them.</li>
+  </ul>
+
+  <h3>Before you commit</h3>
+  <ol class="steps">
+    <li>Offline compile with <code>-t:Rebuild</code> — <b>zero warnings</b>, not just zero errors.</li>
+    <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> (plus the reachability audit if you touched rooms) — 0 errors.</li>
+    <li>The PlayMode suite — green. Then <code>git checkout -- DebugSettings/DebugSettings.json</code> if you ran it by hand.</li>
+    <li>Play it. New behaviour only counts once it has shown up in an actual run.</li>
+    <li>Update every wiki page your change made stale, <b>in the same commit</b>. Each domain page ends with a "Keep this page honest" box naming the exact files it mirrors — that box tells you whether yours is one of them.</li>
+  </ol>
+  <p class="dim">Commit style: long-form prose in the body — what changed, <i>why</i>, and what was considered and rejected. <b>The commit log is the design record.</b> End with the <code>Co-Authored-By</code> trailer. Commit or push only when asked.</p>
+</section>
+
+<section id="recipes">
+  <h2><span class="num">07</span>Recipes — the first five things you will be asked for</h2>
+  <p class="lead">Each is the short path with the registration step called out, because the registration step is the one people miss. Follow the link for the depth.</p>
+
+  <h3>Add a weapon</h3>
+  <ol class="steps">
+    <li><span class="kbd">Assets ▸ Create ▸ Combat ▸ Weapon ▸ Melee Weapon</span> (or Ranged) into <code>Assets/_Game/Player/Resources/Weapons/</code>. <b>Name it its final name now</b> — the asset name <i>is</i> the save id, and renaming a shipped weapon breaks player saves.</li>
+    <li>Author it: right-click → <span class="kbd">Open in Content Workbench</span>. Melee has five sub-tabs and a weapon authored from only the first two ships with no moveset.</li>
+    <li><b>Register in <code>WeaponCatalog.asset</code></b> (<code>Assets/_Game/Systems/Run/Resources/</code>) — without it, run-resume cannot restore the weapon.</li>
+    <li><b>Add it to a loot table</b> (<code>Loot_HubMelee.asset</code> / <code>Loot_HubBow.asset</code>) — without it, no pedestal will ever offer it.</li>
+    <li>Verify both Overview registration rows are green. They are exactly steps 3 and 4.</li>
+  </ol>
+  <p class="dim">Full recipe, animator wiring and the runtime pedestal flow: <a href="combat.html#recipe">Combat &amp; Weapons §09</a>.</p>
+
+  <h3>Add an enemy</h3>
+  <ol class="steps">
+    <li>Clips → a <code>SpriteClipSet</code> (<span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span>). <b>The clip is the timer</b> — there are no animation events.</li>
+    <li><span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>; set <code>MaxHealth</code> (<b>0 means damage cannot kill it</b> — executions still can), <code>ExecutionThreshold</code>, <code>CanBeJuggled</code>.</li>
+    <li>Build its states on the Workbench <b>States</b> tab with <b>+ Create State</b> — never by hand (<a href="#fsm">§04</a>).</li>
+    <li>Prefab under <code>Assets/_Game/Enemies/Prefabs/</code> with <code>EnemyStateMachine</code> pointing at the definition. <b>The Workbench only finds a prefab in that folder</b>, and an enemy with no prefab can never be classified as a boss.</li>
+    <li><b>Register in an <code>EnemySpawnTable</code></b> — otherwise it never spawns.</li>
+    <li>If you wire <code>Executions</code>: <b>most-specific first, status-gated catch-alls last</b> (rule 8).</li>
+  </ol>
+  <p class="dim">Full nine-step recipe: <a href="enemies.html#recipe">Enemies &amp; Bosses §07</a>. Bosses: <a href="enemies.html#bosses">§08</a>.</p>
+
+  <h3>Add a player state</h3>
+  <ol class="steps">
+    <li>New state <i>type</i> only if one does not exist: <span class="kbd">Cat Splat State Machine ▸ Tools ▸ State Machine Creator ▸ State Creator</span>. It writes to <b>two</b> folders: the config to <code>Assets/_Game/Player/Code/Definitions/States/</code> and the state class — the one you edit — to <code>Assets/_Game/Player/Code/States/</code>. The stub overrides <b>only</b> <code>Enter()</code>.</li>
+    <li>Create the config sub-asset on the Workbench <b>Player ▸ Balen (State Machine)</b> page — selecting that asset <i>is</i> the states surface; there is no <b>States</b> sub-tab on the Player tab (only Enemies and Bosses reach it through one). That is what sets <code>StateName</code> and appends it to <code>States</code>.</li>
+    <li>Wire transitions there, choosing <code>Conditions</code> and/or <code>DynamicConditions</code>. Reuse <code>Assets/_Game/Player/Data/SharedRules/Dy_*.asset</code> before authoring a new one.</li>
+    <li>If your new state's C# also calls <code>AddTransition</code>, <b>check no authored row targets the same state</b> — you would delete it silently (rule 5). Play once and read the console for the collision inventory.</li>
+    <li>Test by driving <b>real buffered input</b>, not <code>ChangeState</code>.</li>
+  </ol>
+  <p class="dim">Which states are hybrids: <a href="framework.html#hybrid">Framework §04</a>.</p>
+
+  <h3>Add a tunable</h3>
+  <ol class="steps">
+    <li>Put <code>[Tunable("Tab", min, max)]</code> on a runtime <code>float</code>/<code>int</code> (slider) or <code>bool</code> (toggle) field or property.</li>
+    <li>Register the host: <code>TunableRegistry.Register(object target)</code> in <code>Awake</code> or <code>OnEnable</code> — <b>the panel snapshots the registry when it configures its tabs</b>, so registering later is too late. There is a matching <code>Unregister</code>. The player path does not need it: <code>PlayerDebugUI</code> calls <code>AddTabsFrom(playerContext, playerContext.Mover, hitboxViewer)</code> directly, and everything in the registry rides along.</li>
+    <li><b>Leave <code>Save</code> off for anything the game owns</b> (rule 1). Only genuine panel preferences persist. <code>TunableParityTests</code> fails the build if you get this wrong on a gameplay tab.</li>
+    <li>Need a side effect on change? <code>OnChanged = nameof(Method)</code> — a no-arg method on the declaring type, so the wiring stays declaration-local.</li>
+    <li>Optional: <code>Section</code>, <code>Label</code>, <code>Tooltip</code>.</li>
+  </ol>
+  <p class="dim">The panel, its tabs and the JSON: <a href="tuning.html#panel">Tuning &amp; INI §03</a>.</p>
+
+  <h3>Add a test</h3>
+  <ol class="steps">
+    <li>New file in <code>Assets/Tests/PlayMode/</code>. Nothing to register — the assembly compiles the folder.</li>
+    <li><b><code>[SetUp]</code>: <code>Time.timeScale = 1f;</code></b> and restore it in <code>[TearDown]</code> (rule 4). Clear any global state your fixture touches — <code>RunModifiers.Clear()</code> is the common one.</li>
+    <li><b>Assert the behaviour, not the flag</b> (rule 3). Ask what the player or the enemy actually experienced.</li>
+    <li><b>Sweep the shipped assets</b> where the invariant is about content — <code>AssetDatabase.FindAssets("t:X")</code> inside <code>#if UNITY_EDITOR</code> (rule 2). A hand-built fixture proves the mechanism and says nothing about the game.</li>
+    <li>Wait on <code>Time.time</code> deadlines, never frame counts. If you must press once per frame, pin <code>Time.captureDeltaTime</code>.</li>
+    <li>Write the <i>why</i> in an XML doc comment on the class. Every strong fixture in this suite explains the bug it exists to prevent — that is the house style, and it is what makes a failure diagnosable a year later.</li>
+  </ol>
+</section>
+
+<section id="firsthour">
+  <h2><span class="num">08</span>Your first hour, in order</h2>
+  <p class="lead">Do these in sequence. By the end you will have read the graph, opened the tool, run the gates and made one safe change.</p>
+  <ol class="steps">
+    <li>Read <a href="../../CLAUDE.md"><code>CLAUDE.md</code></a> top to bottom. It is short and it is binding.</li>
+    <li>Open <code>Assets/_Scenes/3.TestSandbox.unity</code> and press Play. Move, jump, dash, swing, shoot. Press <span class="kbd">F1</span> and drag a slider.</li>
+    <li>With play mode still running, open <span class="kbd">Cat Splat State Machine ▸ State Machine Visualizer</span>, pick <code>PlayerStateMachine</code>, enable <b>Live View</b>, and watch the states change as you move. Then read the console for <code>[StateMachine] … REPLACED …</code> lines — that is rule 5's inventory.</li>
+    <li>Stop play mode. Open <span class="kbd">Gleamwood ▸ Content Workbench</span>. Click every rail tab. Then select the <b>Player</b> tab and pick <b>Balen (State Machine)</b> — that is <code>Assets/_Game/Player/Data/PlayerDef.asset</code>, and its page <i>is</i> the states surface you just read about in <a href="#fsm">§04</a>. <b>Do not try to get there by right-clicking the asset</b>: <span class="kbd">Open in Content Workbench</span> is greyed out on it, because the validator in <a href="#wb-open">§05</a> accepts only <code>WeaponDefinition</code>, <code>EnemyDefinition</code>, <code>PlayerContext</code>, <code>BiomeDefinition</code>, <code>MusicSet</code> and <code>[WorkbenchCategory]</code>-tagged types. If you want to see that route work, try it on <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code>.</li>
+    <li>Run the three gates once on a clean tree so you know what green looks like: the offline compile with <code>-t:Rebuild</code>, <span class="kbd">Gleamwood ▸ Validate Run Content</span>, and <code>Tools/run-tests.sh</code>. Expect the suite to take roughly five minutes.</li>
+    <li>Make one small, safe change end to end — <a href="#wb-example-field">Worked example A</a> is a good first PR — and take it through the pre-flight list in <a href="#verify">§06</a>, wiki edit included.</li>
+  </ol>
+  <div class="note">Then pick the domain you have been handed and read its page. <a href="combat.html">Combat &amp; Weapons</a> · <a href="enemies.html">Enemies &amp; Bosses</a> · <a href="levels.html">Levels &amp; Rooms</a> · <a href="progression.html">Progression</a> · <a href="ui.html">UI &amp; HUD</a> · <a href="audio.html">Audio</a> · <a href="dialogue.html">Dialogue</a> · <a href="modding.html">Modding</a>. <a href="extending.html">Extending</a> is the catalogue of every declarative seam; <a href="maintaining.html">Maintaining</a> is how this wiki stays true.</div>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li><b>§01 north star, §02 rules, §06 verification:</b> the root <code>CLAUDE.md</code> is the source. The scene list is <code>ProjectSettings/EditorBuildSettings.asset</code> plus <code>Assets/_Scenes/</code>; <code>3.TestSandbox.unity</code> is deliberately absent from the build list.</li>
+    <li><b>§02, rule by rule:</b> 1 → <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code> + <code>Assets/Tests/PlayMode/TunableParityTests.cs</code> + <code>DebugSettings/DebugSettings.json</code>. 2 → <code>Assets/Tests/PlayMode/ShippedPlayerPlatformWiringTests.cs</code>. 3 &amp; 4 → <code>Assets/Tests/PlayMode/ComboCancelTests.cs</code> (the <code>SetUp</code> comments are the argument) and <code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code>. 5 → <code>Assets/_Framework/StateMachine/Core/StateMachine.cs</code> (<code>AddTransition</code>, <code>ReportReplacedEdge</code>). 6 → <code>Assets/_Game/Systems/Save/SaveSystem.cs</code> (<code>CurrentVersion</code>, <code>Load</code>) + <code>SaveSlot.cs</code> (the parallel arrays). 7 → <code>Assets/_Game/Systems/Run/RunModifierDefinition.cs</code>, <code>RunModifierCatalog.cs</code>, <code>RunModifierOffer.cs</code>. 8 → <code>Assets/Tests/PlayMode/ExecutionTriggerTests.cs</code>. 9 → <code>Assets/_Game/UI/Code/HUD/PlayerHUDController.cs</code> (<code>RefreshRunModifiers</code>), <code>UI/Code/Screens/LoadoutScreen.cs</code>, <code>Assets/Tests/PlayMode/RunHudTests.cs</code> — <b>this rule's example is now FIXED in code and <code>CLAUDE.md</code> is the stale copy; re-check before repeating either claim.</b> 10 → <code>Systems/Run/Weapons/WeaponInstance</code>, <code>PlayerStateMachine.Awake</code>, <code>Systems/Modding/CampaignPlan.cs</code>, <code>Systems/Modding/ProgressionOverrides.cs</code>.</li>
+    <li><b>§03 the map:</b> the directory walk is <code>Assets/_Game/</code> as it stands; the assembly table is the eight <code>.asmdef</code> files — <code>Assets/_Game/GameScripts.asmdef</code>, <code>Assets/_Game/Editor/GameScripts.Editor.asmdef</code>, <code>Assets/_Game/Systems/Utils/Build/Editor/GameScripts.Utils.Build.Editor.asmdef</code>, <code>Assets/_Framework/StateMachine/CatSplatStudios.StateMachine.asmdef</code> (+ its <code>Editor/</code> twin), <code>Assets/_Framework/DebugUI/CatSplatStudios.DebugUI.asmdef</code> (+ its <code>Editor/</code> twin), <code>Assets/Tests/PlayMode/CatSplatStudios.Tests.PlayMode.asmdef</code>. References are stored as GUIDs; resolve them against the corresponding <code>.asmdef.meta</code> before trusting a name here. The <b>two</b> runtime→editor crossings are both in <code>Assets/_Game/GameScripts.asmdef</code>: the fenced one is <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code>'s <code>#if UNITY_EDITOR</code>, the unused one is <code>com.CatSplatStudios.RuntimeDebugUI.Editor</code> — <b>re-grep <code>_Game/</code> for a use of it before repeating that it has none.</b></li>
+    <li><b>§04 the state machine:</b> <code>Assets/_Framework/StateMachine/Core/StateMachine.cs</code> · <code>Core/DynamicCondition.cs</code> · <code>Core/TransitionDefinition.cs</code> · <code>State/ConfigurableState.cs</code> · <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code> (<code>InitializeFromDefinition</code>, <code>DropThroughCheck</code>) · <code>Player/Code/Definitions/PlayerStateConfig.cs</code> (the <code>StateId</code> fallback) · <code>Assets/_Game/Player/Data/PlayerDef.asset</code> (<b>the blank <code>StateName</code> on <code>PlayerRunConfig</code> is real — re-check it before repeating the claim</b>) · <code>Player/Data/SharedRules/Dy_*.asset</code> · <code>Assets/_Framework/StateMachine/Editor/Creator/StateMachineCreatorWindow.cs</code> (the Creator's <b>two</b> output folders, and the Condition Creator's hard-coded <code>Enemies.Definitions.Transitions</code> base — both re-derived 2026-08-11). The <b>Player has no States sub-tab</b>: <code>WorkbenchStates.Draw</code> never calls <code>form.SubTabs</code>, and <code>PlayerCategory.DrawForm</code> routes a <code>PlayerDefinition</code> straight into it. Concepts and the hybrid ledger: <a href="framework.html">framework.html</a>; signatures: <a href="state_machine_api_reference.md"><code>state_machine_api_reference.md</code></a>.</li>
+    <li><b>§05 the Workbench:</b> <code>Assets/_Game/Editor/ContentWorkbench.cs</code> (menu items, <code>CategoryIndexFor</code>, the save toolbar, <code>DrawCreateRow</code>, <code>OnEnable</code> cache reset) and all six files in <code>Assets/_Game/Editor/Workbench/</code> — <code>WorkbenchForm.cs</code> (every signature in the API table, plus <code>WorkbenchGenericForm</code>, <code>WorkbenchModel</code>, <code>WorkbenchStyles</code>), <code>WorkbenchCategory.cs</code> (the interface, the base class, <code>AttributeWorkbenchCategory</code>, <code>WorkbenchCategoryRegistry.Discover</code>), <code>WorkbenchCategories.cs</code> (the built-in tabs; <code>RangedWeaponCategory.DrawForm</code> is Worked example A's target), <code>WorkbenchStates.cs</code>, <code>WorkbenchAssetFactory.cs</code>, <code>WorkbenchTabIcons.cs</code>. The attributes are <code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code>. <b>The shipped tab list is NOT restated here on purpose</b> — <a href="workbench.html#rail">workbench.html §02</a> is its single source of record.</li>
+    <li><b>§06 verification:</b> <code>Tools/run-tests.sh</code> (every "why" in the step table is a comment in that file) · <code>Assets/_Game/Editor/PlayModeTestMenu.cs</code> · <code>Assets/_Game/Editor/RunContentValidator.cs</code> · <code>RoomReachability.cs</code> · <code>GameContentSync.cs</code> · <code>ContentIniImporter.cs</code>. Tool paths (<code>DotNetSdk/dotnet.exe</code>, <code>unity.exe</code>) are machine-specific and were confirmed present on this machine; a new machine must re-confirm them.</li>
+    <li><b>§07 recipes:</b> each is a summary of a domain page's own recipe — <a href="combat.html#recipe">combat §09</a>, <a href="enemies.html#recipe">enemies §07</a>, <a href="framework.html#tooling">framework §05</a>, <a href="tuning.html#tunable">tuning §02</a>. <b>If a recipe here disagrees with the domain page, the domain page wins and this one has drifted.</b></li>
+    <li>Menu paths in this page are <code>[MenuItem("…")]</code> strings; grep for them rather than trusting the arrow-separated form — <b>and a menu item that exists is not a menu item that is enabled</b>: check for a sibling <code>[MenuItem(path, true)]</code> validator before telling anyone to click it. Screenshots are regenerated by <span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span> and are never hand-edited; <b>both captures on this page are stale as of 2026-08-10</b> (ten rail tabs where the registry now builds fourteen), so never read a count off a picture.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="quickstart.html"><span>← Previous</span>Quick Start</a>
+  <a href="workbench.html"><span>Next →</span>The Content Workbench</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

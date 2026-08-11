@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a class="on" href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -41,7 +44,7 @@
     <li><span class="kbd">Gleamwood ▸ Content Workbench</span> opens the window (minimum size 780×500). A fresh window lands on the <b>Melee</b> tab.</li>
     <li>Or right-click any tunable asset in the Project window and pick <span class="kbd">Assets ▸ Open in Content Workbench</span> — the window opens <b>and</b> selects that asset on the correct rail tab.</li>
   </ol>
-  <p>The right-click item only lights up for types the workbench understands: <code>WeaponDefinition</code> (melee or ranged), <code>EnemyDefinition</code>, <code>CombatStatusDefinition</code>, <code>PlayerContext</code>, <code>BiomeDefinition</code>, <code>MusicSet</code>, or any ScriptableObject whose class carries <code>[WorkbenchCategory]</code>. Routing is what you'd expect — melee weapons land on Melee, an <code>EnemyDefinition</code> lands on <b>Bosses</b> if it's boss-staged (§2) and Enemies otherwise, biomes and the MusicSet land on Levels. Anything the router can't place falls back to the Statuses tab.</p>
+  <p>The right-click item only lights up for types the workbench understands: <code>WeaponDefinition</code> (melee or ranged), <code>EnemyDefinition</code>, <code>CombatStatusDefinition</code>, <code>PlayerContext</code>, <code>BiomeDefinition</code>, <code>MusicSet</code>, or any ScriptableObject whose class carries <code>[WorkbenchCategory]</code>. Routing is what you'd expect — melee weapons land on Melee, an <code>EnemyDefinition</code> lands on <b>Bosses</b> if it's boss-staged (§2) and Enemies otherwise, biomes and the MusicSet land on Levels. Anything the router can't place falls back to the <b>first tab, Player</b>: <code>CategoryIndexFor</code> returns index 0 when no category <code>Owns</code> the asset, and index 0 is whichever category sorts first — <code>PlayerCategory</code>, at <code>Order => 0</code> with no tie.</p>
 
   <figure class="shot">
     <img src="images/workbench-melee.png" alt="Content Workbench, Melee category, SolarGreatsword Overview tab">
@@ -51,31 +54,38 @@
 
 <section id="rail">
   <h2><span class="num">02</span>The rail — how categories are decided</h2>
-  <p class="lead">The left rail is 216px of icon+label category buttons and an asset list. The right pane is a 44px accent banner (icon, title, subtitle, upper-cased category chip) over a scrollable form. Seven categories are built in as classes; the rest — Statuses, Poses, Voice — appear automatically via attributes.</p>
+  <p class="lead">Fourteen tabs ship on the rail today, and only <b>seven</b> of them are built in as classes — the other seven are ScriptableObjects that carry <code>[WorkbenchCategory]</code> and got a tab for free.</p>
+  <p>The left rail is 216px of icon+label category buttons and an asset list. The right pane is a 44px accent banner (icon, title, subtitle, upper-cased category chip) over a scrollable form. The table below is in rail order — <code>Order</code> ascending, ties broken by title, which is why the two Order-6 tabs land next to each other.</p>
 
   <div class="scrollx">
   <table>
-    <tr><th>Tab</th><th>Accent</th><th>What it lists</th><th>Where it looks</th></tr>
-    <tr><td><b>Player</b></td><td>cyan</td><td>Two entries: <b>“Balen (Player)”</b> (feel) and <b>“Balen (State Machine)”</b> (its FSM, on the shared States surface)</td><td>Hard paths <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> and <code>Assets/_Game/Player/Data/PlayerDef.asset</code></td></tr>
-    <tr><td><b>Melee</b></td><td>ember</td><td>Every <code>MeleeWeaponDefinition</code>, name-sorted</td><td><code>Assets/_Game</code></td></tr>
-    <tr><td><b>Ranged</b></td><td>gold</td><td>Every <code>RangedWeaponDefinition</code></td><td><code>Assets/_Game</code></td></tr>
-    <tr><td><b>Enemies</b></td><td>red</td><td><code>EnemyDefinition</code>s that are <b>not</b> boss-staged</td><td><code>Assets/_Game</code></td></tr>
-    <tr><td><b>Bosses</b></td><td>magenta</td><td><code>EnemyDefinition</code>s that <b>are</b> boss-staged</td><td><code>Assets/_Game</code></td></tr>
-    <tr><td><b>Levels</b></td><td>green</td><td>The <code>MusicSet</code> first, then every <code>BiomeDefinition</code></td><td>MusicSet at hard path <code>Assets/_Game/Audio/Resources/MusicSet.asset</code>; biomes in <code>Assets/_Game</code></td></tr>
-    <tr><td><b>Statuses</b></td><td>violet</td><td>Every <code>CombatStatusDefinition</code></td><td><code>Assets/_Game</code> — and this tab is itself the zero-code path: <code>CombatStatusDefinition</code> just carries <code>[WorkbenchCategory]</code> (see below)</td></tr>
-    <tr><td><b>Dialogue</b></td><td>speech blue</td><td>Every <code>DialogueSet</code>, grouped by beat (Intro / Victory / Defeat…) — see <a href="dialogue.html">Dialogue</a></td><td><code>Assets/_Game</code> — a rich <code>IWorkbenchCategory</code> (three-level nesting the raw inspector makes miserable)</td></tr>
-    <tr><td><b>Poses</b></td><td>violet</td><td>The <code>PoseCatalog</code> — pose id → Sprite, so a <code>.dlg</code> line can name a portrait it cannot hold a reference to</td><td>All of <code>Assets</code>. Zero-code: <code>PoseCatalog</code> just carries <code>[WorkbenchCategory]</code> + <code>[WorkbenchField]</code></td></tr>
-    <tr><td><b>Voice</b></td><td>cyan</td><td>Every <code>VoiceBank</code> — dialogue audio by key, and the one asset a second language replaces</td><td>All of <code>Assets</code>. Zero-code, same path as Poses</td></tr>
-    <tr><td><b>Designer tabs</b></td><td>declared per type</td><td>All assets of every type sharing a <code>[WorkbenchCategory]</code> name</td><td>All of <code>Assets</code>. Every tab, built-in included, is a discovered category sorted by an <code>Order</code> value (built-ins 0–5, Statuses 6, Dialogue 7, Poses 8, Voice 9); designer types default to 100, then name</td></tr>
+    <tr><th>Tab</th><th>Order</th><th>Built by</th><th>What it lists</th><th>Where it looks</th></tr>
+    <tr><td><b>Player</b></td><td>0</td><td>class</td><td>Two entries: <b>“Balen (Player)”</b> (feel) and <b>“Balen (State Machine)”</b> (its FSM, on the shared States surface). <b>Also the fallback tab</b> — anything the right-click router cannot place lands here, because it is index 0</td><td>Hard paths <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> and <code>Assets/_Game/Player/Data/PlayerDef.asset</code></td></tr>
+    <tr><td><b>Melee</b></td><td>1</td><td>class</td><td>Every <code>MeleeWeaponDefinition</code>, name-sorted</td><td><code>Assets/_Game</code></td></tr>
+    <tr><td><b>Ranged</b></td><td>2</td><td>class</td><td>Every <code>RangedWeaponDefinition</code></td><td><code>Assets/_Game</code></td></tr>
+    <tr><td><b>Enemies</b></td><td>3</td><td>class</td><td><code>EnemyDefinition</code>s that are <b>not</b> boss-staged</td><td><code>Assets/_Game</code></td></tr>
+    <tr><td><b>Bosses</b></td><td>4</td><td>class</td><td><code>EnemyDefinition</code>s that <b>are</b> boss-staged</td><td><code>Assets/_Game</code></td></tr>
+    <tr><td><b>Levels</b></td><td>5</td><td>class</td><td>The <code>MusicSet</code> first, then every <code>BiomeDefinition</code></td><td>MusicSet at hard path <code>Assets/_Game/Audio/Resources/MusicSet.asset</code>; biomes in <code>Assets/_Game</code></td></tr>
+    <tr><td><b>Run Upgrades</b></td><td>6</td><td>attribute</td><td>Every <code>RunModifierDefinition</code> — the per-run rule changes. <b>Can create</b></td><td>All of <code>Assets</code>; new assets go to <code>Assets/_Game/Systems/Run/Resources/RunModifiers</code></td></tr>
+    <tr><td><b>Statuses</b></td><td>6</td><td>attribute</td><td>Every <code>CombatStatusDefinition</code> — the reference zero-code tab (see below)</td><td>All of <code>Assets</code></td></tr>
+    <tr><td><b>Dialogue</b></td><td>7</td><td>class</td><td>Every <code>DialogueSet</code>, grouped by beat (Intro / Victory / Defeat…) — see <a href="dialogue.html">Dialogue</a></td><td><code>Assets/_Game</code> — a rich <code>IWorkbenchCategory</code> (three-level nesting the raw inspector makes miserable)</td></tr>
+    <tr><td><b>Moves</b></td><td>7</td><td>attribute</td><td>Every <code>MoveDefinition</code> — the directional moveset entries the player buys. <b>Can create</b></td><td>All of <code>Assets</code>; new assets go to <code>…/Run/Resources/Moves</code></td></tr>
+    <tr><td><b>Abilities</b></td><td>8</td><td>attribute</td><td>Every <code>AbilityDefinition</code> — what gates room reachability. <b>Can create</b></td><td>All of <code>Assets</code>; new assets go to <code>…/Run/Resources/Abilities</code></td></tr>
+    <tr><td><b>Poses</b></td><td>8</td><td>attribute</td><td>The <code>PoseCatalog</code> — pose id → Sprite, so a <code>.dlg</code> line can name a portrait it cannot hold a reference to</td><td>All of <code>Assets</code></td></tr>
+    <tr><td><b>Kit Upgrades</b></td><td>9</td><td>attribute</td><td>Every <code>MetaUpgradeDefinition</code> — the Gleam-bought permanent upgrades. <b>Can create</b></td><td>All of <code>Assets</code>; new assets go to <code>…/Run/Resources/KitUpgrades</code></td></tr>
+    <tr><td><b>Voice</b></td><td>9</td><td>attribute</td><td>Every <code>VoiceBank</code> — dialogue audio by key, and the one asset a second language replaces</td><td>All of <code>Assets</code></td></tr>
+    <tr><td><i>your designer tab</i></td><td>100</td><td>attribute</td><td>All assets of every type sharing a <code>[WorkbenchCategory]</code> name</td><td>All of <code>Assets</code>. Untagged <code>Order</code> defaults to 100, so a new tab lands after everything shipped</td></tr>
   </table>
   </div>
+  <div class="note"><b>Attribute tabs scan all of <code>Assets</code>, not <code>Assets/_Game</code>.</b> The <code>Assets/_Game</code> default belongs to <code>WorkbenchCategory.Find</code>, which only the hand-written built-ins call. An attribute-built tab uses <code>AssetDatabase.FindAssets("t:" + type, new[]{ "Assets" })</code> — so a tagged type finds its assets wherever a mod, a package or a scratch folder put them.</div>
 
   <div class="note rule"><b>The boss staged-by rule.</b> There is no “is boss” checkbox. A definition counts as a boss <b>iff some <code>BossDefinition</code>'s <code>bossPrefab</code> points at the prefab that references it</b> — the workbench finds the enemy's prefab (the one under <code>Assets/_Game/Enemies/Prefabs</code> whose <code>EnemyStateMachine.DefinitionAsset</code> is this def), then looks for a BossDefinition staging that prefab. Two consequences: an enemy with <b>no prefab can never be classed as a boss</b>, and the answer is cached — after adding or removing a BossDefinition, close and reopen the window to re-sort the rail.</div>
 
   <h3>Discovery — the window has no hard-coded tab list</h3>
-  <p>The window is a shell: <code>WorkbenchCategoryRegistry.Discover()</code> finds every <code>IWorkbenchCategory</code> implementation (the seven rich built-ins live in <code>WorkbenchCategories.cs</code>; Statuses, Poses and Voice need no class at all) <b>and</b> every <code>[WorkbenchCategory]</code>-tagged ScriptableObject, sorts them by <code>Order</code>, and drives the rail, banner and form entirely through that interface. Tag any SO class and it gets a rail tab, an asset list, and a working form — no workbench edit. Types sharing a category name share one tab (the first type's accent wins). The attribute is a zero-cost marker at runtime.</p>
+  <p>The window is a shell: <code>WorkbenchCategoryRegistry.Discover()</code> finds every <code>IWorkbenchCategory</code> implementation (the seven rich built-ins live in <code>WorkbenchCategories.cs</code>; the other seven tabs need no class at all) <b>and</b> every <code>[WorkbenchCategory]</code>-tagged ScriptableObject, sorts them by <code>(Order, Title)</code>, and drives the rail, banner and form entirely through that interface. Tag any SO class and it gets a rail tab, an asset list, and a working form — no workbench edit. Types sharing a category name share one tab (the first type's accent wins, and the first type that names a <code>NewAssetFolder</code> claims the tab's New button). The attribute is a zero-cost marker at runtime.</p>
 <pre><code><span class="c">// Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs — declare, don't wire:</span>
-[<span class="t">WorkbenchCategory</span>(<span class="s">"Hazards"</span>, Accent = <span class="s">"#4dd2ff"</span>)]
+[<span class="t">WorkbenchCategory</span>(<span class="s">"Hazards"</span>, Accent = <span class="s">"#4dd2ff"</span>, Order = <span class="a">20</span>,
+                   NewAssetFolder = <span class="s">"Assets/_Game/Hazards/Resources"</span>)]  <span class="c">// omit to disable New</span>
 <span class="k">public class</span> <span class="t">HazardDefinition</span> : <span class="t">ScriptableObject</span> { ... }</code></pre>
   <p>The generic form draws in one of two modes. If <b>any</b> field on the type carries <code>[WorkbenchField]</code>, the form is <b>curated</b>: only attributed fields draw (dead fields stay hidden), in declaration order, with a section header emitted each time the section name changes — so keep same-section fields contiguous. If <b>no</b> field is attributed, every serialized field draws under one “Fields” section, with a tip suggesting you curate.</p>
 <pre><code>[<span class="t">WorkbenchField</span>(<span class="s">"Feel"</span>, Tooltip = <span class="s">"Seconds between pulses"</span>, Note = <span class="s">"0 = single burst"</span>)]
@@ -124,9 +134,20 @@
     <tr><td><code>Owns(asset)</code></td><td>Cheap membership test that routes <span class="kbd">Assets ▸ Open in Content Workbench</span> to the right tab. Usually a one-line type check.</td></tr>
     <tr><td><code>DisplayName</code> · <code>Subtitle</code> · <code>Icon</code></td><td>Rail label, banner subtitle, thumbnail. Defaults: asset name, empty, mini-thumbnail — override for flair (Player shows “Balen (Player)” and the prefab preview).</td></tr>
     <tr><td><code>DrawForm(form, asset)</code></td><td>The page. Everything you draw goes through <code>form</code>; the window handles Update/Apply on the selected asset and Auto-Save for you.</td></tr>
+    <tr><td><code>CreatableType</code> · <code>NewAssetFolder</code></td><td>The <b>New</b> verb, opt-in. Both must be non-null or the create row does not render at all — that is the default, deliberately, since most tabs list assets whose creation has other rules (a weapon wants catalog registration, an enemy wants a prefab). An attribute-tagged type declares the folder on the attribute; a hand-written category overrides both. Full mechanics under <i>The New verb</i> below.</td></tr>
   </table>
   </div>
   <p>The <code>WorkbenchForm</code> primitives, all public (<code>Assets/_Game/Editor/Workbench/WorkbenchForm.cs</code>): <code>Section</code>, <code>SubTabs</code>, <code>Prop</code>/<code>Rel</code>/<code>Field</code>, <code>Effective</code>/<code>Note</code>, <code>Check</code>/<code>Registration</code>, <code>SoundRow</code>/<code>VolumeIf</code>, <code>AnimState</code>, <code>SelectButton</code>, <code>HelpBox</code>, and <code>SO</code>/<code>Apply</code> for cross-asset edits (each secondary asset you touch wants its own <code>SO(x).Update()</code> … <code>Apply(x)</code>).</p>
+  <h3 id="new">The New verb — creating an asset without leaving the window</h3>
+  <p>Four tabs can <b>make</b> content, not just list and edit it: <b>Run Upgrades</b>, <b>Moves</b>, <b>Abilities</b> and <b>Kit Upgrades</b>. A name field and a <b>New</b> button render at the <i>foot</i> of the rail — deliberately below the asset list rather than in the header, because creating is the rare action on a tab whose normal use is picking something that already exists, and a New button above the list is the one people hit by accident. The row appears only when the category declares both <code>CreatableType</code> and <code>NewAssetFolder</code>; every other tab shows nothing at all.</p>
+  <p>The reason most tabs <em>should not</em> have it is the reason this one exists. "Designers author per-run upgrades in the Workbench" used to mean "designers author them in the Project window and then remember to register them" — so <code>WorkbenchAssetFactory.Create</code> is a shared primitive rather than a button per tab, and it does the whole job:</p>
+  <ol class="steps">
+    <li>Sanitises the typed name to the project's lower-case-with-hyphens id convention, and takes a <b>uniquified</b> path — pressing New twice makes two assets rather than an error or an overwrite.</li>
+    <li><b>Seeds <code>id</code> and <code>displayName</code></b> from the name, when the type has those fields and they're empty. Most content types carry an <code>id</code> that <i>is</i> a save key, and one defaulted to the empty string is a trap the validator would only catch later — seeding it is what makes New useful instead of the start of a checklist.</li>
+    <li>Creates, registers an Undo, saves and re-imports.</li>
+    <li>Runs every discovered <code>IWorkbenchAssetCreatedHandler</code> that claims the type, then selects the asset and logs where it went.</li>
+  </ol>
+  <div class="rule note"><b>The created-handler hook is why "I made it and nothing happened" stopped being a bug.</b> A new <code>RunModifierDefinition</code> is not usable until the <i>ordered catalog</i> lists it — the runtime loads that catalog, not the folder, because <code>Resources.LoadAll</code> returns files in an order nobody controls and the offer roll walks the catalog to build its pool. So <code>RunModifierCreatedHandler</code> regenerates it on create. The factory was never taught about run modifiers: the side that <i>knows</i> declares a handler and the factory discovers it — the same declare-don't-wire mechanism as the category attribute itself.</div>
   <div class="note"><b>Which path?</b> Simple type, flat fields → <code>[WorkbenchCategory]</code> + <code>[WorkbenchField]</code> (zero code, the Statuses tab). Needs sub-tabs, checks, derived values or cross-asset forms → <code>IWorkbenchCategory</code>. Both are discovered the same way and can coexist on the same rail.</div>
 </section>
 
@@ -189,15 +210,18 @@
   <div class="scrollx">
   <table>
     <tr><th>Group</th><th>Field</th><th>What it does</th></tr>
-    <tr><td rowspan="4"><b>Feel</b></td><td>Duration (s)</td><td>Total swing time; the animation clip is speed-synced to fit it.</td></tr>
+    <tr><td rowspan="5"><b>Feel</b></td><td>Duration (s)</td><td>Total swing time; the animation clip is speed-synced to fit it.</td></tr>
     <tr><td>Combo Window (s)</td><td>How long after this swing the next input still chains.</td></tr>
     <tr><td>Hit Window (min–max slider)</td><td>Fraction of the swing (0–1) during which the hitbox is live. Effective label spells it out: <i>hits between 0.30 and 0.70 of the swing (0.12s – 0.28s)</i>. An end at ≤0.01 displays as 0.9.</td></tr>
     <tr><td>Reach / Height (units)</td><td>Hitbox size. 0 = defaults (1.2 reach, 1.4 height). <b>Drag the box handles visually</b>: select the Player in a scene with this weapon on its <code>PlayerCombatRangePreview</code>.</td></tr>
     <tr><td>Vertical Offset</td><td>Shifts the box up (+) or <b>down</b> (−). The box seats above the <em>feet</em>, so at 0 it barely reaches below them — a down-air is unusable without a negative value. The effective label prints the real span: <i>= box spans −1.58 to 0.53 units around the feet</i>.</td></tr>
-    <tr><td rowspan="6"><b>Impact</b></td><td>Damage ×</td><td>Multiplier on Base Damage — effective label shows the result, <i>= deals 24 damage (before run upgrades)</i>.</td></tr>
+    <tr><td rowspan="8"><b>Impact</b></td><td>Damage ×</td><td>Multiplier on Base Damage — effective label shows the result, <i>= deals 24 damage (before run upgrades)</i>.</td></tr>
     <tr><td>Hitstun (s) / Hitstop (s)</td><td>0 = fall back to the weapon's base values.</td></tr>
-    <tr><td>Execution Points</td><td>100 makes the enemy executable.</td></tr>
-    <tr><td>Launcher</td><td>Launches a <b>grounded</b> enemy on contact. This is the ONLY way an enemy goes airborne. Ignored on a target already airborne, or one whose definition says it cannot be launched.</td></tr>
+    <tr><td>Hitstop Depth</td><td>How far the world slows during the freeze; 0 = the shared default of 0.05. <b>Lower is heavier.</b> Duration alone cannot tell a tap from a heavy blow — it only holds the same freeze for longer, which reads as a pause rather than as weight.</td></tr>
+    <tr><td>Hit Shake (s, amp)</td><td>Screen shake this swing earns on a hit: x = duration, y = amplitude. Zero on either axis = none, which is every shipped swing today. Shake means “something big happened” only while it stays rare — author it on the two or three swings that deserve it. The <b>Reduce Motion</b> accessibility setting scales it.</td></tr>
+    <tr><td>Execution Points</td><td>Points this hit grants toward an execution. The bar is the <em>enemy's</em> own <b>Execution Threshold</b> (§7), 100 by default — the weapon authors one half of that economy and the enemy the other.</td></tr>
+    <tr><td>Launcher</td><td>Launches a <b>grounded</b> enemy on contact, without needing the juggle meter. This is the ONLY way an enemy goes airborne. Ignored on a target already airborne, or one whose definition says it cannot be launched. Exactly one move per weapon should carry it — the ground up-attack; a run's Updraft modifier imbues a second one temporarily, whereas authoring it here is permanent.</td></tr>
+    <tr><td>Cancellable mid-string</td><td>This swing can be cancelled into a directional attack even when it is <b>not</b> the last hit of the combo. The last hit always cancels regardless, so leaving this off is the normal case. It costs the same per-string cancel budget either way — it changes <em>which</em> swing may cancel, never how many times a string can.</td></tr>
     <tr><td>Reaction</td><td>What the hit <em>does</em> beyond its numbers. <b>Standard</b> = hitstun. <b>Spike</b> = drive an airborne target into the floor; the effective label prints the resulting speed, which comes from <code>|Knockback Y|</code> with a floor of 18. <b>Crumple</b> = no knockback, double hitstun.</td></tr>
     <tr><td rowspan="2"><b>Motion</b></td><td>Lunge Speed</td><td>Forward push during the swing (writes the movement force's X; Y is preserved).</td></tr>
     <tr><td>Lock Movement</td><td>Freeze the player after the lunge portion.</td></tr>
@@ -220,7 +244,7 @@
   <p>The form below those rows is <b>the same one the Swings tab draws</b>, deliberately: a direction's config <i>is</i> a swing config, and authoring them through two different forms is how the two drift into disagreeing about what a field means. The footer reminds you of the one rule that differs per tab — aerials want Combo Window equal to Duration (one attack per airtime), ground wants it larger (a direction branches the string rather than ending it).</p>
 
   <h3>Dash Attack</h3>
-  <p>Same Impact and Presentation vocabulary, plus a <b>Strike Box</b> group: Reach and Height (0 = the same 1.2 × 1.4 defaults; the box <b>travels with the player</b> during the dash — drag it visually on the Player, it's the violet box). One subtlety worth knowing: a custom dash animation state is <b>full-body on layer 0</b>; leave it empty and the game uses the layer-1 upper-body slash overlay (<code>Upper_Slash1</code>).</p>
+  <p>Same Impact and Presentation vocabulary — including <b>Hitstop Depth</b> and <b>Hit Shake</b>, which the dash attack authors independently of the swings — plus a <b>Strike Box</b> group: Reach and Height (0 = the same 1.2 × 1.4 defaults; the box <b>travels with the player</b> during the dash — drag it visually on the Player, it's the violet box). It has no Launcher, Cancellable or Reaction row: the dash is one strike, not a string. One subtlety worth knowing: a custom dash animation state is <b>full-body on layer 0</b>; leave it empty and the game uses the layer-1 upper-body slash overlay (<code>Upper_Slash1</code>).</p>
 
   <div class="shotgrid">
     <figure class="shot">
@@ -236,19 +260,21 @@
 
 <section id="ranged">
   <h2><span class="num">06</span>Ranged — Overview | Shot &amp; Timing | Presentation</h2>
-  <p class="lead">Bows are instant casts with a timing minigame. Same Overview checks and Identity/Base Combat groups as melee (plus a Knockback field), then:</p>
+  <p class="lead">The bow's <b>arrow</b> is the shot — it carries the damage, and its Speed, Durability, Range and Lane Radius are authored numbers on the <b>The Arrow</b> group. Everything else on the tab is the timing minigame that gates it.</p>
+  <p>Same Overview checks and Identity/Base Combat groups as melee (plus a Knockback field), then:</p>
   <div class="scrollx">
   <table>
     <tr><th>Sub-tab</th><th>Group</th><th>Fields</th></tr>
-    <tr><td rowspan="3"><b>Shot &amp; Timing</b></td><td>Draw</td><td><b>Draw Time (s)</b> — releasing earlier cancels the shot.</td></tr>
-    <tr><td>Perfect Release</td><td><b>Perfect Window (s)</b> min-max slider (0–3, seconds after draw start) with effective <i>perfect between …s and …s of the draw</i>; <b>Perfect Damage ×</b>, <b>Perfect Force ×</b>.</td></tr>
-    <tr><td>On Hit</td><td><b>Execution Points</b>.</td></tr>
+    <tr><td rowspan="4"><b>Shot &amp; Timing</b></td><td>Draw</td><td><b>Draw Time (s)</b> — releasing earlier cancels the shot.</td></tr>
+    <tr><td>Perfect Release</td><td><b>Perfect Window (s)</b> min-max slider (0–3, seconds after draw start) with effective <i>perfect between …s and …s of the draw</i>; <b>Perfect Damage ×</b>.</td></tr>
+    <tr><td>On Hit</td><td><b>Execution Points</b> — points this shot grants toward an execution; the bar is the enemy's own <b>Execution Threshold</b> (§7), 100 by default.</td></tr>
+    <tr><td><b>The Arrow</b></td><td><b>Projectile</b> — the arrow that carries this shot's damage; leave it empty and the bow still fires, but it fires something invisible, which is a bug rather than a style. <b>Speed (u/s)</b> (0 = the prefab's own speed — this is the range trade-off, since travel time is what a distant target gets to react in). <b>Durability</b> — how many enemies one arrow may strike before it is spent; 0 = the bow-aim state's <code>SingleTargetHit</code> (what every shipped bow uses), 1 is the same thing stated outright, higher pierces. <b>Range</b> (0 = the state config's <code>ProjectileMaxDistance</code>) and <b>Lane Radius</b> (0 = its <code>ProjectileRadius</code>) — how fat the arrow's sweep is, the difference between a near miss and a hit.</td></tr>
     <tr><td rowspan="3"><b>Presentation</b></td><td>Sound</td><td>SoundRows for <b>Release Sound</b> and <b>Perfect Release Sound</b>.</td></tr>
     <tr><td>Visuals</td><td><b>Hit Effect</b> — spawned at the arrow's impact point.</td></tr>
     <tr><td>Animation</td><td>Three validated dropdowns: <b>Draw</b> (layer 0, default <code>StandBowDraw</code>), <b>Hold</b> (layer 1, <code>Upper_RunBowCharge</code>), <b>Release</b> (layer 1, <code>Upper_RunBowShoot</code>). The last two apply <b>while moving only</b> — planted, the hardcoded <code>StandBow*</code> clips play on layer 0. Leave them empty unless you have art drawn to match: both defaults are the torso half of a run-and-aim drawing, and a clip from anywhere else splits the character at the waist (see <a href="combat.html">combat §04</a>).</td></tr>
   </table>
   </div>
-  <div class="warn note"><b>Not yet in game:</b> <code>DrawSound</code> and <code>ProjectilePrefab</code> — shots are instant casts. The footer on the tab says so; don't burn time authoring them.</div>
+  <div class="warn note"><b>Not yet in game:</b> <code>DrawSound</code> and <code>PerfectForceMultiplier</code>. The footer on the tab says so; don't burn time authoring them. That is also why there is no <b>Perfect Force ×</b> row above — the field exists on the asset but only scales <code>BaseKnockback</code>, whose magnitude is never applied, so it is deliberately kept off the form rather than offered as a dial that does nothing. <b><code>ProjectilePrefab</code> used to sit in this list and no longer does</b>: the bow was a hitscan with a decorative tracer, and when the projectile became the thing that carries the damage, every number deciding where it goes and what it can hit moved onto the surface a designer actually uses.</div>
 </section>
 
 <section id="enemies">
@@ -268,14 +294,16 @@
     <tr><td><b>x</b> (per row)</td><td>Deletes the state. If it is a sub-asset of this definition you get a confirm, then <code>DestroyImmediate</code> + reimport, and <code>InitialState</code> is cleared if it pointed there. A config living elsewhere is only unreferenced, never destroyed.</td></tr>
     <tr><td><b>Set as Initial State</b></td><td>What the machine enters on spawn. Disabled when it already is.</td></tr>
     <tr><td><b>Rename asset to State Name</b></td><td>Keeps the sub-asset's name in step with its <code>StateName</code> so the Project window matches the runtime id.</td></tr>
+    <tr><td><b>Animation Clip · Animator State · Animator Layer</b></td><td>The presentation trio every state config carries, drawn under the selected state. The clip drives both the animator state and the clip-length timings other sub-tabs work in fractions of; <b>Animator State empty = the clip name</b>.</td></tr>
     <tr><td><b>Transitions</b></td><td>Add/remove per state, each with a To State and its Conditions (sub-assets) plus Dynamic conditions. An empty condition list means <i>fires unconditionally the moment it is checked</i> — the form says so inline.</td></tr>
+    <tr><td><b>Maintenance ▸ Cleanup Orphaned &amp; Broken Sub-Assets</b></td><td>The recovery path. States and their conditions live as sub-assets inside the definition's <code>.asset</code> file, so a deleted script or a removed reference can leave debris behind that nothing lists. The button sweeps them and reports how many broken (missing-script) and orphaned sub-assets it removed.</td></tr>
   </table>
   </div>
   <div class="rule note"><b>Why creating states by hand goes wrong.</b> A state registers at runtime under its raw <code>StateName</code>, but transitions resolve by <code>StateId</code> (<code>StateName</code>, else the asset name). So a <b>blank</b> <code>StateName</code> registers a state under <code>""</code> that no transition can ever reach, and a <b>duplicate</b> one makes <code>RegisterState</code> <b>throw</b>. Neither is visible until an enemy breaks mid-run. The States tab shows both as red rows before you leave the window — along with empty slots, a missing initial state, and transitions with no target (which the runtime skips in silence).</div>
   <div class="note">The same surface serves the <b>Player</b> category (<i>Balen (State Machine)</i>) — <code>WorkbenchStates</code> is generic over the definition type, so any future state machine gets it free.</div>
 
   <h3>Overview</h3>
-  <p>Checks first: <code>[ok] prefab: CinderHound</code> (red if no prefab references this definition), then for regular enemies <code>[ok] in a spawn table</code> — red means <i>“not in any spawn table - it will never spawn in a run”</i>. Bosses swap that second check for <code>[ok] staged by Boss_Krag</code>, because <b>bosses do not use spawn tables</b> — staging comes from the BossDefinition (§2). Then <b>Vitals</b>: Max Health (0 = can't die from plain damage, executions only) and Can Be Juggled. If a prefab exists you also get the reminder that hit flash and colliders live prefab-side, plus a <b>Select Prefab (colliders, range gizmos)</b> button that jumps straight to it.</p>
+  <p>Checks first: <code>[ok] prefab: CinderHound</code> (red if no prefab references this definition), then for regular enemies <code>[ok] in a spawn table</code> — red means <i>“not in any spawn table - it will never spawn in a run”</i>. Bosses swap that second check for <code>[ok] staged by Boss_Krag</code>, because <b>bosses do not use spawn tables</b> — staging comes from the BossDefinition (§2). Then <b>Vitals</b>: Max Health (0 = can't die from plain damage, executions only), <b>Execution Threshold</b> — the execution points this enemy takes before it can be executed, minimum 1 and <b>100 by default</b>; this is the per-enemy half of the execution economy, and the weapon authors the other half (points per hit, §5/§6) — and Can Be Juggled. If a prefab exists you also get the reminder that hit flash and colliders live prefab-side, plus a <b>Select Prefab (colliders, range gizmos)</b> button that jumps straight to it.</p>
 
   <div class="shotgrid">
     <figure class="shot">
@@ -318,7 +346,7 @@
   </figure>
 
   <h3>Reactions</h3>
-  <p><b>Juggled</b>: Launch Force, Air Drag, Fall Speed. <b>Death</b>: Death Effect. <b>Hit</b> renders its header and animation validation only — its fallback-state field lives in the raw inspector.</p>
+  <p><b>Juggled</b>: Launch Force, Air Drag. <b>Death</b>: Death Effect. <b>Hit</b> renders its header and animation validation only — its fallback-state field lives in the raw inspector.</p>
 
   <h3>Presentation</h3>
   <p>The <b>Hurt</b> group is special: it edits the <b>prefab's</b> <code>EnemyStateMachine</code> component in place — Hurt Sound SoundRow plus an indented Volume row that appears once a clip is set (<i>plays on every landed hit, next to the hit flash</i>). Then <b>State Sounds</b>: one SoundRow per FSM state (the telegraph is the charge phase's sound; the death sting is the dead state's), each with its conditional Volume row. Finally, if the enemy has a death state, a <b>Death</b> group with the Death Effect.</p>
@@ -341,7 +369,7 @@
   </div>
   <figure class="shot">
     <img src="images/workbench-biome.png" alt="Levels category, Biome_pyre-crown">
-    <figcaption><b>Real capture.</b> Biome_pyre-crown on one page: the run-plan check, the CHAPTER V intro card text, “Road to Demon King” with its fallback note, and the generation Structure numbers (12–15 rooms, branch chance 0.5) that <a href="levels.html">Levels &amp; Rooms</a> explains in depth.</figcaption>
+    <figcaption><b>Real capture</b> (2026-07-22). Biome_pyre-crown on one page: the run-plan check, the CHAPTER V intro card text, “Road to Demon King” with its fallback note, and the generation Structure group that <a href="levels.html">Levels &amp; Rooms</a> explains in depth. <b>The Structure numbers in the shot are stale</b> — the asset now reads 3–4 rooms; re-shoot with <span class="kbd">Gleamwood ▸ Wiki ▸ Capture</span> rather than trusting them, and never hand-edit the figure.</figcaption>
   </figure>
   <div class="warn note"><b>Not here:</b> room pools and layout wiring stay in the raw inspector and <code>GameContent.ini</code> — the tab's own footer says so. See <a href="tuning.html">Tuning &amp; INI</a>.</div>
 </section>
@@ -367,7 +395,8 @@
 
 <section id="statuses">
   <h2><span class="num">10</span>Statuses — the smallest form</h2>
-  <p>No sub-tabs. One <b>Behavior</b> group: <b>Display Name</b> (shown in enemy/player status tags), <b>Decay Time (s)</b> (stack lifetime, refreshed on re-apply), <b>Max Stacks</b>. The form's own note carries the design intent: statuses gate executions (<code>ExecutionDefinition.RequiredStatus</code>) and transitions. Description and Icon exist on the asset but are <b>not shown in game yet</b>.</p>
+  <p class="lead">The whole tab is three fields drawn from attributes on one class — which is exactly why it is the page's reference for the zero-code path.</p>
+  <p>No sub-tabs, and two groups, because the generic form emits a section header each time the <code>[WorkbenchField]</code> section name changes: <b>Identity</b> — <b>Display Name</b> (shown in enemy/player status tags) — then <b>Behavior</b> — <b>Decay Time (s)</b> (stack lifetime, refreshed on re-apply) and <b>Max Stacks</b>. The form's own note carries the design intent: statuses gate executions (<code>ExecutionDefinition.RequiredStatus</code>) and transitions. Description and Icon exist on the asset but are untagged, so the curated form hides them — they are <b>not shown in game yet</b>.</p>
   <figure class="shot">
     <img src="images/workbench-status.png" alt="Statuses category, Ignite">
     <figcaption><b>Real capture.</b> Ignite: three fields (decay 5s, max 3 stacks) and the note that tells you what a status is actually <i>for</i> — gating executions and transitions, not flavor text.</figcaption>
@@ -394,10 +423,10 @@
     <li>Adds a state with that name on the requested layer, wired to the clip, and saves.</li>
     <li>Writes the name into your string field and pings the clip — the Console logs <i>“author its frames next”</i>, which is your cue.</li>
   </ol>
-  <p class="dim">Tagged fields today: melee swing + dash animation states (layer 0), ranged Draw (layer 0) / Hold / Release (layer 1), and every <code>PlayerStateConfig</code> / <code>EnemyStateConfig</code> <code>AnimatorStateName</code>.</p>
+  <p class="dim">Tagged fields today: melee swing + dash animation states (layer 0), the melee <b>directional-move</b> clip on <code>AttackDirection.AnimationState</code> (layer 0 — the Aerials/Ground entries in §5), the bow's per-direction <code>RangedAttack.AnimationState</code> (layer 0), ranged Draw (layer 0) / Hold / Release (layer 1), and every <code>PlayerStateConfig</code> / <code>EnemyStateConfig</code> <code>AnimatorStateName</code>.</p>
 
   <h3>EnemyStateNameRef — FSM state-id chains</h3>
-  <p>Marks a string as a reference to a state of the <b>containing EnemyDefinition's</b> state machine — the “Next Phase” chains you saw in §7 and the hit fallback. The popup lists the definition's state ids plus its execution state names, distinct and sorted, with <b>(unset)</b> first. Same <code>[T]</code> raw toggle (useful when a config is authored before its target state exists) and the same red <code>[MISSING]</code> treatment. <b>No create flow</b> — new FSM states are config sub-assets, made via the State Machine tools, not conjurable from a dropdown.</p>
+  <p>Marks a string as a reference to a state of the <b>containing EnemyDefinition's</b> state machine — the “Next Phase” chains you saw in §7 and the hit fallback. The popup lists the definition's state ids plus its execution state names, distinct and sorted, with <b>(unset)</b> first. Same <code>[T]</code> raw toggle (useful when a config is authored before its target state exists) and the same red <code>[MISSING]</code> treatment. <b>No create flow</b> — new FSM states are config sub-assets with four steps to get right, so you make them on the <a href="#states">States sub-tab</a> (§07) and then pick one here, rather than conjuring one from a dropdown.</p>
   <p class="dim">Tagged fields today: <code>NextStateName</code> on AttackPhase / Projectile / Summon / Relocate / HazardPhase configs, and <code>FallbackStateName</code> on the hit config.</p>
 </section>
 
@@ -408,12 +437,12 @@
   <table>
     <tr><th>You need to…</th><th>Go instead to…</th></tr>
     <tr><td>Tune enemy <b>Idle / Hit / Relocate / Hazard Phase</b> internals</td><td>The raw inspector — those states render only a header + animation validation in the workbench.</td></tr>
-    <tr><td>Add a <b>new FSM state</b> to an enemy</td><td>The State Machine tools — states are config sub-assets; the EnemyStateNameRef dropdown deliberately has no create flow.</td></tr>
+    <tr><td>Add a <b>new FSM state</b> to an enemy</td><td>The workbench's own <a href="#states"><b>States</b> sub-tab</a> (§07) — it is the one correct way, and <code>WorkbenchStates.CreateState</code> says so in as many words. The <code>EnemyStateNameRef</code> dropdown deliberately has no create flow, so make the state on States first and then pick it here.</td></tr>
     <tr><td>Wire biome <b>room pools / layout</b></td><td>Raw inspector + <code>GameContent.ini</code> (<a href="tuning.html">Tuning &amp; INI</a>).</td></tr>
     <tr><td>Touch <b>hit flash, colliders, range gizmos</b></td><td>The enemy prefab — use the <b>Select Prefab</b> button on the Overview tab.</td></tr>
     <tr><td>Trust a check <b>right after fixing</b> a registration, adding a BossDefinition, or adding a <code>[WorkbenchCategory]</code> type</td><td>Close and reopen the window first — every cache (checks, boss classification, dynamic tabs) refreshes only on reload.</td></tr>
     <tr><td>See a bossless-looking enemy under <b>Bosses</b>, or a boss under Enemies</td><td>Check the staging chain: prefab exists → a BossDefinition's <code>bossPrefab</code> points at it. No prefab = never a boss.</td></tr>
-    <tr><td>Author ranged <b>DrawSound / ProjectilePrefab</b>, or status <b>Description / Icon</b></td><td>Nowhere yet — those fields are not in the game. The workbench hides or footnotes them on purpose.</td></tr>
+    <tr><td>Author ranged <b>DrawSound</b>, or status <b>Description / Icon</b></td><td>Nowhere yet — those fields are not in the game. The workbench hides or footnotes them on purpose. (<b>ProjectilePrefab</b> used to be listed here and no longer is: it is live, and it is what carries a bow shot’s damage.)</td></tr>
     <tr><td>Tune movement feel <b>live, mid-run</b></td><td>The F1 debug panel in play mode (<a href="tuning.html">Tuning &amp; INI</a>) — the workbench is an edit-mode tool.</td></tr>
   </table>
   </div>
@@ -422,12 +451,12 @@
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
-    <li>The window shell + save model: <code>Assets/_Game/Editor/ContentWorkbench.cs</code>. The category system: <code>Assets/_Game/Editor/Workbench/</code> — <code>WorkbenchCategory.cs</code> (discovery), <code>WorkbenchForm.cs</code> (the form primitives), <code>WorkbenchCategories.cs</code> (the seven built-in tabs, incl. the grouped-dialogue editor).</li>
-    <li>Discovery attributes: <code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code> (<code>[WorkbenchCategory]</code>, <code>[WorkbenchField]</code>); the shipped zero-code example is <code>Assets/_Game/Combat/Code/CombatStatusDefinition.cs</code> (Statuses tab).</li>
+    <li>The window shell + save model + the rail's create row: <code>Assets/_Game/Editor/ContentWorkbench.cs</code> (<code>CategoryIndexFor</code> is the §01 fallback rule; <code>DrawCreateRow</code> is the §02 New verb). The category system: <code>Assets/_Game/Editor/Workbench/</code> — <code>WorkbenchCategory.cs</code> (discovery, the <code>(Order, Title)</code> sort, and the all-of-<code>Assets</code> scan on attribute tabs), <code>WorkbenchForm.cs</code> (the form primitives), <code>WorkbenchCategories.cs</code> (the seven built-in tabs, incl. the grouped-dialogue editor), <code>WorkbenchStates.cs</code> (all of §07's States sub-tab: create/delete/rename, the validation rows, the Maintenance cleanup), <code>WorkbenchAssetFactory.cs</code> (the New verb and its <code>IWorkbenchAssetCreatedHandler</code> hook), <code>WorkbenchTabIcons.cs</code> (icon resolution and the cached failures).</li>
+    <li>Discovery attributes: <code>Assets/_Game/Systems/Authoring/WorkbenchAttributes.cs</code> (<code>[WorkbenchCategory]</code>, <code>[WorkbenchField]</code>, <code>NewAssetFolder</code>). The seven attribute-built rail tabs are their tagged types — <code>Assets/_Game/Combat/Code/CombatStatusDefinition.cs</code> (Statuses, the reference zero-code example), <code>Assets/_Game/Systems/Run/RunModifierDefinition.cs</code> (Run Upgrades), <code>Assets/_Game/Systems/Run/Rooms/MoveDefinition.cs</code> (Moves), <code>Assets/_Game/Systems/Run/Rooms/AbilityDefinition.cs</code> (Abilities), <code>Assets/_Game/Systems/Run/MetaUpgradeDefinition.cs</code> (Kit Upgrades), <code>Assets/_Game/Systems/Dialogue/PoseCatalog.cs</code> (Poses), <code>Assets/_Game/Systems/Dialogue/VoiceBank.cs</code> (Voice). <b>Every rail tab in §02 is reachable from this bullet — if one is not, the table has drifted.</b></li>
     <li>Grouped dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueSet.cs</code> (groups + <code>DialogueTriggers</code>) · <code>DialogueCategory</code> in <code>WorkbenchCategories.cs</code>.</li>
     <li>Animator dropdown: <code>Assets/_Game/Combat/Code/AnimatorStateRefAttribute.cs</code> + <code>Assets/_Game/Editor/Combat/AnimatorStateRefDrawer.cs</code> (including the Create New State window).</li>
     <li>Enemy state dropdown: <code>Assets/_Game/Enemies/Code/Definitions/EnemyStateNameRefAttribute.cs</code> + <code>Assets/_Game/Editor/Enemies/EnemyStateNameRefDrawer.cs</code>.</li>
-    <li>The markdown companion: <code>../GAME_TUNING_GUIDE.md</code> §2 must agree with this page.</li>
+    <li>This page is the source of record for the Workbench. Nothing else restates its tab list — that is why the list stopped drifting.</li>
   </ul>
 </div>
 

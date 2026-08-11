@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -40,7 +43,9 @@
   <pre><code>Mods/
   <span class="a">my-campaign</span>/          <span class="c">&lt;-- the folder name IS the campaign id</span>
     mod.ini            <span class="c">&lt;-- without this the folder is ignored entirely</span>
-    Enemies/  Weapons/  Dialogue/  Player/  Progression/</code></pre>
+    Enemies/  Weapons/  Dialogue/  Player/  Progression/
+    Campaign/          <span class="c">&lt;-- the run's shape</span>
+      Rooms/           <span class="c">&lt;-- and your own rooms, drawn as text</span></code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Folder inside your campaign</th><th>What a text file there can do</th><th>Deep dive</th></tr>
@@ -49,9 +54,10 @@
     <tr><td><code>Dialogue/</code></td><td>Rewrite any character's lines, or translate the whole game, in the plain-text <code>.dlg</code> format.</td><td><a href="dialogue.html#modding">Dialogue §09</a></td></tr>
     <tr><td><code>Player/</code></td><td>Reskin the player — your own sprite sheet over the game's moves. A <code>[PlayerSkin]</code> file names the clips (with a <code>slot</code> for the split-body run). Changes how the player LOOKS, never what it DOES.</td><td><a href="#player">§06 below</a></td></tr>
     <tr><td><code>Progression/</code></td><td><b>Set the economy.</b> Retune what the Shopkeeper sells and what it costs, retune the per-run modifiers a run can pick up, or declare your own of either. This is what stops a campaign playing Gleamwood's progression with its own content.</td><td><a href="#progression">§08 below</a></td></tr>
-    <tr><td><code>Campaign/</code></td><td><b>Re-web the run itself.</b> Which biomes you visit, in what order, which branch, where it ends — plus retunes of any biome along the way. This is what makes a campaign a campaign rather than a pile of retunes.</td><td><a href="#campaign">§07 below</a></td></tr>
+    <tr><td><code>Campaign/</code></td><td><b>Re-web the run itself.</b> Which biomes you visit, in what order, which branch, where it ends — plus retunes of any biome along the way. And in <code>Campaign/Rooms/</code>, <b>your own rooms as <code>.room</code> drawings</b>: the one place a text file makes a genuinely new asset rather than recombining shipped ones. This is what makes a campaign a campaign rather than a pile of retunes.</td><td><a href="#campaign">§07 below</a></td></tr>
   </table>
   </div>
+  <div class="note rule"><b>Where this is going: a campaign is a whole game.</b> The destination is <b>maker mode</b> — Gleamwood becomes a 2D roguelite maker and ships as its own first campaign. Every seam on this page is judged against one question: <i>if a campaign supplied all of it, would anything of ours still be load-bearing?</i> That is why "can I change this?" keeps being answered with a text file rather than a plugin API, and why the folders above cover the run's shape, its creatures, its weapons, its voice, its look and its economy. Where the answer is still <i>no</i>, this page says so out loud rather than letting the maker-mode line read as delivered — see <a href="#progression">§08</a>, where the moveset and the traversal abilities can be retuned but not extended.</div>
   <div class="note rule"><b>You never start from a blank page.</b> Every build ships a complete campaign you can copy: <code>Mods/_Templates/example-campaign/</code>, holding a <code>mod.ini</code> plus one file per shipped enemy, weapon and conversation — with the <b>real current values</b>, correctly spelled, <b>every line commented out</b>. Copy that folder up into <code>Mods/</code>, rename it, delete the <code>;</code> in front of one line, change the number. That is the whole workflow. (It sits inert where it ships — the game only looks one level under <code>Mods/</code> for a <code>mod.ini</code>, so the template never shows up as a playable campaign.)</div>
 </section>
 
@@ -122,11 +128,25 @@ RESULT: OK — 1 declared, 1 retuned.
   <div class="scrollx">
   <table>
     <tr><th>Location</th><th>What it is</th></tr>
-    <tr><td><code>Documentation/ExampleMod/</code></td><td><b>A tasteful example.</b> A couple of retunes, a glass-cannon hound, a status-bow, an icy player skin — and eight <code>Campaign/Rooms/*.room</code> drawings that build a <b>looping</b> level when you uncomment the lattice block in <code>RunWeb.ini</code>. Each is heavily commented to read as a tutorial; <code>lat-junction.room</code> in particular shows why an ability gates a <i>journey</i> rather than a room. Copy its <code>Mods/</code> folder next to the game, then pick <b>Example Campaign</b> when you start a new save.</td></tr>
-    <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every tier at once, weighted to dominate, for proving the whole stack survived a change. Not fun to play — built to be obvious in a screenshot.</td></tr>
+    <tr><td><code>Documentation/ExampleMod/</code></td><td><b>A tasteful example.</b> A couple of retunes, a glass-cannon hound, a status-bow, an icy player skin — and ten <code>Campaign/Rooms/*.room</code> drawings that build a <b>looping</b> level when you uncomment the lattice block in <code>RunWeb.ini</code>. Each is heavily commented to read as a tutorial; <code>lat-junction.room</code> in particular shows why an ability gates a <i>journey</i> rather than a room. Copy its <code>Mods/</code> folder next to the game, then pick <b>Example Campaign</b> when you start a new save.</td></tr>
+    <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every <i>enemy</i> tier (retune, variant, <code>[Graph:]</code>, art) and every <i>weapon</i> tier (retune, declare, sell in the shop) at once, weighted 500-to-1 to dominate the rolls, for proving that stack survived a change. It covers those two folders only — it is not a whole campaign. Not fun to play; built to be obvious in a screenshot.</td></tr>
   </table>
   </div>
-  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them. In the editor, mod loading is behind <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies / Weapons</span> so authoring is never quietly beaten by a stray folder; in a shipped build it is always on.</p>
+  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them.</p>
+
+  <h3>The editor and a build load mods differently</h3>
+  <p class="lead">This is worth knowing before you trust a test: <b>a build always loads mods; the editor only does when you switch the domain on</b>, so authoring is never quietly beaten by a stray folder. The build branch is the one players hit, and it is the one a test pack exists to exercise.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Domain</th><th>Editor</th><th>Build</th></tr>
+    <tr><td><code>Enemies/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies</span></td><td rowspan="6">Always on</td></tr>
+    <tr><td><code>Weapons/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Weapons</span></td></tr>
+    <tr><td><code>Player/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span></td></tr>
+    <tr><td><code>Dialogue/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span></td></tr>
+    <tr><td><code>Progression/</code></td><td>No menu toggle — active whenever a campaign is</td></tr>
+    <tr><td><code>Campaign/</code></td><td>No menu toggle — it <i>is</i> the campaign</td></tr>
+  </table>
+  </div>
 </section>
 
 <section id="player">
@@ -153,7 +173,7 @@ clip Upper_Run = <span class="a">24-35</span> fps <span class="a">18</span> <spa
 
   <div class="note"><b>Pivot: one number, and both halves share it.</b> <code>pivot = 2</code> means "my character's feet sit 2px above the bottom of a frame". Because the halves are one drawing, they anchor identically — there is nothing to line up by hand, and you should <b>not</b> give a torso clip its own pivot. (An <code>x,y</code> form exists and still applies to enemy art, <a href="enemies.html#art">§12</a>, where a sheet's centre is not its anchor. It used to be needed here too, back when the torso was separately drawn art painted over the legs; a hand-tuned anchor is exactly what the shader cut removed.)</div>
 
-  <p>You never start from a blank page here either: a build ships <code>Mods/_Templates/example-campaign/Player/PlayerSkin.ini</code> listing <b>every</b> clip the player has — all 26 body clips and the 11 torso clips — each with its slot and the right frame rate, every line commented out. Regenerate it any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
+  <p>You never start from a blank page here either: a build ships <code>Mods/_Templates/example-campaign/Player/PlayerSkin.ini</code> listing <b>every</b> clip the player has, body and torso, each with its slot and the right frame rate, every line commented out. It is regenerated from the shipped animation set on every build — so it grows when the player does, and the count in it is never something this page has to keep up with. Regenerate it by hand any time with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span>. With <code>clips = extend</code> you can reskin just the idle and run and leave the rest shipped.</p>
 
   <div class="scrollx">
   <table>
@@ -163,7 +183,7 @@ clip Upper_Run = <span class="a">24-35</span> fps <span class="a">18</span> <spa
     <tr><td>changing what the player DOES</td><td>Not possible: a skin only supplies frames. Moves, timing and states are compiled. This is the deliberate ceiling — <code>Player/</code> has no behaviour tier the way enemies have <code>[Graph:]</code>.</td></tr>
   </table>
   </div>
-  <p class="dim">Editor and build diverge like the rest: builds always load; the editor only under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span>. The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log says what loaded.</p>
+  <p class="dim">Editor and build diverge like the rest (<a href="#example">§05</a>). The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log says what loaded.</p>
 </section>
 
 <section id="campaign">
@@ -203,7 +223,7 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
   <div class="note"><b>Trailing comments are fine <i>here</i>.</b> Notice the <code>; where every run begins</code> notes sitting after values above — legal in <code>Campaign/</code> and in <code>mod.ini</code>, because these files share the reader the game's own <code>GameContent.ini</code> uses, and it strips a mid-line <code>;</code>. That reader is the exception: in <code>Weapons/</code>, <code>Enemies/</code>, <code>Player/</code> and <code>Progression/</code> the same habit silently voids the value (<a href="#new">§03</a>). If you only remember one rule, put every note on its own line and it is always correct.</div>
 
   <h3>What you can name</h3>
-  <p>Names resolve against the shipped game's content. You can recombine any of it; you cannot invent new assets from a text file.</p>
+  <p>Names resolve against the shipped game's content, <b>plus any room this campaign drew itself</b> (see below). You can recombine any of it; apart from rooms, you cannot invent new assets from a text file.</p>
   <div class="scrollx">
   <table>
     <tr><th>Key</th><th>Where</th><th>What it takes</th></tr>
@@ -216,16 +236,31 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
     <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — numbers and text</b></td></tr>
     <tr><td><code>displayName</code> <code>chapter</code> <code>objective</code></td><td><code>[Biome:]</code></td><td>What the intro card says.</td></tr>
     <tr><td><code>minRooms</code> <code>maxRooms</code> <code>verticalJogChance</code> <code>branchChance</code> <code>maxBranches</code> <code>branchRunMax</code> <code>calmRoomBeforeBoss</code></td><td><code>[Biome:]</code></td><td>How the layout generates.</td></tr>
-    <tr><td><code>topology</code></td><td><code>[Biome:]</code></td><td><code>Chain</code> (the default — a spine left to right with dead-end spurs) · <code>Lattice</code> (a rolled grid of columns and bands, which can carry <b>loops</b>) · <code>Branching</code> (a trunk, a vertical fan column at its end, and one eastbound path leaving each storey — <b>3 or 4 ways out of the level</b>, one behind the boss and the rest slip-aways). <b>A campaign file is the only place this can be set</b> — <code>GameContent.ini</code>'s importer has no case for it, so the shipped game is all chains.</td></tr>
-    <tr><td><code>branches</code></td><td><code>[Biome:]</code></td><td>Branching only: how many PATHS the level offers, including the boss road. Path 0 always carries the boss corridor, arena and exit; the rest end in <code>SlipAway</code> rooms. <code>1</code> is legal and means a forced-boss level with no way to skip the fight.</td></tr>
-    <tr><td><code>pathRoomsMin</code> · <code>pathRoomsMax</code></td><td><code>[Biome:]</code></td><td>Branching only: how many rooms ONE path owns. The boss road spends part of that budget on its corridor and arena. Defaults are <b>4–6, and they are measured</b> — swept over 200 seeds of the shipped pool, that is the largest budget that keeps every level inside 28–41 rooms <i>and</i> a minimap more readable than the chain it replaces. 5–8 gives 34–46 rooms and a worst case of 0.62&nbsp;px/cell against the chain's 0.55: bigger levels, drawn as a smear.</td></tr>
-    <tr><td><code>bandHeight</code></td><td><code>[Biome:]</code></td><td>Branching only: how tall one path's lane is, in cells. <b>Must exceed the tallest room in your pool</b> or nothing can be placed — and the fan base is deliberately exactly one band tall, which is what makes the storey above it land on the next band's floor. The slack above your tallest room is exactly how much vertical jog a path is allowed.</td></tr>
-    <tr><td><code>latticeTier</code></td><td><code>[Biome:]</code></td><td>Lattice only: <code>Arc</code> (one loop) · <code>Stack</code> (a loop with a shaft standing on it) · <code>Web</code> (an arc off the arc — two nested loops). The generator comes DOWN this list until a shape your rooms can build fits, and names the room that would have bought the one above. Asking for more than you have costs a log line, never the level.</td></tr>
     <tr><td><code>statScalePerStage</code></td><td><code>[Biome:]</code></td><td>How much tougher enemies get with depth.</td></tr>
+    <tr><td><code>topology</code> <code>latticeTier</code> <code>branches</code> <code>pathRoomsMin</code> <code>pathRoomsMax</code> <code>bandHeight</code></td><td><code>[Biome:]</code></td><td>Which <i>shape</i> of level the generator builds. Their own subsection, below the table.</td></tr>
     <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — shipped assets, by name</b></td></tr>
-    <tr><td><code>boss</code> <code>spawnTable</code> <code>musicTrack</code> <code>roomPool</code> <code>socketCap</code> <code>standInLayout</code> <code>branchTreasure</code></td><td><code>[Biome:]</code></td><td>Any shipped asset of that kind. <code>roomPool</code> takes a comma list. <code>-</code> clears it.</td></tr>
+    <tr><td><code>boss</code> <code>spawnTable</code> <code>musicTrack</code> <code>socketCap</code> <code>standInLayout</code> <code>branchTreasure</code></td><td><code>[Biome:]</code></td><td>Any shipped asset of that kind. <code>-</code> clears it.</td></tr>
+    <tr><td><code>roomPool</code></td><td><code>[Biome:]</code></td><td>A comma list of room names; <code>-</code> clears it. <b>A room your campaign declared wins over a shipped one of the same name</b> — declared is resolved first, so naming your own <code>Room_Ember_Entry</code> means the one you drew. Shadowing is the whole point of being able to declare one.</td></tr>
   </table>
   </div>
+
+  <h3>Choosing the shape of a level</h3>
+  <p class="lead">Six keys pick between three generators. <code>Chain</code> is only the enum's default — <b>every biome the game ships is <code>Branching</code></b>, and <code>GameContent.ini</code> reads these same keys, so a block copied out of it means here exactly what it means there.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>Applies to</th><th>What it takes</th></tr>
+    <tr><td><code>topology</code></td><td>all</td><td><code>Chain</code> (a spine left to right with dead-end spurs) · <code>Lattice</code> (a rolled grid of columns and bands, which can carry <b>loops</b>) · <code>Branching</code> (a trunk, a vertical fan column at its end, and one eastbound path leaving each storey — <b>3 or 4 ways out of the level</b>, one behind the boss and the rest slip-aways).</td></tr>
+    <tr><td><code>latticeTier</code></td><td>Lattice</td><td><code>Arc</code> (one loop) · <code>Stack</code> (a loop with a shaft standing on it) · <code>Web</code> (an arc off the arc — two nested loops). The generator comes DOWN this list until a shape your rooms can build fits, and names the room that would have bought the one above. Asking for more than you have costs a log line, never the level.</td></tr>
+    <tr><td><code>branches</code></td><td>Branching</td><td>How many PATHS the level offers, including the boss road. Path 0 always carries the boss corridor, arena and exit; the rest end in <code>SlipAway</code> rooms. <code>1</code> is legal and means a forced-boss level with no way to skip the fight.</td></tr>
+    <tr><td><code>pathRoomsMin</code> · <code>pathRoomsMax</code></td><td>Branching</td><td>How many rooms ONE path owns. The boss road spends part of that budget on its corridor and arena. Defaults are <b>4–6, and they are measured</b> — swept over 200 seeds of the shipped pool, that is the largest budget that keeps every level inside 28–41 rooms <i>and</i> a minimap more readable than the chain it replaces. 5–8 gives 34–46 rooms and a worst case of 0.62&nbsp;px/cell against the chain's 0.55: bigger levels, drawn as a smear.</td></tr>
+    <tr><td><code>bandHeight</code></td><td>Branching</td><td>How tall one path's lane is, in cells. <b>Must exceed the tallest room in your pool</b> or nothing can be placed — and the fan base is deliberately exactly one band tall, which is what makes the storey above it land on the next band's floor. The slack above your tallest room is exactly how much vertical jog a path is allowed.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>An unknown value here is named, not swallowed.</b> <code>topology</code> and <code>latticeTier</code> parse as enums; a value that is not one is reported with the list of valid ones, and the shipped setting is kept. That care exists because these keys were once the opposite: the generators were written and tested while <i>no</i> reader accepted a key for them, so a shape the runtime fully honoured was one no author could ask for. A knob nobody can turn is welded shut — and a generator no content can reach does not exist as far as a player is concerned.</div>
+
+  <h3>Your own rooms</h3>
+  <p class="lead">A campaign can supply its own <b>level geometry</b> as text: every <code>Campaign/Rooms/*.room</code> file is read at load and built into a real room, which you then name in a biome's <code>roomPool</code> like any shipped one. This is the one place the "you cannot invent new assets from a text file" rule does not hold.</p>
+  <p>A <code>.room</code> file is genuinely a drawing: a two-line header (<code>room:</code> for the name, <code>tags:</code> for its role) and then a <code>grid:</code> of characters, where the doors are drawn into the walls rather than declared. The ten in <code>Documentation/ExampleMod</code> (<a href="#example">§05</a>) are written to be read as the tutorial: <code>lat-junction.room</code> in particular shows why an ability gates a <i>journey</i> rather than a room. Every declared room goes through the <b>same auditor the shipped prefabs do</b>, at load — so a drawing that would strand the player (a door you can arrive through and then leave by no other) is refused with the reason, rather than wasting a run.</p>
 
   <div class="note"><b>Enemies you declared still work here.</b> A campaign that adds a creature in <code>Enemies/</code> and retunes a biome in <code>Campaign/</code> gets both: the retuned biome still rolls from the same spawn table, so your new enemy appears in it with nothing extra to wire.</div>
 
@@ -249,8 +284,8 @@ perLevel = 15
 baseCost = 80
 
 <span class="c">; declare one of your own</span>
-[<span class="a">NewUpgrade:swiftness</span>]
-displayName = Swiftness
+[<span class="a">NewUpgrade:keen-edge</span>]
+displayName = Keen Edge
 description = Every weapon hits a little harder.
 effect      = DamagePercent
 perLevel    = 4
@@ -283,37 +318,40 @@ maxStacks   = 2</code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Section</th><th>What it is</th><th>What <code>effect</code> can be</th></tr>
-    <tr><td><code>[Upgrade:]</code></td><td><b>Permanent.</b> Bought once with Gleam and kept forever, across every run on that save.</td><td><code>MaxHp</code> · <code>DamagePercent</code> · <code>WeaponStartLevel</code></td></tr>
-    <tr><td><code>[Move:]</code></td><td><b>Permanent.</b> A directional attack the player buys once. The header is the move's <code>MoveKey</code> — <code>aerial:down</code>, <code>ground:up</code>, <code>bow:forward</code> — the same string a weapon file uses to address it. Retune only; see the warning above.</td><td><code>displayName</code> · <code>input</code> · <code>description</code> · <code>cost</code></td></tr>
-    <tr><td><code>[Ability:]</code></td><td><b>Permanent.</b> A movement verb — the wall jump, the dash. Retune only, and note these also drive which rooms the generator believes are clearable.</td><td><code>displayName</code> · <code>description</code> · <code>cost</code></td></tr>
-    <tr><td><code>[RunModifier:]</code></td><td><b>Per-run.</b> Picked up during a run and lost when it ends. These change <i>rules</i>, not numbers — "your up-air launches now" is not a number.</td><td><code>ComboCancels</code> · <code>AerialAttacks</code> · <code>Imbue</code></td></tr>
+    <tr><td><code>[Upgrade:]</code></td><td><b>Permanent.</b> Bought once with Gleam and kept forever, across every run on that save.</td><td><code>MaxHp</code> · <code>DamagePercent</code> · <code>WeaponStartLevel</code> · <code>MeleeCancel</code> · <code>BowCancel</code></td></tr>
+    <tr><td><code>[Move:]</code></td><td><b>Permanent.</b> A directional attack the player buys once. The header is the move's <code>MoveKey</code> — <code>aerial:down</code>, <code>ground:up</code>, <code>bow:up</code> — the same string a weapon file uses to address it. Only the moves the shop <i>sells</i> have an entry to retune: the ones every profile owns from the start (the neutral air, and the bow's planted and running shots) are not addressable. Retune only; see the warning below.</td><td><code>displayName</code> · <code>input</code> · <code>description</code> · <code>cost</code></td></tr>
+    <tr><td><code>[Ability:]</code></td><td><b>Permanent.</b> A movement verb. The shipped two are <code>[Ability:dash]</code> and <code>[Ability:wall-jump]</code>. Retune only, and note these also drive which rooms the generator believes are clearable.</td><td><code>displayName</code> · <code>description</code> · <code>cost</code></td></tr>
+    <tr><td><code>[RunModifier:]</code></td><td><b>Per-run.</b> Picked up during a run and lost when it ends. These change <i>rules</i>, not numbers — "your up-air launches now" is not a number.</td><td><code>ComboCancels</code> · <code>AerialAttacks</code> · <code>Imbue</code> · <code>PerfectWindow</code> · <code>JumpHeight</code> · <code>MoveSpeed</code> · <code>RunAccel</code> · <code>DashDistance</code> · <code>DashCooldown</code></td></tr>
   </table>
   </div>
-  <p>An upgrade takes <code>perLevel</code> (how much one level grants), <code>maxLevel</code>, <code>baseCost</code> and <code>costGrowth</code> (added per level after the first). A modifier takes <code>maxStacks</code>.</p>
+  <p>An upgrade takes <code>perLevel</code> (how much one level grants), <code>maxLevel</code>, <code>baseCost</code> and <code>costGrowth</code> (added per level after the first). A modifier takes <code>maxStacks</code> — plus <code>scalePerStack</code> for the ones that <i>multiply</i> a value rather than count something: <code>PerfectWindow</code> and the five movement effects. Leave that at 1 on a multiplying effect and the entry is refused, because one stack of it would change nothing.</p>
 
   <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result.</div>
 
   <div class="note warn"><b>This tier buys RETUNE, not EXTEND — and the difference is worth knowing before you plan around it.</b>
-  You can rename, reprice, redescribe, cap, reorder and disable <i>every</i> entry the game ships, and you can declare
-  your own <code>[NewUpgrade:]</code> and <code>[NewRunModifier:]</code>. You <b>cannot</b> add a ninth move, a third
-  ability, or a new kind of effect. <code>[NewMove:]</code> and <code>[NewAbility:]</code> are refused by name rather
-  than ignored, and the log says why: the vocabularies (<code>MoveSet</code>, <code>PlayerAbilities</code>,
-  <code>RunEffect</code>, <code>MetaEffect</code>, <code>AttackDirection</code>) are compiled enums read at fixed seams,
-  so a new entry would have no bit to grant and nothing would consult it — it would show up in the shop, be bought, and
-  do nothing at all. Refusing loudly beats selling that.
+  You can rename, reprice, redescribe and re-cap <i>every</i> entry the game ships, and you can declare your own
+  <code>[NewUpgrade:]</code> and <code>[NewRunModifier:]</code> — carrying an <code>effect</code> the game already has.
+  You <b>cannot</b> add a move, an ability, or a new kind of effect. <code>[NewMove:]</code> and
+  <code>[NewAbility:]</code> are refused by name rather than ignored, and the log says why: the vocabularies
+  (<code>MoveSet</code>, <code>PlayerAbilities</code>, <code>RunEffect</code>, <code>MetaEffect</code>,
+  <code>AttackDirection</code>) are compiled C# enums read at fixed seams, so a new entry would have no bit to grant and
+  nothing would consult it — it would show up in the shop, be bought, and do nothing at all. Refusing loudly beats
+  selling that. <code>[Move:]</code> and <code>[Ability:]</code> reach only the entries the game already ships, for the
+  same reason; a header naming anything else is quietly nothing.
   <br><br>
   <b>Extend is deferred, not abandoned.</b> The eventual answer is string-keyed registries, and the reason it has not
   happened yet is a real cost rather than a missing afternoon: <code>MoveSet</code> is an allocation-free bitset tested
   on the per-swing path, and a registry lookup there is a per-hit cost paid by every player so that a few campaigns can
   add a move. That trade gets made deliberately, on the way to <b>maker mode</b> — the destination where Gleamwood is a
-  2D roguelite maker that ships as its own first campaign — not by accident.</div>
+  2D roguelite maker that ships as its own first campaign — not by accident. Until it is made: <b>deferred</b>, and this
+  page will keep saying so.</div>
 
   <div class="note rule"><b>The name in the header is a save key.</b> <code>vigor</code>, <code>combo-cancels</code> — those strings are written into save files. You cannot set <code>id</code> from a file (the game says so if you try), and renaming a section in a campaign somebody has already played silently drops that upgrade from every save holding it. A <code>[NewUpgrade:]</code> or <code>[NewRunModifier:]</code> that repeats a shipped name is refused for the same reason.</div>
 
   <h3>When it is wrong</h3>
   <p>Refusal is <b>per entry, never per file</b>. A misspelled field, a value that is not a number, or an entry that could never do anything — an upgrade granting <code>0</code> per level, an <code>Imbue</code> modifier naming no move — is reported in the report (<a href="#report">§04</a>) and dropped, and the rest of the file still applies. A modded entry goes through the <em>same</em> validation a designer's does, so a mod cannot ship a reward that silently does nothing.</p>
 
-  <div class="note"><b>Not here yet: moves and abilities.</b> The directional moves the shop sells (the up-attack, the aerials) and the traversal abilities are still fixed in the game itself — a campaign cannot re-price or add those. They are waiting on the same asset migration the run modifiers have just had; when it lands they appear here as <code>[Move:]</code> and <code>[Ability:]</code> with no new grammar to learn.</div>
+  <div class="note"><b>A retune can never break a move you already bought.</b> <code>[Move:]</code> and <code>[Ability:]</code> are the two entries with teeth outside the shop — a move is a save key a weapon file also addresses, and an ability is a flag the room generator reads when it decides which levels are clearable. So if a retune leaves one unusable — a display name blanked, an input line deleted — the campaign's version is dropped and the <b>shipped</b> move or ability is used instead: a campaign may not break a move the player has already bought. Everywhere else a bad entry is simply dropped; here there is a purchase behind it.</div>
 </section>
 
 <div class="honest">
@@ -322,8 +360,9 @@ maxStacks   = 2</code></pre>
     <li>This page is the player-facing umbrella over three deep dives — it must agree with all three: <a href="enemies.html#modding">enemies.html §10–12</a>, <a href="combat.html#modding">combat.html §10</a>, <a href="dialogue.html#modding">dialogue.html §09</a>.</li>
     <li>Weapon loaders: <code>Assets/_Game/Systems/Run/Weapons/WeaponOverrides.cs</code>, <code>WeaponVariants.cs</code>, <code>WeaponStatusReport.cs</code>; <code>Assets/_Game/Combat/Code/StatusCatalog.cs</code>.</li>
     <li>Enemy loaders: <code>Assets/_Game/Enemies/Code/Definitions/EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>; dialogue: <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code>; progression: <code>Assets/_Game/Systems/Modding/ProgressionOverrides.cs</code>. All five share the text&rarr;field applier in <code>Assets/_Game/Systems/Modding/IniFieldApplier.cs</code>.</li>
-    <li>Campaign / run web (§07): <code>Assets/_Game/Systems/Modding/CampaignPlan.cs</code> (parse + the two-level clone), <code>Assets/_Game/Systems/Run/RunContentCatalog.cs</code> (name→asset at runtime; rebuild with <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Rebuild Content Catalog</span>), <code>RunWebValidator.cs</code> (is the web playable), <code>RunWebFingerprint.cs</code> (the suspended-run guard). The key names must stay in step with <code>Assets/_Game/Editor/ContentIniImporter.cs</code> — that parity is the whole copy-paste promise.</li>
-    <li>Player skin (§06): <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code>, hook in <code>Assets/_Game/Player/Code/Animation/PlayerAnimation.cs</code> (Awake); the shared clip reader is <code>ModClipSetBuilder.ParseClipLine</code>.</li>
+    <li>Campaign / run web (§07): <code>Assets/_Game/Systems/Modding/CampaignPlan.cs</code> (parse + the two-level clone), <code>Assets/_Game/Systems/Run/RunContentCatalog.cs</code> (name→asset at runtime; rebuild with <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Rebuild Content Catalog</span>), <code>Assets/_Game/Systems/Run/RunWebValidator.cs</code> (is the web playable), <code>Assets/_Game/Systems/Run/RunWebFingerprint.cs</code> (the suspended-run guard). The <code>[Biome:]</code> and <code>[Node:]</code> key names must stay in step with <code>Assets/_Game/Editor/ContentIniImporter.cs</code> — that parity is the whole copy-paste promise, and the level-shape keys (<code>topology</code> and friends) are read by <b>both</b> files. <code>Assets/_Game/Systems/Run/BiomeDefinition.cs</code> holds <code>LayoutTopology</code>/<code>LatticeTier</code>/<code>GenRules</code>.</li>
+    <li>Campaign-declared rooms (§07): <code>Assets/_Game/Systems/Run/Rooms/DeclaredRooms.cs</code> (reads <code>Campaign/Rooms/*.room</code>, resolved <i>before</i> the shipped catalog), <code>Assets/_Game/Systems/Run/Rooms/RoomTextParser.cs</code> (the drawing grammar), <code>Assets/_Game/Systems/Run/Rooms/RoomBuilder.cs</code> (builds and audits at load), <code>Assets/_Game/Systems/Run/Rooms/RoomAudit.cs</code> + <code>RoomReachability.cs</code> (the shared verdict — same one the editor validator runs).</li>
+    <li>Player skin (§06): <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code>, hook in <code>Assets/_Game/Player/Code/Animation/PlayerAnimation.cs</code> (Awake); the shared clip reader is <code>ModClipSetBuilder.ParseClipLine</code>. The shipped template is generated by <code>Assets/_Game/Systems/Utils/Build/Editor/PlayerSkinTemplateBuildStep.cs</code> from <code>Assets/_Game/Player/Data/Player.asset</code> — that is why §06 quotes no clip count.</li>
     <li>Templates + packs: <code>Assets/_Game/Systems/Utils/Build/Editor/WeaponTemplateBuildStep.cs</code>, <code>EnemyTemplateBuildStep.cs</code>, <code>PlayerSkinTemplateBuildStep.cs</code>, <code>ProgressionTemplateBuildStep.cs</code> — all on the shared <code>TemplateBuildStepBase.cs</code> shell, with the field emitter in <code>IniFieldWriter.cs</code>; <code>Assets/_Game/Editor/Enemies/TestModpackGenerator.cs</code>; shipped example <code>Documentation/ExampleMod/</code>.</li>
   </ul>
 </div>

@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -79,6 +82,7 @@
   <div class="warn note"><b>Up sockets are a promise.</b> A Down socket is always traversable (you fall through it). An <b>Up</b> socket only counts as an exit if the room internally terraces up to it in ≤2&nbsp;u steps — that is the author's responsibility, and the reachability audit (§4) is what catches you when you break it.</div>
 
   <h3>RoomTags</h3>
+  <p class="lead">What the generator may use a room <i>as</i>. The last three exist for <b>Branching</b> (§7c) — the only topology any shipped biome uses — so a pool without them cannot build the shape the game actually ships.</p>
   <div class="scrollx">
   <table>
     <tr><th>Tag</th><th>Value</th><th>Meaning</th></tr>
@@ -90,6 +94,9 @@
     <tr><td><code>Secret</code></td><td>32</td><td>Branch terminal that hides something — the <b>preferred home for the bypass door</b> (§7).</td></tr>
     <tr><td><code>Boss</code></td><td>64</td><td>Arena inserted <b>before</b> the Exit. Needs L+R sockets, a <code>BossGate</code>, and exactly one <code>EnemySpawnMarker</code> with <code>isBossPoint</code>. Never used as a normal middle.</td></tr>
     <tr><td><code>BossCorridor</code></td><td>128</td><td>The Mega-Man lead-in hallway inserted before the Boss arena. Needs L+R sockets. Never a normal middle.</td></tr>
+    <tr><td><code>SlipAway</code></td><td>256</td><td>The dead end at the far end of a <b>non-boss</b> path: the way out you found instead of the one you fought for. Carried <b>alongside <code>Exit</code>, never instead of it</b> — a slip-away room holds a real <code>BiomeExit</code> fixture and leaves the biome by the same verb the boss road does, so the validator's "an Exit room with no BiomeExit" rule covers it for free. Structurally both are Left-only terminals; only the tag can tell them apart, and what it carries is the difference in <i>payout</i> and in what it means on a final node.</td></tr>
+    <tr><td><code>FanBase</code></td><td>512</td><td>The floor of the fan column — where a Branching level's paths part company. Needs <b>Left</b> (the trunk arrives), <b>Right</b> (path 0 leaves) and <b>Up</b> (the column continues), and must be <b>exactly <code>genRules.bandHeight</code> cells tall</b> so the storey above lands on the next band's floor.</td></tr>
+    <tr><td><code>FanStorey</code></td><td>1024</td><td>One storey of that column: <b>Down and Up in the same column</b> so the stack reads as one shaft, plus a <b>Right</b> door for the path that leaves this band. The topmost storey may omit Up. Also exactly <code>bandHeight</code> tall — except the top one, which only has to fit its band.</td></tr>
   </table>
   </div>
 
@@ -145,7 +152,7 @@
     <li><b>Join the pool.</b> Normally the room name already matches the biome's INI glob (<code>roomPool = Room_Ember_*</code>) — just re-run <span class="kbd">Gleamwood ▸ Import Content INI</span>. Explicit pools (pyre-crown) need the name added by hand.</li>
     <li><b>Prove it:</b> <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>, then <span class="kbd">Gleamwood ▸ Validate Run Content</span>. Both clean or the room isn't done.</li>
   </ol>
-  <div class="rule note"><b>The fix-tile rule</b> (GAME_TUNING_GUIDE §6, verbatim): "When placing fix tiles: never within 2 columns above a platform edge that must stay mountable — the tile blocks the jump arc."</div>
+  <div class="rule note"><b>The fix-tile rule</b>: "When placing fix tiles: never within 2 columns above a platform edge that must stay mountable — the tile blocks the jump arc."</div>
 </section>
 
 <section id="reachability">
@@ -194,12 +201,22 @@
     <tr><td><b>behind an ability</b> <span class="dim">(note)</span></td><td><i>"Left@1 -&gt; Up@2 needs wall jump"</i>. Working as intended — the room is still offered; the layout just will not route the main path through that door until the player can take it.</td></tr>
   </table>
   </div>
+  <div class="note"><b>"Reads wrong" is one sentence covering three different sweeps</b>, so the coordinates you actually get may not look like the wording above — <code>RoomAudit</code> wraps every warning <code>RoomReachability</code> produced in the headroom-flavoured message, and only these three produce them:
+  <ul>
+    <li><code>ReportLowClearance</code> — <i>"(3,8)-(5,8)"</i>: a run of floor the 2-cell-tall body cannot walk along. Grouped into runs, so one low ledge is one message rather than one per column.</li>
+    <li><code>ReportOverhangLips</code> — <i>"(14,5) heading right — (15,5) is open but (15,6) is not"</i>: somewhere you can walk to and try, where the head ends inside a shelf and you stop dead in front of a whole cell of visible air. Reported from the cell you are STANDING on and the direction you tried, because the blocked cell on its own is not findable.</li>
+    <li><code>ReportSealedAir</code> — <i>"sealed floor no door reaches: (7,2), (8,2)…"</i>: standable cells no socket's flood ever reaches. A secret behind a wall is deliberate, which is why this warns; what it catches is the other kind — a room whose author believes they drew a route.</li>
+  </ul>
+  In all three the <i>blocking</i> test reads <code>solid</code> only — a platform overhead is not a ceiling, because you can rise through it. So converting an overhang into a one-way platform makes its warning <b>disappear</b> as the fix lands, rather than needing to be suppressed. (One-way cells still count as something to stand ON.)</div>
   <div class="note"><b>You rarely run this alone.</b> <span class="kbd">Gleamwood ▸ Validate Run Content</span> runs the same auditor over every pooled room, and the build gate turns its errors into a failed build. The standalone menu item is for iterating on one room fast — and it is the only one that also reads your <code>.room</code> drawings.</div>
 </section>
 
 <section id="validator">
   <h2><span class="num">05</span>Validate Run Content — every check</h2>
-  <p class="lead"><span class="kbd">Gleamwood ▸ Validate Run Content</span> walks the RunPlan and everything reachable from it. Success line: <code>[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code> Any error also fails builds (<code>IPreprocessBuildWithReport</code>). Source: <code>Assets/_Game/Editor/RunContentValidator.cs</code>.</p>
+  <p class="lead"><b>Any error here fails a build</b> (<code>IPreprocessBuildWithReport</code>) — that is what makes this list load-bearing rather than advisory. <span class="kbd">Gleamwood ▸ Validate Run Content</span> walks the RunPlan and everything reachable from it; the success line is <code>[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code> Source: <code>Assets/_Game/Editor/RunContentValidator.cs</code>. Three groups follow, in the order the pass walks them: the <b>plan and its biomes</b>, then <b>each room</b>, then the <b>fixtures and content</b> a room points at.</p>
+
+  <h3>Plan, web and biome</h3>
+  <p class="lead">Wiring: whether the run can start, reach every node, end, and find a pool it can build from.</p>
   <div class="scrollx">
   <table>
     <tr><th>Area</th><th>Check</th><th>Severity</th></tr>
@@ -214,17 +231,42 @@
     <tr><td rowspan="3">Per biome</td><td>No roomPool AND no standInLayout · stand-in layout missing <code>EntryPoint</code> child or <code>BiomeExit</code> · pool path missing <code>socketCap</code> ("unused apertures would stay open") · null pool entry</td><td>Error</td></tr>
     <tr><td>Pool census: no Entry with R socket · no Exit with L socket · no middle with L+R · Boss room without both L+R · BossCorridor without both</td><td>Error</td></tr>
     <tr><td>No Boss arena ("becomes an ERROR when M4's bosses land") · arena but no BossCorridor (Mega-Man beat missing) · arena but no <code>BossDefinition</code> (stand-in adds only)</td><td>Warn</td></tr>
-    <tr><td rowspan="4">Per room</td><td>Size under the 8×8 minimum (ROOM_STANDARDS §3)</td><td>Error</td></tr>
-    <tr><td><b>Reachability wired in:</b> rooms with ≥2 sockets run <code>RoomReachability.Analyze</code>; each failure → "player cannot traverse - fix clearance/steps"</td><td>Error</td></tr>
+  </table>
+  </div>
+
+  <h3>Per room — geometry, layers and markers</h3>
+  <p class="lead">The room-level checks are where a level fails for reasons you can <i>see</i> in the scene view: a trap, a platform on the wrong layer, an enemy authored inside a wall.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Area</th><th>Check</th><th>Severity</th></tr>
+    <tr><td rowspan="5">Per room</td><td>Size under the 8×8 minimum (ROOM_STANDARDS §3)</td><td>Error</td></tr>
+    <tr><td><b>Reachability, through the SAME auditor:</b> every room goes through <code>RoomAudit.Audit</code> — §4's verdict, not a second opinion — and only a <b>trap</b> errors: <i>"entering by Left@1 leaves the player with no way out"</i>. Its low-clearance sweep becomes a validator <b>warning</b>, and its "behind an ability" findings become <code>Debug.Log</code> <b>notes</b>. So a build fails on traps alone.</td><td>Error<br><span class="dim">(+ warn, + log)</span></td></tr>
     <tr><td>Painted bounds not starting at (0,0) · any tilemap grid offset from the room root · null socket · socket aperture leaving room bounds (<code>cell &lt; 0 || cell+3 &gt; extent</code>) · Entry tag without <code>EntryPoint</code> · Exit without <code>BiomeExit</code> · Boss without <code>BossGate</code> ("the arena wouldn't gate the exit")</td><td>Error</td></tr>
     <tr><td>Non-Entry/Exit room under 12 wide</td><td>Warn</td></tr>
+    <tr><td colspan="2" class="dim">This row <b>used to</b> error on every unreachable socket PAIR — which stopped being true the day gating moved to per-connection. Because the validator feeds a build preprocessor that turns any error into a <code>BuildFailedException</code>, the two rules disagreeing meant a deliberately marker-doored room was legal to <i>play</i> and impossible to <i>build</i>. One auditor, one verdict.</td></tr>
+    <tr><td rowspan="4">Platform layers<br><span class="dim">(§2: the LAYER is the seam)</span></td><td>The project has no <code>OneWay</code> layer at all — "thin platforms cannot exist; every platform tilemap would silently collide as ordinary geometry"</td><td>Error</td></tr>
+    <tr><td>No <code>Tile_GreyPlatform</code> asset — "any room that means to use one will paint a wall instead". Resolved by PATH rather than through <code>RunContentCatalog</code> on purpose: the catalog is built only from tiles a shipped room already paints, so the tile is absent from it until the first room uses one — exactly the moment this guard has to exist.</td><td>Error</td></tr>
+    <tr><td>A collidable tilemap <b>paints the platform tile but is not on <code>OneWay</code></b> — "it will collide as a WALL — solid from every direction — while looking like something you can jump through"</td><td>Error</td></tr>
+    <tr><td>A tilemap <b>on <code>OneWay</code> paints non-platform tiles</b> — everything on that layer is passable from below and from the sides, so "a wall drawn there is a wall the player walks through"</td><td>Error</td></tr>
+    <tr><td rowspan="4">Spawn markers</td><td>Marker outside the room footprint</td><td>Error</td></tr>
+    <tr><td>Marker buried <b>inside</b> solid geometry — "an enemy here spawns inside a wall"</td><td>Error</td></tr>
+    <tr><td>No floor within <b>8 cells below</b> it — the runtime feet-snap ray's reach, so "the enemy would spawn floating or fall through a gap"</td><td>Error</td></tr>
+    <tr><td>Under <b>two open cells</b> above its landing floor — the same fit <code>RoomReachability</code> requires of the player, so a marker cannot sit somewhere nothing can stand. <span class="dim">(Rooms with no collidable tilemap are skipped: the cell model does not apply to hand-built box rigs.)</span></td><td>Error</td></tr>
+  </table>
+  </div>
+
+  <h3>Fixtures, content and drift</h3>
+  <p class="lead">The last group checks the things a room <i>points at</i> — the boss, the rest layout, the spawn tables — plus whether the INI and the assets still agree.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Area</th><th>Check</th><th>Severity</th></tr>
     <tr><td rowspan="2">Boss (when set)</td><td>No <code>bossPrefab</code> · prefab without root <code>EnemyStateMachine</code> · no <code>dialogue</code> DialogueSet ("the encounter exchange is the story spine") · <code>addsTable</code> fails spawn-table checks</td><td>Error</td></tr>
     <tr><td>Boss-tagged rooms: not exactly ONE <code>isBossPoint</code> marker (0 = "the boss has nowhere to arrive"; more than 1 also errors)</td><td>Error</td></tr>
     <tr><td rowspan="2">Rest</td><td>No <code>layoutPrefab</code> · layout missing <code>EntryPoint</code> child, <code>RestSite</code> or <code>RestExit</code> · any <code>InteractZone</code> without an InputReader binding ("it can never be used" — soft-bricks heal/upgrade)</td><td>Error</td></tr>
     <tr><td><code>forgeEnabled</code> but no <code>ForgeSite</code> in the layout</td><td>Warn</td></tr>
     <tr><td rowspan="2">Spawn tables</td><td>Entry without a prefab · prefab without root <code>EnemyStateMachine</code> · no <code>EnemyDefinition</code> assigned · <b>magic FSM states</b>: <code>MaxHealth &gt; 0</code> but no state named <code>"dead"</code> ("it can never die")</td><td>Error</td></tr>
-    <tr><td>INI drift</td><td>A <code>GameContent.ini</code> section has <b>DIVERGED</b> from its asset(s) ("Import Content INI would overwrite") · no <code>GameContent.ini</code> at all — which side is authoritative is the author's call, so drift never fails a build</td><td>Warning</td></tr>
     <tr><td>Empty table · no <code>"hitstun"</code> state ("normal hits won't stagger it")</td><td>Warn</td></tr>
+    <tr><td>INI drift</td><td>A <code>GameContent.ini</code> section has <b>DIVERGED</b> from its asset(s) ("Import Content INI would overwrite") · no <code>GameContent.ini</code> at all — which side is authoritative is the author's call, so drift never fails a build</td><td>Warn</td></tr>
   </table>
   </div>
   <p class="dim">The same pass also validates the weapon catalog (defaultMelee/defaultRanged required; loot-table entries must resolve through the catalog) — that half is documented on <a href="combat.html">Combat &amp; Weapons</a>.</p>
@@ -234,9 +276,11 @@
   <h2><span class="num">06</span>BiomeDefinition — the biome's knobs</h2>
   <p class="lead">One asset per biome under <code>Assets/_Game/Biomes/</code> (create: <span class="kbd">Gleamwood/Biome Definition</span>, or let the INI create it for you — §10). Edit it in the Workbench's <b>Levels</b> category, which also checks the run plan references it.</p>
 
+  <div class="rule note"><b>Read the <code>topology</code> row first — it decides which generator builds the level, and the field's default is not what ships.</b> <code>LayoutTopology</code> has three members: <code>Chain</code> (the left-to-right spine with dead-end spurs, §7), <code>Lattice</code> (a rolled grid of columns and bands that can carry LOOPS, §7b) and <code>Branching</code> (a trunk, a vertical fan column, and one path per storey, §7c). <code>Chain</code> is the enum's zero, so a biome asset with no key deserialises to it — but <b>every one of the ten shipped biome assets sets <code>topology: 2</code>, which is <code>Branching</code></b>. What each member promises is documented on <code>LayoutTopology</code> in <code>BiomeDefinition.cs</code>.</div>
+
   <figure class="shot">
-    <img src="images/workbench-biome.png" alt="Content Workbench, Levels category, editing Biome_pyre-crown: registration check, intro card, level music, structure, side dungeons, spawn table and boss links">
-    <figcaption><b>Real capture.</b> The whole biome on one page — note the [ok] run-plan registration check up top, the Structure block (min 12 / max 15 rooms, vertical jog 0.6) and the Side dungeons block (branch chance 0.5, max 2 branches) that drive the generator directly.</figcaption>
+    <img src="images/workbench-biome.png" alt="Content Workbench, Levels category, editing a biome: run-plan registration check, intro card, level music, structure block, spawn table and boss links">
+    <figcaption><b>Real capture</b> — the whole biome on one page, with the [ok] run-plan registration check up top. <b>This shot is stale and needs re-capturing:</b> the form has since collapsed to a single <i>Structure</i> block (min/max rooms, vertical jog, branch chance, max branches, HP scale per stage) with no separate "Side dungeons" block, and <code>Biome_pyre-crown</code>'s room counts have been retuned. Regenerate it with <span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span> rather than hand-editing numbers into this caption — the picture is the thing that is wrong.</figcaption>
   </figure>
 
   <div class="scrollx">
@@ -250,14 +294,15 @@
     <tr><td><code>genRules.calmRoomBeforeBoss</code></td><td>true</td><td>Suppress enemy spawns in the room directly before the boss corridor. <b>Must be ON</b> for any node with a bypass (§7).</td></tr>
     <tr><td><code>genRules.branchChance</code></td><td>0</td><td>[0..1] chance per fork candidate — a chain room with an unused UP socket — to grow a side dungeon.</td></tr>
     <tr><td><code>genRules.maxBranches</code> / <code>branchRunMax</code></td><td>2 / 2</td><td>Cap on branches per level; most runner rooms inside one branch, between the corner and the terminal.</td></tr>
-    <tr><td><code>genRules.topology</code></td><td><code>Chain</code></td><td><b>Which generator builds the level.</b> <code>Chain</code> = the left-to-right spine with dead-end spurs (§7). <code>Lattice</code> = a rolled grid of columns and bands that can carry LOOPS (§7b). Chain is the enum's zero, so every existing biome keeps its shape without being touched.</td></tr>
+    <tr><td><code>genRules.topology</code></td><td><code>Chain</code> is the field's default — but <b>every shipped biome asset sets <code>Branching</code></b></td><td><b>Which generator builds the level</b> (<code>BiomeGenerator</code>'s topology dispatch) — see the callout above the table. In one line each: <code>Chain</code> = the left-to-right spine with dead-end spurs (§7); <code>Lattice</code> = a rolled grid that can close a loop (§7b); <code>Branching</code> = a trunk east from the entry, a vertical fan column at its end, and one eastbound path leaving each storey — several ways through a level instead of one, each ending in a room that is a way out; path 0 continues the trunk and carries the boss, the rest end in slip-away rooms (§7c).</td></tr>
     <tr><td><code>genRules.latticeTier</code></td><td><code>Arc</code></td><td>Lattice only: how rich a shape to <i>attempt</i> — <code>Arc</code> (one loop) / <code>Stack</code> (a loop with a shaft standing on it) / <code>Web</code> (an arc off the arc, two nested loops). The generator walks DOWN this list until one fits your rooms, so asking for more than your pool can build costs a log line, never the level.</td></tr>
+    <tr><td><code>genRules.branches</code> · <code>pathRoomsMin</code> / <code>pathRoomsMax</code> · <code>bandHeight</code></td><td>4 · 4 / 6 · 20</td><td>Branching only. How many <b>paths</b> the level offers including the boss road (1 is legal and means a forced-boss level with no way to skip the fight); how many rooms ONE path owns east of the fan column, inclusive — the boss path spends part of that budget on its corridor and arena; and how tall one path's <b>band</b> is in cells. <code>bandHeight</code> must exceed the tallest room in the pool or nothing can be placed, and the slack above the tallest room is exactly how much vertical jog a path is allowed. These defaults were <i>measured</i>, not chosen — the sweep that picked them is written out beside the fields in <code>BiomeDefinition.cs</code>. All four are settable from text on both surfaces (<code>ContentIniImporter.ApplyBiome</code> and <code>CampaignPlan</code>'s <code>[Biome:]</code> block), and <b>none of them is on the Workbench form</b> — <code>DrawBiome</code>'s Structure block holds minRooms, maxRooms, verticalJogChance, branchChance, maxBranches and statScalePerStage, and nothing else.</td></tr>
     <tr><td><code>socketCap</code></td><td>—</td><td>Prefab spawned on every unused socket to seal its aperture (anchored at the aperture's floor/left cell).</td></tr>
     <tr><td><code>spawnTable</code></td><td>—</td><td>Rolled at every <code>EnemySpawnMarker</code> in the layout (markers can override).</td></tr>
     <tr><td><code>statScalePerStage</code></td><td>0.25</td><td>Spawned enemies get <code>1 + stageIndex × this</code> applied to their health — context-side, never the shared SO.</td></tr>
     <tr><td><code>musicTrack</code></td><td>—</td><td>Looping music for this biome's levels (Music bus). Empty = the MusicSet's LevelTrack fallback. Full rules on <a href="audio.html">Audio</a>.</td></tr>
     <tr><td><code>boss</code></td><td>—</td><td><code>BossDefinition</code> staging the arena. Empty = stand-in mode (arena adds only). Fields on <a href="enemies.html">Enemies &amp; Bosses</a>.</td></tr>
-    <tr><td><code>branchTreasure</code></td><td>—</td><td>Spawned in each Treasure-tagged branch terminal — the side dungeon's payout (heal orb v1).</td></tr>
+    <tr><td><code>branchTreasure</code></td><td>—</td><td>Spawned in each Treasure-tagged <b>pocket</b> — the side dungeon's payout (heal orb v1). Where exactly is <code>BiomeLayoutPlan.TreasureRooms()</code>'s decision, not the host's; see §7.</td></tr>
     <tr><td><code>standInLayout</code></td><td>—</td><td>Hand-authored fallback prefab with an <code>EntryPoint</code> child + <code>BiomeExit</code>; used when the pool is empty.</td></tr>
   </table>
   </div>
@@ -269,9 +314,10 @@
     <tr><td><code>layoutPrefab</code></td><td>—</td><td>Hand-authored rest layout with an <code>EntryPoint</code> child, a <code>RestSite</code> trigger and a <code>RestExit</code>. <code>PathDoor</code>s pooled inside serve forks; <code>ForgeSite</code>s serve the forge.</td></tr>
     <tr><td><code>healMissingFraction</code></td><td>0.4</td><td>Fraction of the player's <b>missing</b> health restored at the RestSite (decision M0.1: partial heal).</td></tr>
     <tr><td><code>forgeEnabled</code></td><td>true</td><td>This rest offers ONE free weapon upgrade via the layout's ForgeSites. The stat curve is the WeaponCatalog's default track — global, because a per-rest curve could not survive resume.</td></tr>
+    <tr><td><code>rewardsEnabled</code></td><td>true</td><td>This rest offers ONE <b>per-run modifier</b>, chosen from the layout's <code>RunModifierSite</code>s — the walk-to-pick reward. The three sites present three <b>different</b> offers rolled from the run seed and this node, so the choice is real and the same after a quit and resume. Turn it off for a rest that should be a pure breather; the sites hide, exactly as the forge does. Full mechanics on <a href="progression.html#runmods">Progression §04d</a>.</td></tr>
   </table>
   </div>
-  <p class="dim">Shipped: <code>Assets/_Game/Biomes/Rest_EmberTrail.asset</code> — heal 0.4, forge on, layout <code>Rest_Traversal.prefab</code>. Rests play the overworld theme (see <a href="audio.html">Audio</a>).</p>
+  <p class="dim">Shipped: <code>Assets/_Game/Biomes/Rest_EmberTrail.asset</code> — heal 0.4, forge on, layout <code>Rest_Traversal.prefab</code>. Rests play the overworld theme (see <a href="audio.html">Audio</a>). <b><code>rewardsEnabled</code> is inspector-only:</b> <code>ContentIniImporter</code>'s <code>[Rest:]</code> switch parses <code>healMissingFraction</code>, <code>forgeEnabled</code> and <code>layoutPrefab</code> and nothing else, so §10's key list is correct as it stands.</p>
 </section>
 
 <section id="web">
@@ -317,6 +363,7 @@
   </ul>
 
   <h3>How the chain is assembled</h3>
+  <p class="lead">The rest of this section describes the <b>Chain</b> generator specifically. <b>No shipped biome asks for it today</b> — every one of them sets <code>Branching</code> (§7c) — but it is the oldest of the three, the one with committed determinism goldens, and the vocabulary the other two are described in contrast to.</p>
   <p>Entry at origin → middles → BossCorridor (only when an arena is also in the pool — "a corridor without an arena is never placed") → Boss arena → Exit. Each link picks the previous room's R socket and the next room's L socket (random among same-side sockets) and offsets so the floor rows align — rooms butt edge-to-edge, no carving. With probability <code>verticalJogChance</code> the generator prefers a middle whose L-socket row differs from the previous R row. When a boss is present and <code>calmRoomBeforeBoss</code> is on, the room directly before the first boss piece is the <b>calm room</b> (never the entry) — its spawn markers are deactivated at assembly.</p>
 
   <h3>Side dungeons — the branch grammar</h3>
@@ -334,13 +381,14 @@
 
   <h3>Junctions, bypass doors, and the coward's road</h3>
   <ul>
-    <li><b>Placement preference</b> (BiomeHost, "the slip-away is earned"): a <b>Secret-tagged branch terminal</b> → any branch terminal → the calm room. None of those ⇒ Error "unreachable (validator flags this)". The door spawns at room center X on the anchor socket's floor row, labeled <code>Slip away → {title} (no rest, no spoils)</code>.</li>
+    <li><b>Placement preference</b> ("the slip-away is earned"), and it lives on the <b>plan</b> rather than at the call site: a <b>Secret-tagged pocket</b> → any pocket → the calm room → <b>the room deepest from the entry</b>. Only when even that finds nothing does it error — <i>"the layout offers nowhere to put it — no pocket, no calm room, and nothing reachable that is not a way out."</i> The door spawns at room center X on the anchor socket's floor row, labeled <code>Slip away → {title} (no rest, no spoils)</code>.
+    <br><span class="dim">A <b>pocket</b> is a room of degree ≤ 1 that is not the entry and not a way out — derived from the layout's <code>edges</code>, never from "the rooms a branch appended". That is what makes the rule work on a lattice ring and a Branching fan as well as on a chain spur: nothing populates the chain's branch list on those paths, so every ring used to reach the old error instead of a door. One implementation, two callers — the host that spawns the door and the minimap that marks it (§9) — because they had already drifted apart.</span></li>
     <li><b>Rules:</b> <code>BypassTo</code> is legal only mid-biome and only to the current node's <code>bypassNextId</code>. Carried health is captured as-is — "no heal, no forge; the price of not fighting" — and you go straight to the next biome: "no rest on the coward's road".</li>
     <li><b>At the rest:</b> a single next means a plain walk-over <code>RestExit</code>. A fork means RestHost hides the RestExit and assigns one pooled <code>PathDoor</code> per next id, labeled "→ {biome displayName}"; interacting calls <code>AdvanceTo(nodeId)</code>, validated against the current node's exits. Too few doors: loud error + fail-open (the RestExit stays on and the run continues down exit 0). Extra doors deactivate.</li>
     <li><b>Saves:</b> the run is saved at the <b>entry of every room</b> (<code>SuspendAtRoomEntry</code>, both hosts; the RestSite re-saves after the heal). The save carries seed, nodeId, path, atRest, health, stats, weapons. Resume re-enters the room from scratch; pre-M5 saves invalidate by design — wipe, never migrate.</li>
-    <li><b>Treasure:</b> each Treasure-tagged branch terminal gets the biome's <code>branchTreasure</code> at room center, floor row + 0.6.</li>
+    <li><b>Treasure:</b> each Treasure-tagged <b>pocket</b> gets the biome's <code>branchTreasure</code> at room center, floor row + 0.6. On a layout with a <b>cycle</b> and no pocket at all, the room deepest from the entry gets it instead — and that fallback is deliberately withheld from trees. On a tree, no pocket means the level grew no side content, and the deepest non-exit room of a chain is its boss <i>corridor</i>: the one room every run is forced through, so "somewhere out of the way" would invert into "on the critical path". Measured on the shipped pools, 58–83% of seeds across all five biomes have no pocket and every one of them resolved to <code>Room_Ember_BossCorridor</code>. A ring has no dead ends by construction, so having none says nothing about whether the level deserves a reward — and paying nothing there is exactly how every ring generated so far paid out nothing at all, silently.</li>
   </ul>
-  <div class="warn note"><b>The bypass triangle:</b> a node with <code>bypassNextId</code> needs (1) its id resolvable, (2) the biome's <code>calmRoomBeforeBoss</code> ON — otherwise "the junction door has no room to live in" — and (3) a <code>BypassDoor</code> prefab in Resources. The validator enforces all three; the audit (§4) keeps the branch terminals it prefers actually reachable.</div>
+  <div class="warn note"><b>The bypass triangle:</b> a node with <code>bypassNextId</code> needs (1) its id resolvable, (2) the biome's <code>calmRoomBeforeBoss</code> ON — otherwise "the junction door has no room to live in" — and (3) a <code>BypassDoor</code> prefab in Resources. The validator enforces all three; the audit (§4) keeps the pockets it prefers actually reachable.</div>
 </section>
 
 <section id="lattice">
@@ -368,8 +416,49 @@
   <p>A closed ring has <b>no dead ends</b> — every room has two ways out — so nothing on it reads as "somewhere you went out of your way to find". That is why a <code>Stack</code> matters beyond its shape: the top of its shaft is the first pocket a looping level has. Treasure and the slip-away door both read the layout's graph now (<code>BiomeLayoutPlan.TreasureRooms</code> / <code>BypassRoom</code>), preferring a real pocket and falling back to the room deepest from the entry only when the layout genuinely has none.</p>
 
   <h3>Turning it on</h3>
-  <div class="warn note"><b>Only a campaign INI can select the lattice today.</b> <code>topology</code> and <code>latticeTier</code> are parsed by <code>CampaignPlan</code>'s <code>[Biome:]</code> block — a <code>Mods/&lt;id&gt;/Campaign/</code> file. <span class="kbd">Gleamwood ▸ Import Content INI</span> does <b>not</b> read them (<code>ContentIniImporter</code> has no case for either) and the Workbench Levels tab exposes only <code>branchChance</code> out of <code>genRules</code>. No shipped biome asset carries a <code>topology</code> key, so every shipped biome is a chain.</div>
+  <div class="warn note"><b>The shape is a text-only key — but both text surfaces read it.</b> <code>topology</code> and <code>latticeTier</code> are parsed by <code>CampaignPlan</code>'s <code>[Biome:]</code> block (a <code>Mods/&lt;id&gt;/Campaign/</code> file) <b>and</b> by <span class="kbd">Gleamwood ▸ Import Content INI</span> — <code>ContentIniImporter.ApplyBiome</code> has a case for each, and a value that is not a member of the enum is an error that names the members. What cannot set them is a <i>form</i>: the Workbench's Levels tab draws its Structure block in <code>WorkbenchCategories</code>'s <code>DrawBiome</code>, and neither key is in it. Know also what the shipped game asks for: every biome asset under <code>Assets/_Game/Biomes/</code> serializes <code>topology: 2</code> — that is <code>Branching</code> (§6), not <code>Lattice</code> — so nothing the base game runs builds a lattice today, and the worked example below is the only place one is written down.</div>
   <p>A complete, commented worked example ships in <code>Documentation/ExampleMod/Mods/example/Campaign/RunWeb.ini</code> — uncomment the block. The ten <code>lat-*.room</code> drawings beside it are the alphabet: <code>lat-junction</code> (the spine room an arc leaves from), <code>lat-arc-start</code> / <code>lat-arc-end</code> (its two ends), <code>lat-crossroads</code> (the through-room) and <code>lat-pocket</code> (a dead end to hide a reward in), plus straights and tagged ends. Read <code>lat-junction.room</code> to see per-connection gating in one file: you can walk it left to right with nothing, and its ceiling door needs a wall jump.</p>
+</section>
+
+<section id="branching">
+  <h2><span class="num">07c</span>Branching — the shape the game actually builds</h2>
+  <p class="lead"><b>This is the topology every shipped biome asks for</b> — all ten <code>Biome_*.asset</code> files serialize <code>topology: 2</code>. §7's chain and §7b's lattice are both real generators with real tests; neither is what a run walks through today.</p>
+
+  <p>A <b>trunk</b> runs east from the entry. A vertical <b>fan column</b> stands at its end, one storey per band. One eastbound <b>path</b> leaves each storey. Path 0 continues the trunk's own band and carries the boss corridor, the arena and the biome's <code>Exit</code> room; paths 1..n−1 end in <code>SlipAway</code> rooms, which are ways out too. <b>Every path ends in a room you can leave by</b>, which is the whole design in one sentence — the route choice moved <i>inside</i> the level, instead of living only at the rest's path doors.</p>
+
+  <div class="rule note"><b>Overlap is PREVENTED, not detected — and that is why this generator exists at all.</b> The chain grows a side branch by placing rooms and testing each against everything already down, discarding the <i>whole</i> branch on the first overlap. That is the right trade when a branch is optional treasure: fewer branches, never corruption. It becomes the wrong trade the moment a branch is the only way to reach one of the node's destinations — a discarded branch is then a destination the player can never get to, and nothing downstream can tell it went missing.
+  <br><br>So paths do not compete for space. <b>Path <i>k</i> owns <code>y ∈ [k·H, (k+1)·H)</code></b> and nothing else may enter it, which makes overlap impossible by construction rather than caught afterwards. The cost is paid in vertical drama: a band <code>H</code> tall holds a room <code>h</code> tall anywhere in <code>[floor, floor + (H − h)]</code>, so <b>the slack above the tallest room in the pool is exactly how much jog a path is allowed</b> — <code>bandHeight</code> 20 against a 16-tall pool leaves one 4-cell step.</div>
+
+  <div class="warn note"><b>The band is a filter on the DRAW, never a retry.</b> Ask whether a band admits a room <i>before</i> choosing it, not after placing it. A generator that places and then rejects consumes RNG on the rejected attempt — and a fixed seed has to keep producing the identical layout forever, because suspended runs are re-generated from <code>(seed, nodeSalt)</code> rather than serialized. A shifted draw moves a player who is standing in the old level.</div>
+
+  <h3>What your pool must supply</h3>
+  <p class="lead">The alphabet is the tightest constraint on this topology, so the buckets deliberately <b>overlap</b>: a room with Left, Right and Up is both a middle and a fan base, and forcing it to choose would shrink an already thin pool. (The chain's partition is an exclusive <code>else if</code> ladder; this one is not.)</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Bucket</th><th>Needs</th><th>Missing it means</th></tr>
+    <tr><td>Entry</td><td><code>Entry</code> tag + a <b>Right</b> socket</td><td rowspan="4">The pool "can't form a branching level" — a hard refusal that names the four counts it has.</td></tr>
+    <tr><td>Exit</td><td><code>Exit</code> tag + a <b>Left</b> socket</td></tr>
+    <tr><td>Middle</td><td><b>Left + Right</b>, and left-to-right walkable</td></tr>
+    <tr><td>Fan base</td><td><code>FanBase</code> tag + <b>Left, Right and Up</b>, exactly <code>bandHeight</code> tall</td></tr>
+    <tr><td>Fan storey</td><td><code>FanStorey</code> tag + <b>Down and Right</b> (Up too, except the topmost)</td><td>The level is built with <b>one</b> path. The generator logs what it asked for, what the pool can carry, and that "every destination is still reachable, because a path the layout cannot grow falls back to a rest door".</td></tr>
+    <tr><td>Slip-away</td><td><code>Exit | SlipAway</code>, <b>Left only</b></td><td>Loud error, and that path becomes a plain dead end — the destination it would have carried falls back to a rest door. A Branching pool needs one for <b>every path beyond the boss road</b>.</td></tr>
+    <tr><td>Boss arena · corridor</td><td><code>Boss</code> / <code>BossCorridor</code> + <b>L+R</b>, left-to-right walkable</td><td>Path 0 spends nothing on them and is all walkable middles.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Every eastbound room owes the same left-to-right walkability the chain asks of a spine room</b>, and the reason is the design rather than caution: on this topology <i>every</i> path is a critical path for whoever takes it. There is no "optional wing" here to be forgiving about.</div>
+
+  <h3>The budget, and why the tail is decided first</h3>
+  <ul>
+    <li><code>genRules.minRooms</code> / <code>maxRooms</code> size the <b>trunk</b> — at least one room between the entry and the column, and the last of them is drawn under an extra filter so the column's base can actually stand on band 0's floor. A trunk that cannot satisfy it is a loud failure rather than a column floating half a band up.</li>
+    <li><code>genRules.branches</code> is <b>clamped</b> to what the pool can carry. Asking for more costs a log line, never the level.</li>
+    <li><code>pathRoomsMin</code> / <code>pathRoomsMax</code> are what <b>one path</b> owns east of the column, inclusive — and the boss road spends part of that allowance on its corridor and its arena, so its walkable middles are what is left rather than the whole budget.</li>
+    <li><b>The whole path is declared before the first room is placed.</b> Every step then refuses any placement from which the <i>rest</i> of the list could not be laid down — which is the difference between a filter that is locally correct and one that is actually a guarantee. Deciding the tail as you arrive at it is how the boss road walks into a corner with 12 cells of headroom and an arena still to place.</li>
+    <li>A socket is marked used at the moment something <b>connects</b> to it, never on intent. So a path that stops early leaves its last door unspent, <code>CollectCaps</code> seals it, and a broken level is still a level you cannot fall out of. Marking on intent is how you get a hole in a wall.</li>
+  </ul>
+
+  <div class="note"><b>It shares no code path with the chain</b> — its own pool partition, its own placement loop, and that is the point rather than duplication. Suspended runs are re-generated instead of serialized, so any edit to a generator can move a player who is standing in the old level; the cheapest way to guarantee a new generator cannot do that is to leave the existing one's bytes <i>literally untouched</i> rather than carefully preserved. <code>BiomeGeneratorTests</code>' committed goldens are what would catch it if that ever stopped being true.</div>
+
+  <p>Where the payout lands is <b>not</b> this generator's decision: treasure and the slip-away door both ask <code>BiomeLayoutPlan</code> for a <b>pocket</b>, exactly as a chain or a lattice does (§7). A fan level's pockets fall out of its edges like anyone else's.</p>
 </section>
 
 <section id="spawntables">
@@ -419,6 +508,24 @@
   <div class="note"><b>Connections are drawn, never inferred.</b> Rectangles alone make "touching" mean "connected" — true by luck in a chain, and false in a lattice, where two rooms can sit flush against a shared wall and a ring's chord joins two rooms whose rectangles say nothing about each other. A loop that read as a corridor is the one thing this map must not do.</div>
 </section>
 
+<section id="camera">
+  <h2><span class="num">09b</span>The room decides the zoom</h2>
+  <p class="lead">A room's <i>shape</i> is a camera instruction. The host hands <code>CameraFollow</code> the world rects of every stitched room (<code>SetRoomRects</code>, read off each <code>RoomTemplate</code>), and the camera eases its orthographic size out to fit the height of the room the player is standing in. Walk into a drop shaft or a climb and the view opens up to show what is below and above — <b>with no geometry probing at all</b>. Scenes with no room rects (Hub, Rest) simply stay at base zoom.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Ships</th><th>What it does</th></tr>
+    <tr><td><code>roomZoomEnabled</code></td><td>true</td><td>Off = every room framed at base zoom.</td></tr>
+    <tr><td><code>zoomFitPadding</code></td><td>0.5</td><td>World units of slack added around the room's height before fitting.</td></tr>
+    <tr><td><code>maxZoomOrtho</code></td><td>7</td><td>The zoom-out cap. 7 shows a 14u-tall slice — most of a 16u shaft. <b>Raise it to fit taller rooms fully</b>; a room taller than this is framed partially, not wrongly.</td></tr>
+    <tr><td><code>zoomSmoothTime</code></td><td>0.6 s</td><td>How quickly the zoom eases between rooms.</td></tr>
+  </table>
+  </div>
+  <p>They are on the <code>CameraFollow</code> component (<code>Assets/_Game/Systems/Mechanics/CameraFollow.cs</code>) under <b>Room Zoom</b>, and live on the F1 panel's Camera tab in play mode.</p>
+  <div class="warn rule"><b>The PixelPerfectCamera is switched OFF while zoomed away from base</b> — it owns the orthographic size whenever it is enabled, so the two cannot both be right. It is re-enabled the moment the camera returns to base zoom. If you are chasing a pixel-snapping artefact that only appears in tall rooms, this is why.</div>
+  <div class="note"><b>Bounds are inset live, never at load.</b> <code>SetBounds</code> takes the layout's <i>outer</i> rect and the camera insets it by its <b>current</b> half-view every frame. The previous design baked the inset once at load from the serialized ortho size — which the PixelPerfectCamera then changed at runtime, over-insetting by several units and cutting the edges off the level. When the rect is smaller than the view on an axis, the camera locks to its centre there.</div>
+  <p>Two other guarantees the room author can rely on: a <b>keep-in-frame leash</b> clamps the player to within <code>halfView − keepInFrameMargin</code> of the frame centre, so no fall outruns the camera however deep the shaft; and a <b>teleport safety net</b> snaps rather than pans when the target moves more than a screen in one frame (pit respawn, room entry).</p>
+</section>
+
 <section id="ini">
   <h2><span class="num">10</span>Authoring it all from the INI</h2>
   <p class="lead">Everything above is authorable as plain text in <code>Assets/_Game/Content/GameContent.ini</code>, imported with <span class="kbd">Gleamwood ▸ Import Content INI</span> (the validator auto-runs after every import). The INI is <b>strictly one-way, editor-only</b>: it's the authoring source, the SO assets stay the runtime truth — the game never reads INI at runtime. Full syntax, all sections and every key: <a href="tuning.html">Tuning &amp; INI</a>. Below is the world-content mapping.</p>
@@ -426,7 +533,7 @@
   <div class="scrollx">
   <table>
     <tr><th>Section</th><th>Keys</th><th>Maps onto</th></tr>
-    <tr><td><code>[Biome:&lt;biomeId&gt;]</code></td><td><code>displayName, chapter, objective, minRooms, maxRooms, verticalJogChance, calmRoomBeforeBoss, branchChance, maxBranches, branchRunMax, branchTreasure, statScalePerStage, roomPool, socketCap, spawnTable, boss, musicTrack, standInLayout</code></td><td><code>BiomeDefinition</code> fields (§6). Missing biome assets are <b>created</b> (<code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code>). <b>Not importable here:</b> <code>topology</code> and <code>latticeTier</code> — the importer has no case for either, so a level's SHAPE is the one biome knob this file cannot set (§7b).</td></tr>
+    <tr><td><code>[Biome:&lt;biomeId&gt;]</code></td><td><code>displayName, chapter, objective, minRooms, maxRooms, verticalJogChance, calmRoomBeforeBoss, branchChance, maxBranches, branchRunMax, topology, latticeTier, branches, pathRoomsMin, pathRoomsMax, bandHeight, branchTreasure, statScalePerStage, roomPool, socketCap, spawnTable, boss, musicTrack, standInLayout</code></td><td><code>BiomeDefinition</code> fields (§6). Missing biome assets are <b>created</b> (<code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code>). <b>The switch in <code>ContentIniImporter.ApplyBiome</code> is the real list</b> — read the keys there, in that order, rather than trusting this column. A level's SHAPE is importable from here (<code>topology</code>, <code>latticeTier</code>) exactly as it is from a campaign (§7b); anything the switch does not know warns as an unknown key and changes nothing.</td></tr>
     <tr><td><code>[Boss:&lt;assetName&gt;]</code></td><td><code>bossPrefab, dialogue, entranceDelay, addsTable, rewardPrefab, outroSpeaker, outroText, musicTrack, musicCueId</code></td><td><code>BossDefinition</code> fields (see <a href="enemies.html">Enemies &amp; Bosses</a>). Missing boss assets are created too. <code>musicCueId</code> is superseded by <code>musicTrack</code>; kept only so old INIs parse.</td></tr>
     <tr><td><code>[Node:&lt;nodeId&gt;]</code></td><td><code>biome</code> (by biomeId) · <code>rest</code> (<code>-</code> = none) · <code>next</code> (<code>-</code> = FINAL, or comma list) · <code>bypass</code> (<code>-</code> = none)</td><td>Builds <code>plan.nodes</code> — the run web (§7).</td></tr>
     <tr><td><code>[Plan]</code></td><td><code>entry, gradeRubric</code> (+ legacy <code>stages</code>/<code>restAfter</code> lists that synthesize a linear chain)</td><td><code>RunPlan</code> root fields.</td></tr>
@@ -435,7 +542,7 @@
   </table>
   </div>
 
-  <p>The shipped file, verbatim — one node and its biome and boss:</p>
+  <p>The shipped file — one node and its biome and boss, copied out. Read <code>GameContent.ini</code> itself if this box and the file ever disagree; the file is the authoring source:</p>
 <pre><code><span class="t">[Node:start]</span>
 biome = <span class="s">emberfall</span>
 rest = <span class="s">Rest_EmberTrail</span>
@@ -445,16 +552,21 @@ next = <span class="s">t2-a, t2-b, t2-c</span>
 displayName = <span class="s">The Emberfall Clearing</span>
 chapter = <span class="s">CHAPTER I</span>
 objective = <span class="s">Awaken, and carve a path through the burning grove.</span>
-minRooms = <span class="a">8</span>
-maxRooms = <span class="a">10</span>
+minRooms = <span class="a">3</span>
+maxRooms = <span class="a">4</span>
 verticalJogChance = <span class="a">0.45</span>
 calmRoomBeforeBoss = <span class="a">true</span>
 branchChance = <span class="a">0.5</span>
 maxBranches = <span class="a">2</span>
 branchRunMax = <span class="a">1</span>
+topology = <span class="s">Branching</span>
+branches = <span class="a">4</span>
+bandHeight = <span class="a">20</span>
+pathRoomsMin = <span class="a">4</span>
+pathRoomsMax = <span class="a">6</span>
 branchTreasure = <span class="s">Reward_HealOrb</span>
 statScalePerStage = <span class="a">0.25</span>
-roomPool = <span class="s">Room_Ember_*</span>
+roomPool = <span class="s">Room_Ember_*, Room_Fan_*, Room_Slip_Ember</span>
 socketCap = <span class="s">SocketCap_Emberfall</span>
 spawnTable = <span class="s">SpawnTable_Emberfall</span>
 boss = <span class="s">Boss_Krag</span>
@@ -471,19 +583,20 @@ outroText = <span class="s">The furnace... grows... cold.</span></code></pre>
   <ul>
     <li><b>Safety net:</b> an unresolvable asset name is an ERROR and the field is left <b>untouched</b> — "a typo in the INI must never silently wipe existing wiring". <code>-</code> is the explicit "clear this reference". Unknown sections/keys warn; last write wins within a section; <code>;</code> starts a comment; bools accept true/1/yes and false/0/no.</li>
     <li><b><code>roomPool</code> values</b> are comma lists of exact prefab names and/or trailing-<code>*</code> prefix globs over RoomTemplate prefabs, resolved into a name-sorted set. An entry matching no prefab is an error.</li>
-    <li><b>Shipped tunables:</b> emberfall 8–10 rooms jog 0.45 · emberfall-depths 11–14 jog 0.45 · cinderway 14–17 jog 0.5 · ashen-vaults 14–17 jog 0.55 (not in the demo web) · pyre-crown 12–15 jog 0.6 with an <b>explicit</b> roomPool list that swaps in <code>Room_Crown_BossArena</code> ("the one with the dormant fire columns"). All: branchChance 0.5, maxBranches 2, branchRunMax 1, statScalePerStage 0.25.</li>
+    <li><b>Shipped tunables:</b> deliberately not listed here — every biome's numbers are its own <code>[Biome:…]</code> block a screen further down the same file, and a copy on this page is a copy that goes stale the next time one is retuned. What is worth knowing is the file's shape: every biome the run visits sets <code>topology = Branching</code> with its own path budget, and every one of them globs the same pool except <code>pyre-crown</code>, which spells its list out in order to swap in <code>Room_Crown_BossArena</code> ("the one with the dormant fire columns").</li>
   </ul>
   <div class="rule note"><b>Re-glob with care:</b> pool ORDER feeds the seeded generator, so re-globbing <code>roomPool</code> can change layouts for old seeds; resumed runs re-generate from the current pool (acceptable per M2 — but know that it happens).</div>
-  <div class="warn note"><b>Known wart (real, as of 2026-07-19):</b> the shipped pyre-crown pool lists <code>Room_Ember_Arena</code>, but no such prefab exists (only <code>Room_Ember_BigArena</code> / <code>Room_Ember_BossArena</code>) — that entry errors on import and <code>Biome_pyre-crown.asset</code> holds 19 pool entries, not 20. Fix the name in the INI or delete the line; the field-left-untouched rule is why the biome still works.</div>
 </section>
 
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
     <li>Room contract: <code>Assets/_Game/Systems/Run/ProcGen/RoomTemplate.cs</code>, <code>Documentation/ROOM_STANDARDS.md</code> (movement budget + §3 standards).</li>
+    <li>Camera (§09b): <code>Assets/_Game/Systems/Mechanics/CameraFollow.cs</code> — the <b>Room Zoom</b> header holds all four tunables, and its class doc is the design record for the v2 rework.</li>
     <li>The audit — §4 mirrors these three: <code>Assets/_Game/Systems/Run/Rooms/RoomReachability.cs</code> (the movement model and the flood), <code>Rooms/RoomAudit.cs</code> (the verdict, shared by the builder, the validator and the menu), <code>Rooms/PlayerAbilities.cs</code> (the weakest-set analysis), and <code>Assets/_Game/Editor/RoomReachability.cs</code> (the menu sweep only).</li>
     <li>Validation: <code>Assets/_Game/Editor/RunContentValidator.cs</code> — §5's table mirrors its checks one-for-one.</li>
-    <li>Generation + assembly: <code>Assets/_Game/Systems/Run/ProcGen/BiomeGenerator.cs</code> (chain), <code>ProcGen/LatticeGenerator.cs</code> (§7b — the grid, the tiers and the door discipline), <code>BiomeLayoutPlan.cs</code> (the graph the consumers read), <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
+    <li>Generation + assembly: <code>Assets/_Game/Systems/Run/ProcGen/BiomeGenerator.cs</code> (chain, and the topology dispatch), <code>ProcGen/BiomeGeneratorBranching.cs</code> + <code>ProcGen/RoomBand.cs</code> (§7c — the fan column, its paths, and the band arithmetic that makes overlap impossible rather than detected), <code>ProcGen/LatticeGenerator.cs</code> (§7b — the grid, the tiers and the door discipline), <code>BiomeLayoutPlan.cs</code> (the graph the consumers read — <code>Pockets</code>, <code>BypassRoom</code>, <code>TreasureRooms</code>, and the reasoning behind each), <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
+    <li>The one-way seam (§2, and §5's platform-layer checks): <code>Assets/_Game/Systems/Level/LevelLayers.cs</code> — the <b>only place the two layer names are written down</b>, and every consumer resolves through it: the mover's serialized masks, <code>CollectSolid</code>, the room builders and the enemy spawner's ground checks. A misspelled name would be silent (<code>NameToLayer</code> returns −1, <code>GetMask</code> returns 0), so the reader would simply see no platforms and report confidently. Its <code>OneWay</code> doc-comment is the contract §2 paraphrases.</li>
     <li>Text rooms: <code>Assets/_Game/Systems/Run/Rooms/RoomText.cs</code> + <code>RoomTextParser.cs</code> + <code>RoomBuilder.cs</code>, and the shipped drawings in <code>Documentation/ExampleMod/Mods/example/Campaign/Rooms/</code>.</li>
     <li>The web: <code>Assets/_Game/Systems/Run/RunPlan.cs</code>, <code>RunDirector.cs</code>, <code>BiomeDefinition.cs</code>, <code>RestDefinition.cs</code>, and the shipped <code>Assets/_Game/Systems/Run/Resources/RunPlan.asset</code>.</li>
     <li>Spawning: <code>Assets/_Game/Systems/Run/ProcGen/EnemySpawnTable.cs</code>, <code>EnemySpawnMarker.cs</code>, <code>EnemySpawner.cs</code>.</li>

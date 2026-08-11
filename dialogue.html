@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -37,6 +40,8 @@
 <section id="shape">
   <h2><span class="num">01</span>The shape of a dialogue set</h2>
   <p class="lead">A <code>DialogueSet</code> is four levels deep, and every level exists for a reason. Getting these names straight makes the rest of the page — and the whole Dialogue tab — read easily.</p>
+
+  <div class="rule note"><b>Before you write a word: only two beats speak.</b> The Workbench offers five trigger names, but only <code>Intro</code> and <code>Victory</code> have code that calls them. A <code>Defeat</code>, <code>Phase Two</code> or <code>Banter</code> beat saves and validates perfectly and is never spoken. <a href="#wired">§03</a> has the table and <a href="#authoring">§06</a> has the recipe for adding a call site.</div>
 
   <div class="scrollx">
   <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" style="min-width:820px; width:100%;">
@@ -140,7 +145,7 @@
   <table>
     <tr><th>Trigger</th><th>Wired?</th><th>Fired by</th><th>When</th></tr>
     <tr><td><code>Intro</code></td><td><b style="color:#73d95c">YES</b></td><td><code>BossArenaSequence.Sequence()</code></td><td>After the adds and the boss have spawned dormant, before the gate arms.</td></tr>
-    <tr><td><code>Victory</code></td><td><b style="color:#73d95c">YES</b></td><td><code>BossArenaSequence.Outro()</code></td><td>Gate opens (every registered enemy dead) → 0.5s breath → reward spawns → these lines.</td></tr>
+    <tr><td><code>Victory</code></td><td><b style="color:#73d95c">YES</b></td><td><code>BossArenaSequence.Outro()</code></td><td>Gate opens (every registered enemy dead) → music fades out → <b>~1.2s</b> breath → reward spawns → these lines.</td></tr>
     <tr><td><code>Defeat</code></td><td><b style="color:#ffc740">NO</b></td><td>— nothing calls it —</td><td>Intended for the player dying to this boss. The death sequence does not consult a DialogueSet.</td></tr>
     <tr><td><code>Phase Two</code></td><td><b style="color:#ffc740">NO</b></td><td>— nothing calls it —</td><td>Intended for the health-threshold phase flip. The transition is an FSM <code>HealthCondition</code>; it has no dialogue hook.</td></tr>
     <tr><td><code>Banter</code></td><td><b style="color:#ffc740">NO</b></td><td>— nothing calls it —</td><td>Intended for hub NPCs and idle chatter. No hub NPC currently owns a DialogueSet.</td></tr>
@@ -161,8 +166,17 @@
     <li><b>The hush.</b> <code>MusicDirector.StopForBossIntro()</code> fades the level track out. The exchange happens in near-silence on purpose; see <a href="audio.html">Audio</a>.</li>
     <li><b>The walk-in.</b> Input switches to the UI map (control locked, but the real run animation plays) and the player auto-walks <code>walkInDistance</code> (4u), then holds still for 0.4s. Timeout-guarded at 3s.</li>
     <li><b>The adds.</b> Deferred spawn markers fire one per <code>spawnInterval</code> (0.45s). Each enemy appears <b>dormant</b> — <code>esm.enabled = false</code>, so its idle animation plays but its AI does not — and registers with the <code>BossGate</code>.</li>
-    <li><b>The boss.</b> The add loop waits <code>spawnInterval</code> after <i>every</i> add including the last, and the boss branch then waits <code>entranceDelay</code> on top — so the real gap before the boss appears is <code>spawnInterval + entranceDelay</code>, not <code>entranceDelay</code> alone. With the shipped 0.45s interval that is <b>1.25s</b> for Krag and the Cinder Shepherd (0.8) and <b>1.45s</b> for the Pyre Regent (1.0). It spawns at the <code>isBossPoint</code> marker, also dormant, also registered. <span class="dim">(<code>BossDefinition.entranceDelay</code>'s own tooltip says "beat between the last add appearing and the boss's arrival" — that tooltip is off by one <code>spawnInterval</code>, so budget the beat from the numbers above, not from the field alone.)</span></li>
-    <li><b>▶ The <code>Intro</code> beat.</b> <code>activeSet.Next("Intro")</code> → <code>MarkSeen("Intro")</code> → <code>ui.Play(lines, onDone, freezeTime: false)</code>. The world keeps running: enemies idle-animate through the speech, the player just has no control. The coroutine waits for the box to close.</li>
+    <li><b>The boss.</b> The gap before it appears is <code>spawnInterval + entranceDelay</code>, <b>not <code>entranceDelay</code> alone</b> — the add loop waits <code>spawnInterval</code> after <i>every</i> add including the last, and the boss branch then waits <code>entranceDelay</code> on top. It spawns at the <code>isBossPoint</code> marker, also dormant, also registered.
+      <div class="scrollx">
+      <table>
+        <tr><th>Boss</th><th><code>entranceDelay</code></th><th>Real gap (with the shipped 0.45s interval)</th></tr>
+        <tr><td>Krag · Cinder Shepherd</td><td>0.8</td><td><b>1.25s</b></td></tr>
+        <tr><td>Pyre Regent</td><td>1.0</td><td><b>1.45s</b></td></tr>
+        <tr><td>Demon King</td><td>1.4</td><td><b>1.85s</b></td></tr>
+      </table>
+      </div>
+      <span class="dim"><code>BossDefinition.entranceDelay</code>'s own tooltip says "beat between the last add appearing and the boss's arrival" — that tooltip is off by one <code>spawnInterval</code>, so budget the beat from the table, not from the field alone.</span></li>
+    <li><b>▶ The <code>Intro</code> beat.</b> <code>activeSet.Next("Intro")</code> → <code>VoiceKeyPrefix("Intro")</code> → <code>MarkSeen("Intro")</code> → <code>ui.Play(lines, onDone, freezeTime: false, voiceKeyPrefix: …)</code>. That middle step must come before <code>MarkSeen</code> — see §05. The world keeps running: enemies idle-animate through the speech, the player just has no control. The coroutine waits for the box to close.</li>
     <li><b>Fight on.</b> Boss music crossfades in (or the level track resumes if the boss has none), every dormant enemy wakes, the gate arms, gameplay input returns.</li>
     <li><b>▶ The <code>Victory</code> beat.</b> The gate opens when the last registered enemy dies — <i>or immediately on arming, if nothing spawned</i> (empty table, gated stage), because <code>BossGate</code> never soft-locks a run. Then: <code>MusicDirector.FadeOutForVictory()</code> winds the fight theme down to silence → a ~1.2s breath over the body while it fades → <code>rewardPrefab</code> instantiates at the boss point → <code>Next("Victory")</code> + <code>MarkSeen</code>, so the boss's last words land in quiet, world still running. In an empty arena the Victory beat can therefore follow the Intro with no fight in between.</li>
   </ol>
@@ -172,7 +186,7 @@
   <div class="scrollx">
   <table>
     <tr><th>Priority</th><th>Source</th><th>Used when</th></tr>
-    <tr><td>1</td><td><code>BossDefinition.dialogue</code></td><td>The biome has a boss and that boss has a set. This is the normal path — <code>Dlg_Krag</code>, <code>Dlg_CinderShepherd</code>, <code>Dlg_PyreRegent</code>.</td></tr>
+    <tr><td>1</td><td><code>BossDefinition.dialogue</code></td><td>The biome has a boss and that boss has a set. This is the normal path — <code>Dlg_Krag</code>, <code>Dlg_CinderShepherd</code>, <code>Dlg_PyreRegent</code>, <code>Dlg_DemonKing</code>.</td></tr>
     <tr><td>2</td><td><code>BossArenaSequence.dialogue</code> (serialized on the arena prefab)</td><td>Used whenever the boss set is missing: no <code>BossDefinition</code> on the biome, <b>or</b> a <code>BossDefinition</code> whose <code>dialogue</code> field is empty. Both shipped arena prefabs point at <code>Dlg_EmberVanguard</code> for exactly this.</td></tr>
   </table>
   </div>
@@ -189,13 +203,29 @@
 <span class="k">if</span> (sequence != <span class="k">null</span> &amp;&amp; sequence.lines != <span class="k">null</span> &amp;&amp; sequence.lines.Length &gt; <span class="a">0</span>
     &amp;&amp; <span class="t">MenuRouter</span>.TryGet(<span class="k">out</span> <span class="t">DialogueController</span> ui))
 {
+    <span class="c">// BEFORE MarkSeen: the prefix names the encounter being played, and MarkSeen</span>
+    <span class="c">// advances the counter it is derived from.</span>
+    <span class="t">string</span> voiceKey = activeSet.VoiceKeyPrefix(<span class="t">DialogueTriggers</span>.Intro);
     activeSet.MarkSeen(<span class="t">DialogueTriggers</span>.Intro);
-    ui.Play(sequence.lines, () =&gt; done = <span class="k">true</span>, freezeTime: <span class="k">false</span>);
+    ui.Play(sequence.lines, () =&gt; done = <span class="k">true</span>, freezeTime: <span class="k">false</span>, voiceKeyPrefix: voiceKey);
     <span class="k">while</span> (!done) <span class="k">yield return</span> <span class="k">null</span>;
 }</code></pre>
   <p>The <code>lines.Length &gt; 0</code> test is the one that is easy to drop and expensive to lose. <code>DialogueController.Play</code> treats an empty array as "already finished" — it invokes the callback and shows nothing. Without that guard, an encounter authored but left blank would <b>advance the rotation while the player sees no box at all</b>.</p>
 
-  <div class="note rule"><b><code>Play()</code> is single-shot, not queued — and it fails silently.</b> Its early-out is <code>if (_active || lines == null || lines.Length == 0)</code>, so a call made while a box is <i>already on screen</i> takes the same path as an empty array: the new lines are <b>discarded</b>, <code>onComplete</code> fires immediately, and nothing is logged. The caller cannot distinguish "played" from "thrown away" — a <code>while (!done)</code> wait sails straight through. And because every shipped call site runs <code>MarkSeen</code> <i>before</i> <code>Play</code>, a beat that lands on top of a live box also <b>burns an encounter the player never saw</b>. The two shipped beats can't collide (the Intro coroutine blocks until its box closes, and Victory can only fire after the gate opens), but this is exactly the trap waiting for the extra call sites §06 invites you to add — a <code>Phase Two</code> beat firing mid-Intro would vanish without a trace. If you wire a beat that can overlap, check <code>Has()</code> and your own state before calling, or defer until the current box closes.</div>
+  <p>The <b>order</b> of the two lines before <code>Play</code> is load-bearing too. <code>VoiceKeyPrefix</code> resolves which encounter is about to be spoken from the same seen-count <code>MarkSeen</code> is about to increment, so taking the prefix afterwards would key every line to the <i>next</i> encounter's takes. Both shipped beats take it first, and so does the preview driver.</p>
+
+  <div class="note rule"><b><code>Play()</code> is single-shot, not queued — and it fails silently.</b> Its early-out is <code>if (_active || lines == null || lines.Length == 0)</code>, so a call made while a box is <i>already on screen</i> takes exactly the same path as an empty array.</div>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>What you'd expect</th><th>What actually happens</th><th>Why it hurts</th></tr>
+    <tr><td>The new lines queue behind the live box</td><td>They are <b>discarded</b>, and nothing is logged</td><td>Silent content loss — no error to grep for later.</td></tr>
+    <tr><td><code>while (!done)</code> waits for them to play</td><td><code>onComplete</code> fires <i>immediately</i>, so the wait sails straight through</td><td>The caller cannot tell "played" from "thrown away".</td></tr>
+    <tr><td>An unplayed beat can be retried</td><td>The <code>MarkSeen</code> that ran <i>first</i> already advanced the rotation</td><td><b>A burnt encounter the player never saw</b> — and there is no way back to it.</td></tr>
+  </table>
+  </div>
+
+  <p>The two shipped beats can't collide (the Intro coroutine blocks until its box closes, and Victory can only fire after the gate opens), but this is exactly the trap waiting for the extra call sites §06 invites you to add — a <code>Phase Two</code> beat firing mid-Intro would vanish without a trace. If you wire a beat that can overlap, check <code>Has()</code> and your own state before calling, or defer until the current box closes.</p>
 
   <div class="scrollx">
   <table>
@@ -210,11 +240,11 @@
   <h3><code>freezeTime</code> — the one flag that changes the feel</h3>
   <div class="grid c2">
     <div class="card accent-ember"><h4><code>false</code> — the world runs</h4><p>Control locks to the UI map, but time flows. Enemies idle-animate, hazards keep ticking. <b>Both boss beats use this</b> — the arena feeling alive during the speech is the point.</p></div>
-    <div class="card accent-cyan"><h4><code>true</code> — full freeze (the default)</h4><p>Pushes <code>MenuState</code>, the same stop the pause menu and intro card use. Used today by <code>ForgeSite</code>'s upgrade confirmation, and the right mode for hub conversations, where there is nothing to keep alive behind the box.</p></div>
+    <div class="card accent-cyan"><h4><code>true</code> — full freeze (the default)</h4><p>Pushes <code>MenuState</code>, the same stop the pause menu and intro card use. Used today by <code>ForgeSite</code>'s upgrade confirmation and <code>RunModifierSite</code>'s pickup confirmation, and the right mode for hub conversations, where there is nothing to keep alive behind the box.</p></div>
   </div>
   <p class="dim">Advancing is <code>Submit</code>, one line per press, and the box ignores the frame it opened on — otherwise the same button press that triggered a conversation would immediately skip its first line. The spoken take plays on a <b>dedicated voice channel</b> that each new line cuts (and that the box stops on close), so advancing past a long line never leaves two voices talking over each other; incidental <code>sfx</code> stay one-shot, where a brief overlap reads as punctuation.</p>
 
-  <div class="note"><b>The panel does not require a <code>DialogueSet</code>.</b> <code>ForgeSite</code> already drives it with a hand-built <code>DialogueLine</code> and <code>freezeTime: true</code> to confirm a weapon upgrade in <code>4.RestHost</code> — which makes it the only place the freeze path actually runs today. Any one-off confirmation can do the same; a set is only needed when you want rotation and save tracking.</div>
+  <div class="note"><b>The panel does not require a <code>DialogueSet</code>.</b> Two components already drive it with a hand-built <code>DialogueLine</code> and <code>freezeTime: true</code>, both on <code>Rest_Traversal.prefab</code> in <code>4.RestHost</code>: <code>ForgeSite</code> confirms a weapon upgrade, and <code>RunModifierSite</code> confirms a run-modifier pickup. Between them they are the only places the freeze path runs today. Any one-off confirmation can do the same; a set is only needed when you want rotation and save tracking.</div>
 </section>
 
 <section id="authoring">
@@ -265,7 +295,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <p><b>Nothing syncs on its own.</b> No file watcher, no import hook, no sync-on-focus. Silent syncing in either direction is how a writer loses an afternoon to a stale file.</p>
 
   <h3>The Dialogue tab</h3>
-  <p class="lead">Four-level nesting is miserable in the raw inspector, which is why this tab exists. Beats are tabs, encounters are a toolbar, lines are speaker+text rows with a presentation strip.</p>
+  <p>Four-level nesting is miserable in the raw inspector, which is why this tab exists. Beats are tabs, encounters are a toolbar, lines are speaker+text rows with a presentation strip.</p>
 
   <figure class="shot">
     <img src="images/workbench-dialogue.png" alt="Content Workbench, Dialogue category">
@@ -276,7 +306,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
     <li><b>Create the set</b> — <span class="kbd">Create ▸ Gleamwood ▸ Dialogue Set</span>, named <code>Dlg_&lt;Speaker&gt;</code> beside the biome that owns it.</li>
     <li><b>Set the Dialogue Id</b> to a stable kebab-case slug (<code>cinder-shepherd</code>). Do this now — it is the one field you can never change later.</li>
     <li><b>Add the Intro beat</b> and write encounter 1. One encounter is a complete, shippable beat; the rotation is a bonus, not a requirement.</li>
-    <li><b>Add more encounters</b> for the story reveal. All three shipped bosses use the same shape: an <code>Intro</code> beat of three encounters (two lines each) and a one-line <code>Victory</code>.</li>
+    <li><b>Add more encounters</b> for the story reveal. All four shipped bosses use the same shape: an <code>Intro</code> beat of three encounters (two lines each) and a one-line <code>Victory</code>.</li>
     <li><b>Point the boss at it</b> — <code>BossDefinition.dialogue</code>, on the Bosses tab. The Dialogue tab's top row confirms it: green <i>[ok] spoken by a boss</i>, or <b>red</b> when nothing references the set. The red is advisory rather than an error — the message itself says an unreferenced set is fine for hub/NPC banter.</li>
     <li><b>Validate</b> — <span class="kbd">Gleamwood ▸ Validate Run Content</span> errors on a boss with no set, an unknown pose id, a blank <code>dialogueId</code> or a duplicate beat, and warns when an asset has <b>diverged</b> from its <code>.dlg</code>.</li>
   </ol>
@@ -303,13 +333,14 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Tool</th><th>Makes</th><th>How</th></tr>
-    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Generate Portraits</b></td><td>12 mood portraits → <code>PoseCatalog</code></td><td>Crops a bust from each boss's idle sprite and tints it per mood (neutral / angry / defeated), plus a black <code>mystery.shadow</code> silhouette. Deterministic; re-running overwrites the same files in place.</td></tr>
+    <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Generate Portraits</b></td><td>15 mood portraits → <code>PoseCatalog</code></td><td>Crops a bust from each boss's idle sprite and tints it per mood (neutral / angry / defeated), plus a black <code>mystery.shadow</code> silhouette. Five speakers: <code>krag</code>, <code>regent</code>, <code>shepherd</code> and <code>demonking</code> get all three moods, <code>vanguard</code> gets two. Deterministic; re-running overwrites the same files in place.</td></tr>
     <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Generate Demo Audio</b></td><td>5 SFX stings baked into <code>VoiceBank</code> + a voice <b>manifest</b></td><td>Synthesizes each sting from one seeded RNG (deterministic); writes <code>voice_manifest.json</code> (<code>{stem, speaker, text}</code> from the real DialogueSets, so stems match the derived keys). <span class="kbd">Export Voice Manifest</span> rewrites just the manifest after a line edit.</td></tr>
     <tr><td><code>generate_voice.ps1</code> <span class="dim">(Windows)</span></td><td>28 <b>spoken</b> VO takes → the pack</td><td>Reads the manifest and speaks each line with Windows TTS, a different voice per speaker. A machine voice, not a human actor — a stand-in for real recordings, replaceable one file at a time (§09).</td></tr>
     <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Bake Voice Into Bank</b></td><td>the spoken takes → BASE game (<code>Assets/…/Voice/Lines</code> + <code>VoiceBank</code>)</td><td>Imports the pack's WAVs and wires each into the <code>VoiceBank</code> under its derived key, so the bosses speak in the base build with no mod folder. Run it after <code>generate_voice.ps1</code>.</td></tr>
   </table>
   </div>
-  <p class="dim">Portraits and SFX are one-click and idempotent — not hand-placed pixels, so safe to regenerate after an art change. The full spoken VO now ships in the base game too (baked into the <code>VoiceBank</code>), still machine-voiced as a stand-in for real recordings. Regenerating it is a Windows-only three-step: export the manifest in Unity, run <code>generate_voice.ps1</code>, then <span class="kbd">Bake Voice Into Bank</span>.</p>
+  <p class="dim">Portraits and SFX are one-click and idempotent — not hand-placed pixels, so safe to regenerate after an art change. Spoken VO ships in the base game too (baked into the <code>VoiceBank</code>), still machine-voiced as a stand-in for real recordings. Regenerating it is a Windows-only three-step: export the manifest in Unity, run <code>generate_voice.ps1</code>, then <span class="kbd">Bake Voice Into Bank</span>.</p>
+  <div class="warn note"><b>The Demon King is unvoiced.</b> The bank holds 33 takes — 28 spoken lines plus the 5 stings — covering Krag, the Cinder Shepherd, the Pyre Regent and the Ember Vanguard stand-in. <code>Dlg_DemonKing</code> shipped after that pass and its 7 lines have no takes, and neither does <code>voice_manifest.json</code>. A missing take is silent, not an error, so nothing will tell you: run the three-step above to cover it.</div>
 
   <h3 id="preview">Previewing — see a beat without reaching the arena</h3>
   <p>Poses, sides, shake/flash and sfx/voice only render at runtime, and the two wired beats sit at the far end of a boss fight. <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> plays any beat and encounter of any set through the <b>real</b> <code>DialogueController</code> — the same render path the arena drives — in a throwaway play scene:</p>
@@ -327,15 +358,25 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
 <span class="k">if</span> (seq != <span class="k">null</span> &amp;&amp; seq.lines != <span class="k">null</span> &amp;&amp; seq.lines.Length &gt; <span class="a">0</span>
     &amp;&amp; <span class="t">MenuRouter</span>.TryGet(<span class="k">out</span> <span class="t">DialogueController</span> ui))
 {
+    <span class="t">string</span> voiceKey = bossSet.VoiceKeyPrefix(<span class="t">DialogueTriggers</span>.Defeat); <span class="c">// before MarkSeen</span>
     bossSet.MarkSeen(<span class="t">DialogueTriggers</span>.Defeat);   <span class="c">// only after you commit to playing it</span>
-    ui.Play(seq.lines, onDone, freezeTime: <span class="k">true</span>);
+    ui.Play(seq.lines, onDone, freezeTime: <span class="k">true</span>, voiceKeyPrefix: voiceKey);
 }</code></pre>
-  <p>The two rules that keep it consistent with the shipped beats: <b>treat <code>null</code> as "skip"</b> rather than an error, and <b>call <code>MarkSeen</code> only on the path that really plays</b> — which is why the empty-lines test belongs in the same condition, not after it. Marking early burns an encounter the player never heard.</p>
+  <p>Three rules keep it consistent with the shipped beats:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Rule</th><th>Why</th></tr>
+    <tr><td>Treat <code>null</code> as "skip"</td><td>A missing or empty beat is a normal value, not an error. Every shipped consumer degrades to "this moment just has no line".</td></tr>
+    <tr><td>Call <code>MarkSeen</code> only on the path that really plays</td><td>Which is why the empty-lines test belongs in the <i>same</i> condition, not after it. Marking early burns an encounter the player never heard.</td></tr>
+    <tr><td><b>Take the prefix before <code>MarkSeen</code>, or the beat is unvoiced</b></td><td><code>voiceKeyPrefix</code> defaults to <code>null</code>, and a null prefix makes <code>DerivedVoiceKey()</code> return null — so the panel resolves no take at all and the whole derived-key convention (§06's "Voice keys derive themselves", §09's mod filename rule) silently does nothing for your beat. Taking it <i>after</i> <code>MarkSeen</code> is the other half of the trap: the counter has already moved, so every line keys to the next encounter's takes.</td></tr>
+  </table>
+  </div>
   <p>Then ask the question the shipped beats never had to: <b>can your moment fire while another box is already up?</b> A <code>Phase Two</code> beat triggered by a health threshold can, because the world runs during the Intro exchange. If so, read the <code>Play()</code> warning in §05 first — the overlap is silently swallowed, and it eats an encounter on the way out.</p>
 </section>
 
 <section id="fields">
   <h2><span class="num">07</span>Field reference</h2>
+  <p class="lead">Every field on the four types, and what happens when it is wrong. Only one of them is unrecoverable once shipped: <code>dialogueId</code>.</p>
   <div class="scrollx">
   <table>
     <tr><th>Field</th><th>On</th><th>Default</th><th>What it does</th></tr>
@@ -345,7 +386,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
     <tr><td><code>sequences</code></td><td>DialogueGroup</td><td>—</td><td>The encounters, played in order across repeat firings.</td></tr>
     <tr><td><code>cycleWhenExhausted</code></td><td>DialogueGroup</td><td><code>true</code></td><td>Once every encounter has been seen: loop back to the first (on) or repeat the last forever (off).</td></tr>
     <tr><td><code>lines</code></td><td>DialogueSequence</td><td>—</td><td>The speech boxes, one Submit each.</td></tr>
-    <tr><td><code>speaker</code> / <code>text</code></td><td>DialogueLine</td><td>—</td><td>Shown verbatim, no enforcement. The three boss sets use ALL-CAPS speaker names; the <code>Dlg_EmberVanguard</code> stand-in uses <code>???</code> and <code>Imp Vanguard</code>.</td></tr>
+    <tr><td><code>speaker</code> / <code>text</code></td><td>DialogueLine</td><td>—</td><td>Shown verbatim, no enforcement. All four boss sets use ALL-CAPS speaker names (<code>KRAG</code>, <code>THE CINDER SHEPHERD</code>, <code>THE PYRE REGENT</code>, <code>THE DEMON KING</code>); the <code>Dlg_EmberVanguard</code> stand-in uses <code>???</code> and <code>Imp Vanguard</code>.</td></tr>
   </table>
   </div>
 
@@ -354,7 +395,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <table>
     <tr><th>Member</th><th>Returns</th><th>Use</th></tr>
     <tr><td><code>Next(trigger)</code></td><td><code>DialogueSequence</code> or <b>null</b></td><td>The encounter to play right now. Null = missing/empty beat = skip it.</td></tr>
-    <tr><td><code>Has(trigger)</code></td><td><code>bool</code></td><td>Whether any playable line exists for the beat — for branching <i>before</i> committing to a cutscene. <b>Currently unused</b>: no call sites anywhere in the project. It is a provided seam, not a proven one.</td></tr>
+    <tr><td><code>Has(trigger)</code></td><td><code>bool</code></td><td>Whether any playable line exists for the beat — for branching <i>before</i> committing to a cutscene. <b>No runtime call sites</b> — only <code>DialogueFormatTests</code> exercises it. It is a provided seam, not a proven one.</td></tr>
     <tr><td><code>MarkSeen(trigger)</code></td><td>void</td><td>Advance the rotation. Call only when the lines actually play. No-op without an active save slot.</td></tr>
     <tr><td><code>Group(trigger)</code></td><td><code>DialogueGroup</code> or null</td><td>The raw group. <b>First match wins</b> — this is why duplicate triggers are dead data.</td></tr>
   </table>
@@ -363,6 +404,7 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
 
 <section id="traps">
   <h2><span class="num">08</span>Traps</h2>
+  <p class="lead">Every one of these fails <b>silently</b> — the content saves, the validator is happy, and the words never reach a player. That is the shape of every bug this system has had.</p>
   <div class="grid c2">
     <div class="card accent-red"><h4>Duplicate trigger names</h4><p><code>Group()</code> is a <code>FirstOrDefault</code>, so a second beat with the same name is <b>unreachable dead data</b> — it saves, validates, and never plays. The Dialogue tab flags <i>exact</i> duplicates in red; the raw inspector flags nothing. <b>Case-only duplicates slip through</b>: the check groups case-sensitively while <code>Group()</code> matches <code>OrdinalIgnoreCase</code>, so <code>Intro</code> + <code>intro</code> is silent dead data. <code>+ Add Beat</code> avoids collisions by picking the first unused canonical name, then <code>Banter 2</code>, <code>Banter 3</code>…</p></div>
     <div class="card accent-red"><h4>Renaming <code>dialogueId</code></h4><p>Orphans every counter keyed to the old id. Players silently drop back to encounter 1 on every beat. There is no migration path — the arrays are matched by exact string.</p></div>
@@ -404,7 +446,9 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
   </div>
   <p class="dim">That mapping is lossy — a key genuinely containing a dot could collide with one containing a colon — which is why the loader logs what each file claimed. A silent mis-binding would be far worse than a noisy one.</p>
 
-  <div class="note"><b>A ready-made example.</b> The base game already speaks these lines (baked into the <code>VoiceBank</code>), so <code>Documentation/ExampleDialogueVoice/</code> is what an audio mod that <b>overrides</b> them looks like: drop its <code>Mods/</code> folder beside the build and each line's file — named by the derived-key convention above (<code>krag-emberfall.Intro.0.0.wav</code>) — wins over the baked take. Swap any file for a real recording to re-voice one line. Regenerate with <code>generate_voice.ps1</code> after <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Export Voice Manifest</b>.</div>
+  <div class="note"><b>A ready-made example — but it predates the campaign tier.</b> The base game already speaks these lines (baked into the <code>VoiceBank</code>), so <code>Documentation/ExampleDialogueVoice/</code> is what an audio mod that <b>overrides</b> them looks like: 28 takes named by the derived-key convention above (<code>krag-emberfall.Intro.0.0.wav</code>), each winning over the baked one. Swap any file for a real recording to re-voice one line. Regenerate with <code>generate_voice.ps1</code> after <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Export Voice Manifest</b>.</div>
+
+  <div class="note warn"><b>Do not drop that pack in as shipped — it loads nothing.</b> Its layout is <code>Mods/Dialogue/audio/</code>, which is the pre-campaign shape, and its own <code>README.txt</code> still says to drop the <code>Mods</code> folder beside the game. The loader now walks <code>Mods/</code> looking for directories that contain a <code>mod.ini</code> and <b>skips every one that does not</b>, then reads <code>Mods/&lt;campaign-id&gt;/Dialogue/</code>. So the takes have to move under an installed campaign — <code>Mods/&lt;campaign-id&gt;/Dialogue/audio/*.wav</code> — before any of them resolve. Nothing warns: a folder with no <code>mod.ini</code> is indistinguishable from junk sitting next to the build, which is exactly why it is skipped rather than guessed at.</div>
 
   <div class="note warn"><b>WAV only, and deliberately.</b> Unity's runtime audio loader is asynchronous, and dialogue must never wait on a decode when a boss opens its mouth — an async path would also mean the first play of a modded line silently falls back to nothing. So <code>WavReader</code> decodes inline: PCM 8/16/24/32-bit and 32-bit float. <code>.ogg</code> and <code>.mp3</code> are skipped with a log line saying why. Images are PNG/JPG, loaded point-filtered so a mod is not blurred by bilinear filtering. Both are capped at 16 MB per file — a mod folder is untrusted input, so an oversized "portrait" is a logged complaint rather than an out-of-memory crash.</div>
 
@@ -436,16 +480,29 @@ KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
 <div class="honest">
   <h4>Honest limits — what this system does not do yet</h4>
   <ul>
-    <li><b>Three of the five canonical triggers have no call site.</b> <code>Defeat</code>, <code>Phase Two</code> and <code>Banter</code> are vocabulary and data model only. §06 has the four-line recipe to wire one.</li>
+    <li><b>Three of the five canonical triggers have no call site.</b> <code>Defeat</code>, <code>Phase Two</code> and <code>Banter</code> are vocabulary and data model only. §06 has the recipe to wire one.</li>
     <li><b>No conditions on encounters.</b> Selection is purely "how many times has this beat fired". You cannot yet say "this line only if the player has the Emberbrand" — that would need a predicate on <code>DialogueGroup</code> and a filter in <code>Next()</code>.</li>
     <li><b>No branching or player choice.</b> A sequence is linear; Submit is the only input. There are no response options and no jump targets.</li>
     <li><b>No per-line camera or emote hooks.</b> Pose, side, effect, sfx and voice exist; anything beyond them is a new field on <code>DialogueLine</code> plus a handler in <code>DialogueController.ShowLine</code>.</li>
-    <li><b>Shipped voice-over is a machine voice.</b> The four boss sets ship <b>12 mood portraits</b>, <b>five SFX stings</b>, and <b>the full 28-line spoken voice-over</b> — all baked into the base game (portraits in <code>PoseCatalog</code>; the stings and per-line takes in <code>VoiceBank</code>), so the bosses speak with no mod folder at all. The voice is Windows TTS, a different voice per speaker — a real demo of the pipeline, not a human actor. Real recordings replace it one file at a time, and a dropped-in <code>&lt;campaign&gt;/Dialogue/audio/</code> take still overrides the baked one.</li>
+    <li><b>Shipped voice-over is a machine voice, and it does not cover the last boss.</b> The game ships <b>15 mood portraits</b>, <b>five SFX stings</b> and <b>28 spoken lines</b> — all baked in (portraits in <code>PoseCatalog</code>; the stings and per-line takes in <code>VoiceBank</code>, 33 takes in total), so the bosses speak with no mod folder at all. The voice is Windows TTS, a different voice per speaker — a real demo of the pipeline, not a human actor. Those 28 lines cover the first four sets; <code>Dlg_DemonKing</code> shipped afterwards and its <b>7 lines are unrecorded</b>, as is <code>voice_manifest.json</code>. Real recordings replace any take one file at a time, and a dropped-in <code>&lt;campaign&gt;/Dialogue/audio/</code> take still overrides the baked one.</li>
     <li><b>Modded audio is WAV only.</b> No <code>.ogg</code> or <code>.mp3</code>, because decoding those at runtime means an async path and dialogue cannot wait on a decode. Modders pay in file size.</li>
     <li><b>Position is coarse.</b> A portrait is <code>left</code> or <code>right</code>; there is no offset, scale or depth. Finer placement would be new modifier syntax and a new field.</li>
-    <li><b>No hub NPC path.</b> <code>BossArenaSequence</code> is the only <code>DialogueSet</code> consumer in the project — <code>ForgeSite</code> uses the panel but builds its line inline — and <code>2.Hub</code> lacks the panel prefab entirely.</li>
+    <li><b>No hub NPC path.</b> <code>BossArenaSequence</code> is the only <code>DialogueSet</code> consumer in a <b>shipped scene</b> (<code>DialoguePreviewDriver</code> consumes one too, but it is editor-spawned into a throwaway play scene and never placed in a build). <code>ForgeSite</code> and <code>RunModifierSite</code> use the panel but build their lines inline, and <code>2.Hub</code> lacks the panel prefab entirely.</li>
     <li><b>Overrides load once, at boot.</b> Editing a mod file mid-session changes nothing until a restart; there is no hot reload.</li>
     <li><b>The <code>DialogueController</code> class comment still names <code>BossIntro</code></b> as its first consumer — that component was superseded by <code>BossArenaSequence</code>. Comment only; the code is current.</li>
+  </ul>
+</div>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>The data model and rotation (§01–§02, §07): <code>Assets/_Game/Systems/Dialogue/DialogueSet.cs</code> (also <code>DialogueTriggers</code>, <code>DialogueGroup</code>, <code>DialogueSequence</code>, <code>DialogueLine</code>) and <code>Assets/_Game/Systems/Save/SaveSlot.cs</code> for the parallel <code>dialogueIds</code>/<code>dialogueSeen</code> arrays.</li>
+    <li>What actually fires (§03–§04): <code>Assets/_Game/Systems/Run/ProcGen/BossArenaSequence.cs</code> · <code>BossGate.cs</code> · <code>BossDoor.cs</code>, plus <code>Assets/_Game/Systems/Run/BossDefinition.cs</code> and the <code>Boss_*.asset</code> / <code>Dlg_*.dlg</code> files under <code>Assets/_Game/Biomes/</code> and <code>Assets/_Game/Content/Dialogue/</code>. <b>A new boss makes §03, §04 and §06 stale in the same commit.</b></li>
+    <li>The panel (§05): <code>Assets/_Game/UI/Code/Screens/DialogueController.cs</code> · <code>Assets/_Game/UI/Code/Framework/MenuRouter.cs</code> · <code>Assets/_Game/UI/Panels/Dialogue/Dialogue.uxml</code> · <code>Assets/Prefabs/UI/Dialogue.prefab</code>. Its two non-set consumers: <code>Assets/_Game/Systems/Run/Weapons/ForgeSite.cs</code> · <code>Assets/_Game/Systems/Run/RunModifierSite.cs</code>.</li>
+    <li>Authoring and sync (§06): <code>Assets/_Game/Systems/Dialogue/DialogueParser.cs</code> · <code>DialogueWriter.cs</code> · <code>Assets/_Game/Editor/DialogueSync.cs</code> · <code>Assets/_Game/Editor/Workbench/WorkbenchCategories.cs</code> (the Dialogue tab and its <code>+ Add Beat</code> / duplicate checks) · <code>Assets/_Game/Editor/RunContentValidator.cs</code>.</li>
+    <li>Presentation, preview and generators (§06): <code>Assets/_Game/Systems/Dialogue/PoseCatalog.cs</code> · <code>VoiceBank.cs</code> · <code>DialoguePreviewDriver.cs</code>, and <code>Assets/_Game/Editor/Dialogue/DialoguePreviewWindow.cs</code> · <code>DialoguePortraitGenerator.cs</code> · <code>DialogueAudioGenerator.cs</code>. The counts (15 portraits, 5 stings, 28 takes) mirror <code>Assets/_Game/Content/Dialogue/PoseCatalog.asset</code>, <code>Assets/_Game/Content/Voice/VoiceBank.asset</code> and <code>Assets/_Game/Content/Voice/Lines/</code>.</li>
+    <li>Modding and localisation (§09): <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code> · <code>DialogueAssets.cs</code> · <code>DialoguePaths.cs</code> · <code>WavReader.cs</code> · <code>ModImageLoader.cs</code>, plus <code>Assets/_Game/Systems/Modding/ModSet.cs</code> for where a campaign's folder resolves. The INI seam is <code>Assets/_Game/Editor/ContentIniImporter.cs</code>.</li>
+    <li>The example pack this page tells players to install: <code>Documentation/ExampleDialogueVoice/</code> (and its <code>Mods/Dialogue/README.txt</code>). Its layout currently predates the campaign tier — if it is ever restructured, the §09 warning goes with it.</li>
   </ul>
 </div>
 

@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a class="on" href="enemies.html">Enemies &amp; Bosses</a>
@@ -40,28 +43,29 @@
   <div class="scrollx">
   <table>
     <tr><th>What</th><th>Where</th></tr>
-    <tr><td>Enemy FSM definitions (states as sub-assets)</td><td><code>Assets/_Game/Enemies/Data/EnemyDefinitions/*.asset</code> — <code>ImpScoutDef</code>, <code>CinderHoundDef</code>, <code>EmberWispDef</code>, <code>PyreArcherDef</code>, <code>SootBomberDef</code>, <code>VaultAcolyteDef</code>, <code>KragDef</code>, <code>CinderShepherdDef</code>, <code>PyreRegentDef</code></td></tr>
+    <tr><td>Enemy FSM definitions (states as sub-assets)</td><td><code>Assets/_Game/Enemies/Data/EnemyDefinitions/*.asset</code> — ten of them: <code>ImpScoutDef</code>, <code>CinderHoundDef</code>, <code>EmberWispDef</code>, <code>PyreArcherDef</code>, <code>SootBomberDef</code>, <code>VaultAcolyteDef</code>, <code>KragDef</code>, <code>CinderShepherdDef</code>, <code>PyreRegentDef</code>, <code>DemonKingDef</code></td></tr>
     <tr><td>Shared transition rules (referenced by every def)</td><td><code>Assets/_Game/Enemies/Data/EnemyDefinitions/SharedRules/</code> — <code>Dy_JuggleCondition</code>, <code>Dy_NotDeadCheck</code>, <code>Dy_NotExecuted</code></td></tr>
     <tr><td>Execution definitions</td><td><code>Assets/_Game/Enemies/Data/ExecutionDefinitions/</code> — ten of them: <code>Explosion</code>, <code>Firestorm</code>, <code>OffScreenKill</code>, <code>SamuraiSlice</code>, plus <code>Groundbreaker</code>, <code>Meteor</code>, <code>Pinfall</code>, <code>Nailed</code>, <code>Skyhook</code>, <code>Overload</code></td></tr>
     <tr><td>Enemy prefabs</td><td><code>Assets/_Game/Enemies/Prefabs/</code> — one per definition, plus <code>Projectile_PyreShot</code></td></tr>
-    <tr><td>Boss staging assets</td><td><code>Assets/_Game/Biomes/Emberfall/Boss_Krag.asset</code>, <code>Assets/_Game/Biomes/Boss_CinderShepherd.asset</code>, <code>Assets/_Game/Biomes/Boss_PyreRegent.asset</code></td></tr>
+    <tr><td>Boss staging assets</td><td>Four: <code>Assets/_Game/Biomes/Emberfall/Boss_Krag.asset</code>, <code>Assets/_Game/Biomes/Boss_CinderShepherd.asset</code>, <code>Assets/_Game/Biomes/Boss_PyreRegent.asset</code>, <code>Assets/_Game/Biomes/Boss_DemonKing.asset</code></td></tr>
     <tr><td>Spawn tables</td><td><code>Assets/_Game/Biomes/Emberfall/SpawnTable_*.asset</code> + <code>Assets/_Game/Biomes/Debug/SpawnTable_Debug.asset</code></td></tr>
     <tr><td>Runtime code (you should never need to touch it)</td><td><code>Assets/_Game/Enemies/Code/</code> and <code>Assets/_Game/Systems/Run/</code></td></tr>
   </table>
   </div>
 
   <h3>EnemyDefinition — the top-level fields</h3>
-  <p>Create one with <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Beyond the inherited <code>States</code> list and <code>InitialState</code>, it carries exactly three things:</p>
+  <p>Create one with <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Beyond the inherited <code>States</code> list and <code>InitialState</code>, it carries exactly four things:</p>
   <div class="scrollx">
   <table>
     <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
     <tr><td><code>MaxHealth</code></td><td>3</td><td>Hit points. Damage routes through <code>EnemyStateMachine.TakeHit</code>; 0 HP enters the <code>dead</code> state. <b>0 = no health system:</b> the enemy cannot die from plain damage — executions still kill it.</td></tr>
-    <tr><td><code>CanBeJuggled</code></td><td>true</td><td>When on, a swing whose <code>IsLauncher</code> is set (the up-attacks) can put the enemy airborne, in one hit. Off, nothing can. All three bosses ship with this off.</td></tr>
-    <tr><td><code>Executions</code></td><td>empty</td><td>List of <code>ExecutionDefinition</code> assets this enemy can be finished with (§05). All ten shipped ones are reusable, and every enemy in the roster wires all ten — they differ by TRIGGER, not by animation, so adding one costs no graph wiring (§05).</td></tr>
+    <tr><td><code>ExecutionThreshold</code></td><td>100</td><td>Execution points this enemy takes before it can be finished — the per-enemy half of the execution economy (the weapon authors the points a hit grants). <code>EnemyStateMachine</code> pushes it into the prefab's <code>CombatStatusManager</code> at Awake, so the component's own serialized 100 only ever applies to a CSM with no definition — the player's, and a bare test rig's. Shipped: 100 everywhere except <code>ImpScoutDef</code> 95 and <code>DemonKingDef</code> 140.</td></tr>
+    <tr><td><code>CanBeJuggled</code></td><td>true</td><td>When on, a swing whose <code>IsLauncher</code> is set (the up-attacks) can put the enemy airborne, in one hit. Off, nothing can. All four bosses ship with this off.</td></tr>
+    <tr><td><code>Executions</code></td><td>empty</td><td>List of <code>ExecutionDefinition</code> assets this enemy can be finished with (§05). All ten shipped ones are reusable, and every enemy in the roster <b>except the Demon King</b> wires all ten — they differ by TRIGGER, not by animation, so adding one costs no graph wiring (§05). <code>DemonKingDef.Executions</code> is empty, so the final boss cannot be executed at all.</td></tr>
   </table>
   </div>
 
-  <p>The day-to-day editing surface is the <b>Content Workbench</b> — <span class="kbd">Gleamwood ▸ Content Workbench</span>, or right-click any definition asset ▸ <span class="kbd">Open in Content Workbench</span>. The Enemies category gives each def five sub-tabs: <b>Overview | Behavior | Attacks | Reactions | Presentation</b>.</p>
+  <p>The day-to-day editing surface is the <b>Content Workbench</b> — <span class="kbd">Gleamwood ▸ Content Workbench</span>, or right-click any definition asset ▸ <span class="kbd">Open in Content Workbench</span>. The Enemies category gives each def six sub-tabs: <b>Overview | States | Behavior | Attacks | Reactions | Presentation</b>.</p>
 
   <div class="shotgrid">
     <figure class="shot">
@@ -77,18 +81,20 @@
   <h3>The shipped roster at a glance</h3>
   <div class="scrollx">
   <table>
-    <tr><th>Definition</th><th>HP</th><th>Juggle</th><th>Kit beyond idle / chase / hitstun / juggled / dead</th></tr>
-    <tr><td><code>ImpScoutDef</code></td><td>10</td><td>yes</td><td>attackCharge → attackLunge (MoveSpeed 8, armor 1) → attackStrike (armor 1) → attackRecover; all 10 executions wired</td></tr>
-    <tr><td><code>CinderHoundDef</code></td><td>4</td><td>yes</td><td>4-phase melee chain</td></tr>
-    <tr><td><code>SootBomberDef</code></td><td>6</td><td>yes</td><td>4-phase melee chain</td></tr>
-    <tr><td><code>VaultAcolyteDef</code></td><td>22</td><td>no</td><td>4-phase melee chain</td></tr>
-    <tr><td><code>EmberWispDef</code></td><td>3</td><td>no</td><td><code>floatChase</code> (Float Chase config) + 4-phase chain</td></tr>
-    <tr><td><code>PyreArcherDef</code></td><td>5</td><td>yes</td><td><code>shoot</code> (Projectile Attack config) + 4-phase chain</td></tr>
-    <tr><td><code>KragDef</code> (boss)</td><td>40</td><td>no</td><td>attack chain (lunge MoveSpeed 10, strike Damage 2 / range 2) + <code>chaseEnraged</code> (×1.35 at half health) + slam chains (slamStrike Damage 3, slamStrike2 Damage 4, range 2.5, charges armor 3)</td></tr>
-    <tr><td><code>CinderShepherdDef</code> (boss)</td><td>60</td><td>no</td><td><code>summon</code> ↔ <code>relocate</code> loop (SpawnTable_ShepherdCall, Count 2, MaxAlive 5, armor 0 — the punish window) + fragile 4-phase chain</td></tr>
-    <tr><td><code>PyreRegentDef</code> (boss)</td><td>80</td><td>no</td><td>chase ×1.2; at half health → <code>igniteArena</code> (HazardId <code>CrownIgnite</code>) → <code>chaseEnraged</code> ×1.5 + second attack chain (charge2 armor 3)</td></tr>
+    <tr><th>Definition</th><th>HP</th><th>Juggle</th><th>Chase ×</th><th>Kit beyond idle / chase / hitstun / juggled / dead</th></tr>
+    <tr><td><code>ImpScoutDef</code></td><td>10</td><td>yes</td><td>1</td><td>attackCharge → attackLunge (MoveSpeed 8, armor 1) → attackStrike (armor 1) → attackRecover; all 10 executions wired. ExecutionThreshold 95.</td></tr>
+    <tr><td><code>CinderHoundDef</code></td><td>18</td><td>yes</td><td>1.6</td><td>4-phase melee chain — the fastest thing in the roster</td></tr>
+    <tr><td><code>SootBomberDef</code></td><td>6</td><td>yes</td><td>1.1</td><td>4-phase melee chain</td></tr>
+    <tr><td><code>VaultAcolyteDef</code></td><td>22</td><td>no</td><td>0.7</td><td>4-phase melee chain — slow and tanky</td></tr>
+    <tr><td><code>EmberWispDef</code></td><td>3</td><td>no</td><td>float 1.2</td><td><code>floatChase</code> (Float Chase config) + 4-phase chain. It also carries a plain <code>chase</code> config at 1, but that sub-asset is <b>not in the <code>States</code> list</b> and so is never registered — the flying lane is the only one it has.</td></tr>
+    <tr><td><code>PyreArcherDef</code></td><td>5</td><td>yes</td><td>0.9</td><td><code>shoot</code> (Projectile Attack config) + 4-phase chain</td></tr>
+    <tr><td><code>KragDef</code> (boss)</td><td>40</td><td>no</td><td>1 <span class="dim">/ enraged 1.35</span></td><td>attack chain (lunge MoveSpeed 10, strike Damage 2 / range 2) + <code>chaseEnraged</code> (at half health) + slam chains (slamStrike Damage 3, slamStrike2 Damage 4, range 2.5, charges armor 3)</td></tr>
+    <tr><td><code>CinderShepherdDef</code> (boss)</td><td>60</td><td>no</td><td>1</td><td><code>summon</code> ↔ <code>relocate</code> loop (SpawnTable_ShepherdCall, Count 2, MaxAlive 5, armor 0 — the punish window) + fragile 4-phase chain</td></tr>
+    <tr><td><code>PyreRegentDef</code> (boss)</td><td>80</td><td>no</td><td>1.2 <span class="dim">/ enraged 1.5</span></td><td>4-phase chain; at half health → <code>igniteArena</code> (HazardId <code>CrownIgnite</code>) → <code>chaseEnraged</code> + a second attack chain (charge2 armor 3)</td></tr>
+    <tr><td><code>DemonKingDef</code> (final boss)</td><td>80</td><td>no</td><td>0.85 <span class="dim">/ enraged 1.5</span></td><td>14 states, two phases. Phase 1 (he does not chase hard — 0.85 is the slowest lane on any boss): <code>castBolt</code> (Projectile Attack, Damage 1, speed 10, fires at 0.6 normalized) + charge/slam/recover (Damage 1, range 2.2, charge armor 2, recover armor 0). At half health → <code>igniteArena</code> (HazardId <code>DemonPyre</code>) → <code>chaseEnraged</code> + a heavier second chain (Damage 2, range 2.4, charge2 armor 3) + <code>relocate</code> (PointId <code>Perch</code>, farthest-from-player). ExecutionThreshold 140, and <b><code>Executions</code> empty</b> — he is the one enemy no finisher can reach.</td></tr>
   </table>
   </div>
+  <div class="rule note"><b>The Chase × column is a real speed, not a modifier on one.</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to 3 u/s and nothing reads a speed from any definition, so the chase config's <code>SpeedMultiplier</code> <i>is</i> the per-enemy speed knob — a hound at 1.6 runs at 4.8 u/s, the Vault Acolyte at 0.7 runs at 2.1. That is a debt, and §13 explains it; it is in this table because it is the number you actually reach for.</div>
   <div class="note"><b>Numbers vs structure:</b> <code>GameContent.ini</code>'s <code>[Enemy:&lt;DefName&gt;]</code> section tunes only <code>maxHealth</code> and <code>canBeJuggled</code> — FSMs are authored in Unity; the INI numbers tune them. See <a href="tuning.html">Tuning &amp; INI</a>.</div>
 </section>
 
@@ -99,9 +105,9 @@
   <table>
     <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
     <tr><td><code>StateName</code></td><td>stamped per type</td><td>The string key the state registers under — <code>StateId => StateName</code>, falling back to the sub-asset's name if empty. Chains and fallbacks reference states <b>by this string</b>.</td></tr>
-    <tr><td><code>Animation</code></td><td>none</td><td>The clip this state plays. The FSM drives <code>Animator.Play</code> directly — no controller transitions.</td></tr>
-    <tr><td><code>AnimatorLayerName</code></td><td><code>"Base Layer"</code></td><td>Layer the target animator state lives on.</td></tr>
-    <tr><td><code>AnimatorStateName</code></td><td>empty (= clip name)</td><td><code>[AnimatorStateRef]</code> dropdown of the controller's real states, with <code>[MISSING]</code> flags and a "Create New State…" entry.</td></tr>
+    <tr><td><code>Animation</code></td><td>none</td><td>The clip this state plays — and, for every shipped enemy, <b>its name is the lookup key into the prefab's <code>SpriteClipSet</code></b>. The FSM plays it directly; there are no controller transitions on either backend.</td></tr>
+    <tr><td><code>AnimatorStateName</code></td><td>empty (= clip name)</td><td>Overrides that key when the clip's asset name is not what you want to address. <code>[AnimatorStateRef]</code> dropdown in the inspector, with <code>[MISSING]</code> flags and a "Create New State…" entry.</td></tr>
+    <tr><td><code>AnimatorLayerName</code></td><td><code>"Base Layer"</code></td><td>Legacy: the layer the target state lives on, folded into the full-path hash the Animator path keys on. The clip-set path ignores it — a graph written from text is told to delete it outright (§11).</td></tr>
     <tr><td><code>EnterSound</code> + <code>EnterSoundVolume</code></td><td>none / 1</td><td>One-shot played when the state is entered — telegraph on charge phases, impact on strikes, death sting on the dead state. Empty = silent. This is the whole per-state audio system (§09).</td></tr>
     <tr><td><code>Transitions</code></td><td>empty</td><td>List of exits: each entry has a <code>ToState</code> (another sub-asset), <code>Conditions</code> (condition sub-assets), and <code>DynamicConditions</code> (shared rule assets). All conditions in an entry must pass.</td></tr>
   </table>
@@ -113,7 +119,7 @@
   <table>
     <tr><th>StateId</th><th>Config (Create ▸ Enemies ▸ States ▸ …)</th><th>Role &amp; key fields (defaults)</th></tr>
     <tr><td><code>idle</code></td><td>Idle</td><td>Stands still. Base fields only.</td></tr>
-    <tr><td><code>chase</code></td><td>Chase</td><td>Runs at the player. <code>SpeedMultiplier</code> 1 — <b>this is the real speed knob</b>; base speed is a hardcoded 3 u/s (§10).</td></tr>
+    <tr><td><code>chase</code></td><td>Chase</td><td>Runs at the player. <code>SpeedMultiplier</code> 1 — <b>this is the real speed knob</b>; base speed is a hardcoded 3 u/s (§13).</td></tr>
     <tr><td><code>floatChase</code></td><td>Float Chase</td><td>Flying chase. <code>SpeedMultiplier</code> 1, <code>HoverOffsetY</code> 0.75, <code>BobAmplitude</code> 0.35, <code>BobFrequency</code> 2.5. Pair with Rigidbody2D <code>gravityScale = 0</code> on the prefab — every state of a flying enemy assumes no gravity.</td></tr>
     <tr><td>(chain names)</td><td>Attack Phase</td><td>One generic phase class serves every melee beat — full reference in §03.</td></tr>
     <tr><td><code>shoot</code></td><td>Projectile Attack</td><td><code>ProjectilePrefab</code> (needs <code>EnemyProjectile</code> + trigger collider + dynamic Rigidbody2D), <code>ProjectileSpeed</code> 9, <code>ArcLift</code> 3, <code>ProjectileGravity</code> 1 (0 = straight shot), <code>Damage</code> 1, <code>ProjectileLifetime</code> 4, <code>MuzzleOffset</code> (0.5, 0.5) — x mirrored by facing, <code>FireAtNormalizedTime</code> 0.5, <code>MinStateSeconds</code> 1.6 (shot cadence; 0 = clip-timed only).</td></tr>
@@ -121,7 +127,7 @@
     <tr><td><code>relocate</code></td><td>Relocate</td><td><code>PointId</code> "Perch" (matches scene <code>RelocatePoint</code> ids), <code>PickFarthestFromPlayer</code> true (off = random among others; never the point it stands on), <code>NextStateName</code> "summon". The clip that plays is the reappear flourish.</td></tr>
     <tr><td><code>hazardPhase</code></td><td>Hazard Phase</td><td><code>HazardId</code> "PhaseHazard" — toggles every scene <code>Hazard</code> whose <b>GameObject name contains</b> this string, inactive ones included. <code>Activate</code> true. Re-entering with hazards already in the desired state is a one-frame pass-through, so health-triggered edges are safe to re-fire.</td></tr>
     <tr><td><code>hitstun</code></td><td>Hit</td><td><code>FallbackStateName</code> "idle" — the safety net that prevents a misconfigured Hit state from soft-locking the enemy (§04).</td></tr>
-    <tr><td><code>juggled</code></td><td>Juggled</td><td><code>LaunchForce</code> 15, <code>AirDrag</code> 1. (<code>AirDrop</code> is serialized but unread — §10.)</td></tr>
+    <tr><td><code>juggled</code></td><td>Juggled</td><td><code>LaunchForce</code> 15, <code>AirDrag</code> 1, <code>FallbackStateName</code> "idle" (where it goes on landing — it used to be hardcoded, which only held while every graph had a state called <code>idle</code>).</td></tr>
     <tr><td><code>dead</code></td><td>Death</td><td><code>DeathEffect</code> — optional GameObject instantiated at the enemy's position (dust burst, ember pop).</td></tr>
     <tr><td><code>dashExecution</code> / <code>bowExecution</code></td><td>DashExecution / BowExecution / Explosive Execution Config</td><td>Execution finisher states — auto-registered from the def's <code>Executions</code> list, so you rarely add them to <code>States</code> yourself (§05).</td></tr>
   </table>
@@ -135,9 +141,8 @@
     <tr><th>Condition</th><th>Fields (defaults)</th><th>Behavior</th></tr>
     <tr><td><code>DistanceCondition</code> — <b>the workhorse</b></td><td><code>Operator</code> {LessThan, GreaterThan}, <code>Distance</code> 5</td><td>Compares straight-line distance from the enemy's Rigidbody to the player. False when there is no player. Drives detection, attack triggers, and leashes — and the scene rings in §06 edit exactly these.</td></tr>
     <tr><td><code>HealthCondition</code></td><td><code>CheckType</code> {LessThan, GreaterThan, Equals}, <code>Fraction</code> 0.5</td><td>Compares <code>Health / MaxHealth</code>. The boss phase-2 switch (<code>Cond_HalfHealth</code>: LessThan 0.5). <b>Returns false when MaxHealth ≤ 0</b> — no-health enemies can't phase-switch on health.</td></tr>
-    <tr><td><code>AnimationEndCondition</code></td><td><code>NormalizedTimeThreshold</code> 0.95</td><td>True when layer-0 normalized time passes the threshold. Has <b>no</b> full-path guard (§10) — the shipped defs always pair it with <code>HitStunCondition</code>.</td></tr>
+    <tr><td><code>AnimationEndCondition</code></td><td><code>NormalizedTimeThreshold</code> 0.95</td><td>True when <b>whatever is playing</b> passes the threshold. It asks how far along, never <i>whose</i> clip — so it has no equivalent of the attack phase's own-clip guard (§13), and the shipped defs always pair it with <code>HitStunCondition</code>. With no animation backend at all it reads as finished rather than blocking: a transition that can never fire is a soft-lock, which is worse than one that fires early.</td></tr>
     <tr><td><code>HitStunCondition</code></td><td>—</td><td>True once <code>LastHit.hitTime + hitstunDuration</code> has elapsed.</td></tr>
-    <tr><td><code>CooldownCondition</code></td><td><code>CooldownId</code> "General", <code>CooldownTime</code> 1</td><td><b>Placeholder — always returns true.</b> Do not build a design on it (§10).</td></tr>
   </table>
   </div>
   <p><b>DynamicConditions</b> are the second slot on each transition: standalone <code>StateMachine/Dynamic Condition</code> assets (fields <code>PropertyName</code>, <code>Operator</code>, <code>FloatValue</code>/<code>BoolValue</code>) compiled at runtime into predicates against <code>EnemyContext</code> properties (<code>ShouldLaunch</code>, <code>IsDead</code>, <code>IsExecution</code>, <code>Health</code>, <code>IsGrounded</code>…). Three shared ones in <code>SharedRules/</code> do all the work in shipped defs: <code>Dy_JuggleCondition</code> (<code>ShouldLaunch</code> == true), <code>Dy_NotDeadCheck</code> (<code>IsDead</code> == false), <code>Dy_NotExecuted</code> (<code>IsExecution</code> == false).</p>
@@ -182,12 +187,21 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   <ul>
     <li><b>Facing commits at phase entry.</b> The state captures facing from the sprite flip once on Enter, and sprite-flipping is suspended for the whole phase — phases never aim. Dodging through a charging enemy makes the whole chain whiff behind you. Do not add re-aim logic; it reintroduces the dash-through re-target bug.</li>
     <li><b>The strike check</b>: player must be within <code>|dx| ≤ StrikeRange</code> <b>and on the facing side</b>. Dodge-through = visual whiff = no damage. There is no vertical limit on the check.</li>
-    <li><b>The hand-off guard is load-bearing</b>: the phase advances only when the animator is verifiably inside <i>its own</i> state (full-path hash) and past <code>AnimationEndThreshold</code>. Chase has no clip, so the animator idles in the last played state — without the guard, chains would skip instantly.</li>
+    <li><b>The hand-off guard is load-bearing</b>: the phase advances only when the animation backend is verifiably playing <i>its own</i> clip and is past <code>AnimationEndThreshold</code>. Without that check a clip left lingering by the previous state would read as finished the instant the phase opened, and the whole chain would skip through in one frame. The check is a clip-name comparison on the <code>SpriteAnimator</code> path and a full-path hash on the legacy Animator path — <code>EnemyAnimationProbe</code> is the one place that chooses, so the two backends can never drift into two different answers.</li>
     <li><b>Every phase needs a clip.</b> A clipless phase warns and advances immediately — it won't soft-lock, but it won't telegraph either.</li>
-    <li><b>Animator contract</b>: one animator state per clip on <b>Base Layer</b>, state name == clip name, zero controller transitions. Watch the Console for <code>Animator.GotoState: State could not be found</code> — that's a clip/state name mismatch.</li>
+    <li><b>Clip-set contract</b>: every state's clip name must exist in the enemy's <code>SpriteClipSet</code>. Watch the Console for <code>[SpriteAnimator] '&lt;enemy&gt;' has no clip '&lt;name&gt;'</code> — it lists the names the set does have, then reports the clip finished so the machine keeps moving.</li>
     <li>Exit zeroes horizontal velocity, so a lunge never slides into the next phase.</li>
   </ul>
-  <div class="note">The deep-dive doc for this whole section is <a href="../ENEMY_ATTACKS_AND_SUPER_ARMOR.md"><code>Documentation/ENEMY_ATTACKS_AND_SUPER_ARMOR.md</code></a>.</div>
+  <h3>Checking a new chain</h3>
+  <p>Five things, in this order — each one catches a failure the others cannot see:</p>
+  <ol>
+    <li>The chain runs <code>charge → … → recover → chase</code> and <b>loops on re-engagement</b>. A chain that plays once and stops is a <code>NextStateName</code> pointing at nothing.</li>
+    <li><b>No <code>[SpriteAnimator] … has no clip …</code> in the Console.</b> That error is a clip-name mismatch, and the phase advances instantly instead of telegraphing.</li>
+    <li>The telegraph reads <i>at game speed</i>, and the lunge lands where you meant it to — the distance is <code>MoveSpeed × clip duration</code>, so retiming the clip moves the enemy.</li>
+    <li>Dash through the telegraph: the whole chain should whiff behind you with no mid-chain re-aim.</li>
+    <li>Armor: hit each phase with each damage type that matters and count the absorbs against the interrupt.</li>
+  </ol>
+  <div class="note"><b>Test armor deterministically, not by feel.</b> <code>esm.ChangeState(phaseState)</code> followed by <code>esm.TakeHit(new HitInfo { damageType = …, armorPiercing = … })</code> is synchronous — no timing race, no waiting for a clip. Set <code>Time.timeScale = 1</code> first: hitstop drives it to 0.05 and it leaks between fixtures.</div>
 </section>
 
 <section id="reactions">
@@ -195,6 +209,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   <p class="lead">Everything an enemy does when your hit lands is one pipeline in <code>EnemyStateMachine.TakeHit</code>, in this exact order:</p>
   <ol>
     <li>Dead enemies ignore hits. The hit is timestamped.</li>
+    <li><b>The reaction reshapes the hit's numbers first</b>, before <code>LastHit</code> is stored, so every later reader — executions, hitstun, the juggle — sees the real values rather than the ones the attacker sent. A <code>Crumple</code> zeroes knockback and multiplies hitstun ×2. A <code>Spike</code> on an <b>already grounded</b> target has nowhere to spike to, so it lands as a heavier ground hit instead — hitstun ×1.5 — because a move that connects must never feel like it whiffed.</li>
     <li>Execution readiness is captured <b>before</b> the hit's points land — the swing that merely tops the meter never also executes on the same frame; you must land a follow-up while the enemy is already execution-ready.</li>
     <li>Execution points accrue and statuses apply.</li>
     <li>Feedback: hitstop (if the hit carries any), the hit flash, and the prefab's <code>hurtSound</code> (§09).</li>
@@ -206,6 +221,17 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <li><b>Super armor</b> gets its say only now: if the current state absorbs the hit, no hitstun — damage, meters, flash and sound already happened.</li>
     <li>Otherwise → <code>hitstun</code>.</li>
   </ol>
+
+  <p>Steps 8–12 are one precedence order, and it is the part worth memorising — every "why did my armor not stop that" question is answered by this table:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>This wins over…</th><th>…that</th><th>Because</th></tr>
+    <tr><td>Death</td><td>launch, armor, hitstun</td><td>A killing blow is a killing blow. <b>Death bypasses super armor by design.</b></td></tr>
+    <tr><td>Spike (airborne target)</td><td>the launch it cancels, and everything below</td><td>The spike is the answer to the juggle, so it has to be able to end one.</td></tr>
+    <tr><td>Launch (<code>IsLauncher</code>, grounded target)</td><td>armor, hitstun</td><td>The up-attack is the move that OPENS a combo, so it cannot be a move that armor turns down.</td></tr>
+    <tr><td>Super armor</td><td>hitstun only</td><td>Armor suppresses the flinch and nothing else — damage, meters, flash and sound have already happened by the time it is consulted.</td></tr>
+  </table>
+  </div>
 
   <h3>Super armor semantics</h3>
   <ul>
@@ -239,7 +265,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
 
 <section id="executions">
   <h2><span class="num">05</span>Executions</h2>
-  <p class="lead">One meter lives on the prefab's <code>CombatStatusManager</code>: <b>execution</b> (threshold 100, decays 25/s after 3s), fed by each hit's <code>executionPoints</code>. Points are never consumed — instead, each enemy can be executed <b>once, ever</b>; a guard (<code>_executionReported</code>) prevents re-triggering. <span class="dim">(There is no juggle meter any more — an enemy goes airborne because a swing carried <code>IsLauncher</code>, not because a counter filled.)</span></p>
+  <p class="lead">One meter lives on the prefab's <code>CombatStatusManager</code>: <b>execution</b>, fed by each hit's <code>executionPoints</code>, decaying 25/s after 3s without one. Its threshold is the <b>definition's</b> <code>ExecutionThreshold</code> (§01) — 100 by default, 95 on the Imp, 140 on the Demon King — adopted at Awake, because it is a combat number and combat numbers are authored on the definition like every other one. Points are never consumed — instead, each enemy can be executed <b>once, ever</b>; a guard (<code>_executionReported</code>) prevents re-triggering. <span class="dim">(There is no juggle meter any more — an enemy goes airborne because a swing carried <code>IsLauncher</code>, not because a counter filled.)</span></p>
   <p>An <code>ExecutionDefinition</code> (<span class="kbd">Create ▸ Combat ▸ Execution Definition</span>) describes when a finisher fires and which state plays it:</p>
   <div class="scrollx">
   <table>
@@ -254,7 +280,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <tr><td><code>ConsumeStatusOnTrigger</code></td><td>Default true — clears the required status when the execution fires.</td></tr>
   </table>
   </div>
-  <p>The full ten, with exactly how a player triggers each, live on the combat page: <a href="combat.html#execroster">Execution roster</a>. Every shipped enemy carries all ten, in the same order.</p>
+  <p>The full ten, with exactly how a player triggers each, live on the combat page: <a href="combat.html#execroster">Execution roster</a>. Every shipped enemy <b>except the Demon King</b> carries all ten, in the same order; <code>DemonKingDef.Executions</code> is empty, so no finisher can reach the final boss.</p>
 
   <div class="rule note"><b>The ORDER of an enemy's <code>Executions</code> list is behaviour, not presentation.</b> <code>TakeHit</code> takes the first match and stops. So a definition that asks for strictly less than a later one makes that later one <b>unreachable</b> — silently, with no error, on every enemy that carries both. Two rules keep the shipped list honest, and both were live bugs first: <b>most specific first</b> (Skyhook, "juggled", was swallowing Meteor, "juggled + Spike"), and <b>status catch-alls last</b> (Firestorm at slot 4 made Groundbreaker, Meteor, Pinfall and Skyhook all unreachable with the greatsword equipped). <code>ExecutionTriggerTests</code> enforces both — an inspector drag reorders the list in one click.</div>
 
@@ -271,23 +297,30 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   </figure>
   <div class="rule note"><b>These handles write to the shared definition asset</b> — tuning one hound tunes <i>all</i> hounds. That's by design (with Undo), and it's the one editor surface that does touch the shared SO. Runtime never does: depth scaling goes through the per-instance context.</div>
   <h3>What lives on the prefab root</h3>
-  <p>Per <code>ImpScout.prefab</code>, the standard component set: <code>SpriteRenderer</code> + <code>Animator</code> (the controller) + <code>Rigidbody2D</code> + <code>Collider2D</code> + <code>EnemyStateMachine</code> (assign the definition and <code>hurtSound</code>) + <code>CombatStatusManager</code> (the meters, §05) + <code>EnemyKillReporter</code> + <code>EnemyRangePreview</code> (editor-only). Flying enemies: Rigidbody2D <code>gravityScale</code> 0.</p>
+  <p>Per <code>ImpScout.prefab</code>, the standard component set: <code>SpriteRenderer</code> + <code>SpriteAnimator</code> (its <code>clipSet</code> and <code>defaultClip</code> — <code>imp-idle</code> here — are what actually animate the enemy) + <code>Rigidbody2D</code> + <code>Collider2D</code> + <code>EnemyStateMachine</code> (assign the definition and <code>hurtSound</code>) + <code>CombatStatusManager</code> (the meter, §05) + <code>EnemyKillReporter</code> + <code>EnemyRangePreview</code> (editor-only). Flying enemies: Rigidbody2D <code>gravityScale</code> 0.</p>
+  <div class="note"><b>The <code>Animator</code> is still on every shipped prefab, and it is disabled</b> (<code>m_Enabled: 0</code>, controller still referenced). It is the legacy backend: <code>ConfigurableState.PlayStateAnimation</code> and <code>EnemyAnimationProbe</code> both prefer a <code>SpriteAnimator</code> when one is present and fall back to <code>Animator.Play</code> when it is not, which is what let the roster migrate one character at a time instead of all at once. All ten shipped enemies are migrated; the fallback exists for a prefab that is not.</div>
   <p><code>EnemyStateMachine</code> also owns the hit feedback trio: <code>hitFlashDuration</code> 0.15, <code>hitFlashColor</code>, and <code>hurtSound</code> + volume — the one-shot played on <b>every</b> landed hit next to the flash. The Workbench Presentation tab edits these in place on the prefab.</p>
 </section>
 
 <section id="recipe">
   <h2><span class="num">07</span>Recipe — author a new enemy with zero code</h2>
+  <p class="lead">Nine steps, none of them code: art, one definition asset, its state sub-assets, a prefab, a spawn table. <code>EnemyStateMachine</code> registers whatever the definition lists and the chain runs itself.</p>
   <ol class="steps">
-    <li><b>Clips.</b> One non-looping clip per phase, plus idle / chase / death. Frame rate = intended duration (the clip IS the timer). Clip names become animator state names.</li>
-    <li><b>Animator controller.</b> One state per clip on Base Layer, state name == clip name, <b>no transitions in the controller</b> — the FSM plays states directly.</li>
-    <li><b>Definition asset.</b> <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Set <code>MaxHealth</code>, <code>CanBeJuggled</code>, and optionally wire the ten reusable <code>ExecutionDefinition</code>s (the shipped roster wires all ten to every enemy).</li>
-    <li><b>State sub-assets.</b> On the workbench's <a href="workbench.html#states">States tab</a> — <b>+ Create State</b> picks the type and does the rest (sub-asset, <code>StateName</code>, added to <code>States</code>, first one becomes Initial). Minimum viable set on every shipped enemy: Idle, Chase (or Float Chase), Hit, Juggled, Death, plus attack phases <code>attackCharge → attackLunge → attackStrike → attackRecover</code> chained by <code>NextStateName</code>, last one → <code>chase</code>.</li>
+    <li><b>Clips.</b> One non-looping clip per phase, plus idle / chase / death. Frame rate = intended duration (<b>the clip IS the timer</b> — there are no animation events). Clip names become the keys states address.</li>
+    <li><b>Clip set.</b> Build a <code>SpriteClipSet</code> from the sheet with <span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span> — point it at the sheet, write one <code>Name = 8-15 fps 14</code> line per clip (the same range grammar the mod files use, sharing the same parser so the two can never drift), Build. Converting an existing controller instead: select it and use <span class="kbd">Assets ▸ Gleamwood ▸ Convert Animator to SpriteClipSet</span>, which refuses any clip that is more than a sprite swap rather than silently flattening it. Every state's clip name must exist in this set.</li>
+    <li><b>Definition asset.</b> <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Set <code>MaxHealth</code>, <code>ExecutionThreshold</code>, <code>CanBeJuggled</code>, and optionally wire the ten reusable <code>ExecutionDefinition</code>s (every shipped enemy but the Demon King wires all ten).</li>
+    <li><b>State sub-assets.</b> On the workbench's <b>States</b> tab — <b>+ Create State</b> picks the type and does the rest (sub-asset, <code>StateName</code>, added to <code>States</code>, first one becomes Initial). Minimum viable set on every shipped enemy: Idle, Chase (or Float Chase), Hit, Juggled, Death, plus attack phases <code>attackCharge → attackLunge → attackStrike → attackRecover</code> chained by <code>NextStateName</code>, last one → <code>chase</code>.</li>
     <li><b>Transitions.</b> idle→chase (Distance LessThan ~7–8), chase→attackCharge (LessThan ≈ the strike range, 1.5), chase→idle leash (GreaterThan 10), idle/hitstun→juggled (the three <code>SharedRules</code> assets), hitstun→idle (<code>HitStunCondition</code> + <code>AnimationEndCondition</code>). Set <code>InitialState</code> = idle and list <b>all</b> sub-assets in <code>States</code>.</li>
     <li><b>Prefab.</b> The §06 component set on the root; assign the definition and <code>hurtSound</code> on <code>EnemyStateMachine</code>. Flying: <code>gravityScale</code> 0.</li>
-    <li><b>Spawn table.</b> Add the prefab to a <span class="kbd">Gleamwood ▸ Enemy Spawn Table</span> asset (<code>enemyPrefab</code>, <code>weight</code> default 1, <code>minStage</code> 0 = from the first biome) referenced by a biome or a marker override — see <a href="levels.html">Levels &amp; Rooms</a>. The Workbench Overview flags "not in any spawn table — it will never spawn in a run".</li>
+    <li><b>Spawn table.</b> Add the prefab to a <span class="kbd">Create ▸ Gleamwood ▸ Enemy Spawn Table</span> asset (<code>enemyPrefab</code>, <code>weight</code> default 1, <code>minStage</code> 0 = from the first biome, <code>minRoomDistance</code> 0 = anywhere in the level, counted over connections from the entry) referenced by a biome or a marker override — see <a href="levels.html">Levels &amp; Rooms</a>. The Workbench Overview flags "not in any spawn table — it will never spawn in a run".</li>
     <li><b>Tune numbers.</b> <code>[Enemy:&lt;DefName&gt;]</code> in <code>Assets/_Game/Content/GameContent.ini</code> (<code>maxHealth</code>, <code>canBeJuggled</code>) → <span class="kbd">Gleamwood ▸ Import Content INI</span>; everything else in the Content Workbench.</li>
-    <li><b>Nothing else.</b> No code, no animation events. <code>EnemyStateMachine</code> registers the states from the definition and the chain runs itself. Verify: chain loops on re-engagement, no <code>Animator.GotoState</code> warnings, lunge distance = speed × clip duration, dash-through whiffs.</li>
+    <li><b>Nothing else.</b> No code, no animation events. Verify: chain loops on re-engagement, no <code>[SpriteAnimator] … has no clip …</code> errors, lunge distance = speed × clip duration, dash-through whiffs.</li>
   </ol>
+
+  <figure class="shot">
+    <img src="images/workbench-enemy-states.png" alt="Content Workbench, Enemy States sub-tab listing the definition's state sub-assets">
+    <figcaption><b>Real capture.</b> Step 4's surface: the States tab lists every sub-asset inside the definition with its type and id, and <b>+ Create State</b> creates it, names it, and appends it to <code>States</code> in one action — which is what stops the commonest authoring bug, a state that exists in the file and was never registered.</figcaption>
+  </figure>
 </section>
 
 <section id="bosses">
@@ -304,17 +337,18 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   <table>
     <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
     <tr><td><code>bossPrefab</code></td><td>—</td><td>Enemy prefab (EnemyStateMachine on the root) spawned at the arena's boss-point marker.</td></tr>
-    <tr><td><code>dialogue</code></td><td>none</td><td><code>DialogueSet</code> holding <b>every beat</b> the boss speaks — Intro, Victory, and any others — grouped by trigger (§8b). Overrides the arena sequence's fallback set. Edit it on the <b>Dialogue</b> tab.</td></tr>
-    <tr><td><code>entranceDelay</code></td><td>0.6</td><td>Extra pause before the boss arrives, added <b>on top of</b> the <code>spawnInterval</code> the add loop already waits after the last add — the real gap is the sum (see <a href="dialogue.html#encounter">Dialogue §04</a>). Shipped: Krag 0.8, Shepherd 0.8, Regent 1.0.</td></tr>
+    <tr><td><code>displayName</code></td><td>empty</td><td>What the boss health bar calls it. Blank falls back to the enemy definition's asset name, then the prefab's — a bar with no label reads as broken. It lives here rather than on <code>EnemyDefinition</code> because the same creature can be an ordinary spawn in one biome and the boss of another, and only one of those readings deserves a name across the bottom of the screen. <b>All four shipped bosses leave it blank.</b></td></tr>
+    <tr><td><code>dialogue</code></td><td>none</td><td><code>DialogueSet</code> holding <b>every beat</b> the boss speaks — Intro, Victory, and any others — grouped by trigger (<a href="#dialogue">the exchange</a>). Overrides the arena sequence's fallback set. Edit it on the <b>Dialogue</b> tab.</td></tr>
+    <tr><td><code>entranceDelay</code></td><td>0.6</td><td>Extra pause before the boss arrives, added <b>on top of</b> the <code>spawnInterval</code> the add loop already waits after the last add — the real gap is the sum (see <a href="dialogue.html#encounter">Dialogue §04</a>). Shipped: Krag 0.8, Shepherd 0.8, Regent 1.0, Demon King 1.4.</td></tr>
     <tr><td><code>addsTable</code></td><td>none</td><td>When set, deferred markers without their own override roll this table instead of the biome's. Only the Shepherd uses one (<code>SpawnTable_ShepherdCall</code>).</td></tr>
-    <tr><td><code>rewardPrefab</code></td><td>none</td><td>Spawned at the boss point when the gate opens. All three bosses use <code>Reward_HealOrb</code>. (The victory <i>line</i> is the dialogue set's Victory group now, not a field here.)</td></tr>
+    <tr><td><code>rewardPrefab</code></td><td>none</td><td>Spawned at the boss point when the gate opens. All four bosses use <code>Reward_HealOrb</code>. (The victory <i>line</i> is the dialogue set's Victory group now, not a field here.)</td></tr>
     <tr><td><code>musicTrack</code></td><td>none</td><td>Boss theme on the Music bus — crossfades in when the fight starts; <b>empty = level music continues</b>. Only <code>Boss_PyreRegent</code> has one wired. (<code>musicCueId</code> is dead — kept only so old assets deserialize.)</td></tr>
   </table>
   </div>
   <p>Hook it into the run via <code>BiomeDefinition.boss</code> (Workbench Levels tab, or INI <code>boss = Boss_X</code> under <code>[Biome:]</code>). Empty = stand-in mode: arena adds only. INI <code>[Boss:]</code> sections can create and tune these assets wholesale — keys <code>bossPrefab</code>, <code>dialogue</code>, <code>entranceDelay</code>, <code>addsTable</code> (<code>-</code> clears), <code>rewardPrefab</code>, <code>musicTrack</code>, plus <code>outroSpeaker</code>/<code>outroText</code> (a convenience that folds into the dialogue set's <b>Victory</b> group on import).</p>
 
-  <h3 id="dialogue">8b. The exchange — in brief</h3>
-  <p>A speaker's dialogue is <b>grouped by trigger</b> in a single <code>DialogueSet</code>: <code>Intro</code>, <code>Victory</code>, <code>Defeat</code>, <code>Phase Two</code>, <code>Banter</code>, or any custom name. Each group is its own Hades-style rotating list, tracked per save by <code>dialogueId:trigger</code>, so a boss slowly reveals story across runs. Author it on the <b>Dialogue</b> tab (or the <b>Edit exchange →</b> button on the boss page). The three shipped bosses each carry an <code>Intro</code> group of three encounters and a one-line <code>Victory</code> group.</p>
+  <h3 id="dialogue">The exchange — in brief</h3>
+  <p>A speaker's dialogue is <b>grouped by trigger</b> in a single <code>DialogueSet</code>: <code>Intro</code>, <code>Victory</code>, <code>Defeat</code>, <code>Phase Two</code>, <code>Banter</code>, or any custom name. Each group is its own Hades-style rotating list, tracked per save by <code>dialogueId:trigger</code>, so a boss slowly reveals story across runs. Author it on the <b>Dialogue</b> tab (or the <b>Edit exchange →</b> button on the boss page). The four shipped bosses each carry an <code>Intro</code> group of three encounters and a one-line <code>Victory</code> group.</p>
   <div class="note"><b>Only <code>Intro</code> and <code>Victory</code> have call sites today</b> — a <code>Defeat</code> or <code>Phase Two</code> beat saves and validates but never plays until someone adds the <code>Next()</code> call. The <a href="dialogue.html">Dialogue page</a> is the full story: the four-level structure, the rotation rule, which triggers fire, the panel, and the recipe for wiring a new beat.</div>
 
   <h3>The corridor and the Mega Man doors</h3>
@@ -326,17 +360,19 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <li><b>The hush.</b> Level music fades to silence over 0.8s — the introduction plays in a hush (see <a href="audio.html">Audio</a>).</li>
     <li><b>Walk-in.</b> Canned walk of <code>walkInDistance</code> (4u), then 0.4s of stillness.</li>
     <li><b>Adds.</b> Deferred markers fire every <code>spawnInterval</code> (0.45s); each add spawns <b>dormant</b> — idle animation playing, AI off — and registers with the gate. Table priority per marker: marker override → <code>boss.addsTable</code> → biome table.</li>
-    <li><b>The boss.</b> After <code>spawnInterval + entranceDelay</code> (the add loop waits out the last add too — 1.25s for Krag and the Shepherd, 1.45s for the Regent), the boss spawns dormant at the <code>isBossPoint</code> marker and registers with the gate. (Missing marker: warns and uses the arena root — the validator flags this.)</li>
+    <li><b>The boss.</b> After <code>spawnInterval + entranceDelay</code> (the add loop waits out the last add too — 0.45s + the delay, so 1.25s for Krag and the Shepherd, 1.45s for the Regent, 1.85s for the Demon King), the boss spawns dormant at the <code>isBossPoint</code> marker and registers with the gate. (Missing marker: warns and uses the arena root — the validator flags this.)</li>
     <li><b>The exchange.</b> <code>boss.dialogue</code> (or the sequence's fallback set) plays its next <code>Intro</code>-group sequence — world running, enemies idling, player on the UI input map.</li>
-    <li><b>Fight on.</b> Boss music crossfades in (or the level track resumes if none), every dormant enemy wakes, the gate arms, control returns.</li>
+    <li><b>Fight on.</b> Boss music crossfades in (or the level track resumes if none), every dormant enemy wakes, <b>the health bar goes up</b>, the gate arms, control returns. The bar is raised <i>here</i> and not at spawn, deliberately: the boss stands dormant through the entrance and the whole exchange, and a health bar hanging over a creature that cannot yet be hit — for the length of a conversation — reads as a bug and steps on the one beat that is deliberately not a fight.</li>
   </ol>
-  <p><b>Victory:</b> the gate opens when every registered enemy is dead → 0.5s breath → <code>rewardPrefab</code> at the boss point → the dialogue set's <code>Victory</code> group plays (rotating + save-tracked, like the intro), world running. Stand-in arenas (no BossDefinition) open silently. Every phase is skip-safe: a missing set or marker degrades to "fight starts sooner". The <code>BossGate</code> can never soft-lock a run — arming with zero living registrations opens it immediately.</p>
+  <p><b>Victory:</b> the gate opens when every registered enemy is dead → the health bar comes down and the run is told a boss actually fell (<code>RaiseBossDisengaged</code>, <code>RunDirector.NotifyBossDefeated</code> — this is the only place the game learns the difference between a clear and a slip, and it fires <i>before</i> the outro so a player who quits during the victory beat keeps the bounty) → the fight music fades out over 1.0s → a 1.2s breath, long enough for that wind-down to reach silence → <code>rewardPrefab</code> at the boss point → the dialogue set's <code>Victory</code> group plays (rotating + save-tracked, like the intro), world running. Stand-in arenas (no BossDefinition) open silently. Every phase is skip-safe: a missing set or marker degrades to "fight starts sooner".</p>
+  <div class="warn note"><b>The BossGate <i>can</i> strand a run, and that is what the watchdog is for.</b> Arming with zero living registrations opens it immediately — but both shipped arenas carry <code>armOnStart: 0</code>, so the gate is only reachable through <code>Arm()</code> or a registered death, and a sequence that never <i>starts</i> (no entrance door resolved) leaves the barrier solid forever in the one room that is the level's only exit. So the gate runs its own 25s timeout, counted <b>only while the player is standing in the arena</b> — a watchdog with a stop condition and no start condition is not a watchdog, and counting from level load would expire three rooms away on every healthy run. On expiry it logs an error and opens, passing <code>announceVictory: false</code>: failing open means letting the player <i>out</i>, not telling them they won, so no reward spawns and no Victory line plays.</div>
 
   <h3>Boss recipe — zero code</h3>
   <ol class="steps">
-    <li><b>Author the boss like any enemy</b> (§07: def + prefab + phases). Shipped conventions: heavier armor on charges (2–3), and a phase-2 kit switched by a <code>HealthCondition</code> transition (<code>Cond_HalfHealth</code>, LessThan 0.5) — Krag adds <code>chaseEnraged</code> + slam chains, the Regent routes through <code>igniteArena</code> (Hazard Phase, HazardId <code>CrownIgnite</code>) into <code>chaseEnraged</code>, the Shepherd loops <code>summon ↔ relocate</code>.</li>
+    <li><b>Author the boss like any enemy</b> (§07: def + prefab + phases). Shipped conventions: heavier armor on charges (2–3), and a phase-2 kit switched by a <code>HealthCondition</code> transition (<code>Cond_HalfHealth</code>, LessThan 0.5) — Krag adds <code>chaseEnraged</code> + slam chains, the Regent routes through <code>igniteArena</code> (Hazard Phase, HazardId <code>CrownIgnite</code>) into <code>chaseEnraged</code>, the Shepherd loops <code>summon ↔ relocate</code>, and the Demon King combines all three — <code>igniteArena</code> (<code>DemonPyre</code>) into <code>chaseEnraged</code> plus a second attack chain and a <code>relocate</code>.</li>
+    <li><b>Route the flip THROUGH a state, not around it.</b> <code>chase → igniteArena → chaseEnraged</code> rather than a direct edge: the phase change gets a readable beat instead of the boss silently getting faster, and the hazard state is the natural place to light the arena. Give the phase-2 chain its own clips — <code>NextStateName</code> is a single string, so one chain cannot serve both phases, and reusing phase 1's animations makes a fight whose whole structure is "he changes at half health" change only in numbers the player cannot see.</li>
     <li><b>Create the BossDefinition</b> (<span class="kbd">Create ▸ Gleamwood ▸ Boss Definition</span>, or an INI <code>[Boss:]</code> section — import creates missing ones): bossPrefab, dialogue, entranceDelay, addsTable (optional), rewardPrefab, musicTrack (optional).</li>
-    <li><b>Write the exchange</b> on the <b>Dialogue</b> tab (§8b): an <code>Intro</code> beat is the story spine; add a <code>Victory</code> beat for the defeat line. Point the boss's <code>dialogue</code> field at the set.</li>
+    <li><b>Write the exchange</b> on the <b>Dialogue</b> tab (<a href="#dialogue">above</a>): an <code>Intro</code> beat is the story spine; add a <code>Victory</code> beat for the defeat line. Point the boss's <code>dialogue</code> field at the set.</li>
     <li><b>Point the biome at it</b>: <code>BiomeDefinition.boss</code> via the Workbench Levels tab or INI <code>boss =</code>.</li>
     <li><b>Arena room</b>: exactly one <code>isBossPoint</code> spawn marker (it implies defer-to-sequence), deferred add markers, a BossGate, the BossArenaSequence, <code>RelocatePoint</code>s whose <code>Id</code> matches any Relocate config's <code>PointId</code> (the shipped arenas use <code>Perch</code> ×3), and — if the kit uses a Hazard Phase — dormant <code>Hazard</code> objects named to contain the HazardId, authored inactive (the danger is level data; the state is just the switch).</li>
     <li><b>Corridor</b>: use <code>Room_Ember_BossCorridor</code> as-is — both doors and sequences are pre-wired, and the arena finds its entrance door itself.</li>
@@ -358,12 +394,13 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
   </table>
   </div>
   <p>The Workbench <b>Presentation</b> tab shows the whole soundscape on one screen: the prefab's hurtSound plus every state's EnterSound plus the DeathEffect. Death <i>VFX</i> is the <code>DeathEffect</code> prefab on the Death config, same tab.</p>
-  <p class="dim">The boss music beat (0.8s hush at the door, boss theme or level track at fight-on, 1.5s crossfades) belongs to the MusicDirector — full rules on <a href="audio.html">Audio</a>.</p>
+  <p class="dim">The boss music beat (0.8s hush at the door, boss theme or level track at fight-on, a 0.3s default crossfade, 1.0s fade-out on victory) belongs to the MusicDirector — full rules on <a href="audio.html">Audio</a>.</p>
 </section>
 
 <section id="modding">
   <h2><span class="num">10</span>Retuning enemies from text (modding)</h2>
   <p class="lead">A player with the Steam build and no Unity can change any enemy's numbers. Same story as <a href="dialogue.html#modding">dialogue modding</a>, same folder convention — a file beside the executable, matched by name, applied to a private copy.</p>
+  <div class="rule note"><b>The next three sections are one escalation, in this order:</b> <a href="#modding">§10</a> retunes a shipped creature's numbers → <a href="#newenemy">§10's <code>[NewEnemy:]</code></a> declares a new creature that borrows a shipped brain → <a href="#graph">§11</a> writes that brain from scratch → <a href="#art">§12</a> gives it your pixels. Each tier is the previous one plus one thing you could not say before, and they compose: a graph's <code>clip</code> names are checked against the art §12 built.</div>
 
 <pre><code><span class="c">; my-campaign/Enemies/tougher_krag.ini</span>
 [<span class="a">Enemy:KragDef</span>]
@@ -402,7 +439,7 @@ minStage  = <span class="a">0</span>
 [<span class="a">NewEnemy:AshHound.state:chase</span>]
 SpeedMultiplier = <span class="a">1.6</span></code></pre>
 
-  <div class="note rule"><b>Why <code>basedOn</code> rather than declaring a graph.</b> The states and edges come from the donor; the mod supplies numbers and skin. That is a real ceiling — no new states — and it buys something worth more than it costs: a variant <b>cannot name an animator state that does not exist</b>, because it uses the donor's. The freeze-forever failure is unreachable <i>by construction</i>, not merely guarded against.</div>
+  <div class="note rule"><b>Why <code>basedOn</code> rather than declaring a graph.</b> The states and edges come from the donor; the mod supplies numbers and skin. That is a real ceiling — no new states — and it buys something worth more than it costs: a variant <b>cannot name a clip that does not exist</b>, because it uses the donor's. The freeze-forever failure is unreachable <i>by construction</i>, not merely guarded against — and it stayed the ceiling long after that failure itself was retired, which the box before <a href="#graph">§11</a> explains.</div>
 
   <div class="scrollx">
   <table>
@@ -412,6 +449,7 @@ SpeedMultiplier = <span class="a">1.6</span></code></pre>
     <tr><td><code>minRoomDistance</code></td><td>How many <b>doors into a level</b> before it appears (0 = anywhere). A separate axis from <code>minStage</code> on purpose: something authored as "second biome onward" should not also start turning up in room two of the first one. Counted over connections, so it keeps meaning something in a level that loops.</td></tr>
     <tr><td><code>tint</code> · <code>scale</code></td><td>Its skin. A bad colour is reported and the enemy still spawns — one cosmetic typo should not delete a creature.</td></tr>
     <tr><td><code>sprite</code></td><td>The <b>sheet its animations are cut from</b> — see <a href="#art">§12</a>. On its own it does nothing and says so; it needs <code>clip</code> lines.</td></tr>
+    <tr><td><code>pivot</code> · <code>clips</code></td><td>Art keys that only take effect inside a <code>[Graph:]</code> section (<a href="#art">§12</a>). Under <code>[NewEnemy:]</code> they are recognised as header keys and then <b>silently dropped</b> — no field-override error, no effect. So do the art in a <code>[Graph:]</code> block, which is where the <code>clip</code> declarations they configure are read anyway.</td></tr>
     <tr><td>anything else</td><td>A field override on the cloned definition, exactly as for a shipped enemy.</td></tr>
   </table>
   </div>
@@ -440,7 +478,7 @@ SpeedMultiplier = <span class="a">1.6</span></code></pre>
 
   <div class="note"><b>Why this tier used to be the ceiling — and why it no longer is.</b> Letting text name states used to mean letting a mod name an <i>animator state that does not exist</i>, and that failed in the worst possible way: <code>Animator.Play()</code> silently no-opped, the state never completed, and the enemy froze permanently with no exception and no timeout. Enemies now play from a <a href="#graph">clip set</a> whose player <b>logs an error and reports the clip finished</b>, so an unknown name produces a loud message and a character that keeps moving. The freeze-forever failure no longer exists, which is what made <a href="#graph">§11</a> safe to build.</div>
 
-  <p class="dim">Editor and build diverge exactly as dialogue does: builds always load overrides; the editor only under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies</span>, so authoring is never quietly beaten by a folder. With no folder present the whole cost is one directory probe.</p>
+  <p class="dim">Builds always load overrides. The editor loads them when a campaign is active — a campaign is already an explicit choice, so it needs no second opt-in, and without this the editor silently disagrees with a build: the slot says "Ashfall" and the game plays vanilla — or under <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies</span>. The Simulate toggle exists to stop an <i>ambient</i> folder surprising a developer mid-session, and there is no ambient <code>Mods/</code> folder any more: content belongs to a campaign or to nothing. With nothing present the whole cost is one directory probe.</p>
 </section>
 
 <section id="graph">
@@ -534,14 +572,14 @@ health  = <span class="a">60</span>
   <table>
     <tr><th>Refused</th><th>Because</th></tr>
     <tr><td>Execution types (<code>DashExecution</code>, …)</td><td>They need a shader and a particle prefab text cannot name. Without them the enemy is left alive, frozen and un-executable. Yours inherits the donor's executions unchanged.</td></tr>
-    <tr><td><code>cooldown</code></td><td>Always returns true regardless of its time, so your gate would be permanently <b>open</b>, not periodic. Use <code>random … per second</code>.</td></tr>
+    <tr><td><code>cooldown</code></td><td>Refused <b>by keyword</b>. The condition it named returned true regardless of its time, so the gate would be permanently <i>open</i> rather than periodic — and since being turned down here was that class's only reachable purpose, the class itself was deleted and the refusal kept. The rule: <b>refuse by string key, delete the type</b>; the key is what a modder writes, so the key is what has to keep being answered. Use <code>random … per second</code>.</td></tr>
     <tr><td><code>button</code> · <code>wall</code> · <code>ladder</code> · <code>input</code></td><td>Read player input or fields nothing in the enemy code ever writes — the edge could never fire.</td></tr>
     <tr><td>bare <code>random 0.02</code></td><td>Checked every frame, so it fires ~70% of the time within a second at 60fps. "Sometimes" when you write it, "immediately" in play.</td></tr>
     <tr><td><code>stunDone</code> outside hitstun</td><td>True before the enemy has ever been hit, so the edge fires on frame one — and it doesn't <i>look</i> unconditional, which makes it very hard to spot.</td></tr>
     <tr><td><code>animationDone</code> with no clip</td><td>Reads the previous state's animation, which is permanently finished.</td></tr>
     <tr><td>A state transitioning to itself</td><td>Fires every frame, re-entering forever: an attack re-strikes every frame, a chase runs in place.</td></tr>
     <tr><td>Two edges to the same target</td><td>The runtime keeps one and silently discards the other, conditions and all. The message prints the <code>any(…)</code> rewrite instead of merging.</td></tr>
-    <tr><td><code>NextStateName</code> · <code>StateName</code> · <code>AnimatorStateName</code> as fields</td><td>These are writable strings that would let a file rewire a chain <i>past</i> every check above. Use <code>then</code>, the <code>state</code> line, and <code>clip</code>.</td></tr>
+    <tr><td>Eight fields set directly: <code>StateName</code> · <code>NextStateName</code> · <code>FallbackStateName</code> · <code>AnimationEndThreshold</code> · <code>Animation</code> · <code>AnimatorStateName</code> · <code>AnimatorLayerName</code> · <code>Transitions</code></td><td>These are public, writable, and the reflection applier would happily set them — so a file could rewire a boss's whole attack chain through <code>NextStateName</code> while the validator, which reads none of them, saw nothing to complain about. Denying them is what makes every check above <b>unbypassable</b>. Each is refused with the statement that replaces it: <code>then &lt;state&gt; at &lt;fraction&gt;</code>, the <code>state</code> line, <code>-&gt; &lt;state&gt; when …</code>, <code>clip = &lt;name&gt;</code> — and <code>AnimatorLayerName</code>, which is meaningless once an enemy plays from a clip set, is simply told to be deleted.</td></tr>
   </table>
   </div>
 
@@ -594,19 +632,20 @@ pivot   = <span class="a">2</span>
   </div>
   <p>Options after the frames, in any order: <code>fps &lt;n&gt;</code> · <code>loop</code> · <code>once</code> · <code>pivot &lt;p&gt;</code> (or <code>pivot &lt;x,y&gt;</code>) · <code>slot &lt;name&gt;</code> · <code>duration &lt;secs&gt;</code>.</p>
 
-  <div class="note rule"><b>Pivot is in PIXELS, and it is the thing most likely to go wrong.</b> Unity expresses an anchor as a fraction of the frame and defaults it to the middle — which would leave every modded creature floating half a body above the floor, with nothing logged to explain it. The shipped enemies sit at <code>y = 0.0127</code>, a number nobody arrives at deliberately. So you write what you can actually measure by looking at your own art: <b>how many pixels of empty space are under your character's feet</b>. Usually 0, sometimes 2, occasionally negative if the art overhangs its cell.</div>
+  <div class="note rule"><b>Pivot is in PIXELS, and it is the thing most likely to go wrong.</b> Unity expresses an anchor as a fraction of the frame and defaults it to the middle — which would leave every modded creature floating half a body above the floor, with nothing logged to explain it. The shipped sheets sit at fractions like <code>0.0111</code> or <code>0.0127</code> — numbers nobody arrives at deliberately. So you write what you can actually measure by looking at your own art: <b>how many pixels of empty space are under your character's feet</b>. Usually 0, sometimes 2, occasionally negative if the art overhangs its cell.</div>
 
-  <div class="note"><b>Scale is taken from the donor, and there is no key for it.</b> Enemy sheets are authored at 100 pixels per unit and the player's at 64, so there is no single right answer to put in a file — and a wrong one silently resizes the whole creature rather than failing. Your frames are cut at whatever the donor's own art uses, so they land at the right size by construction.</div>
+  <div class="note"><b>Scale is taken from the donor, and there is no key for it.</b> The project standardized on <b>64 pixels per unit</b> — every shipped enemy sheet is at 64 — but PPU is still <i>derived</i> from the donor rather than written, because a key could only ever be got wrong, and a wrong one silently resizes the whole creature instead of failing. Your frames are cut at whatever the donor's own art uses, so they land at the right size by construction.</div>
 
   <h3>Reskinning a shipped enemy</h3>
-  <p>Because <code>extend</code> is the default, declaring a clip with a <b>donor's</b> name replaces just that animation and leaves the shipped graph running unchanged. No states, no transitions — six lines:</p>
-<pre><code>[<span class="a">NewEnemy:AshHound</span>]
+  <p>Because both <code>states</code> and <code>clips</code> default to <code>extend</code>, a <code>[Graph:]</code> block with <b>no <code>state</code> lines at all</b> keeps the donor's whole brain, and declaring a clip with a <b>donor's</b> name replaces just that animation. No states, no transitions — six lines:</p>
+<pre><code>[<span class="a">Graph:AshHound</span>]
 basedOn = <span class="a">CinderHoundDef</span>
 sprite  = <span class="a">ash_hound.png 8x3</span>
 pivot   = <span class="a">2</span>
 <span class="a">clip</span> cinderhound-idle = <span class="a">0-7</span>  fps <span class="a">8</span>
 <span class="a">clip</span> cinderhound-run  = <span class="a">8-15</span> fps <span class="a">14</span></code></pre>
-  <p class="dim">The names have to be exact, which is the sharpest edge in the format — they are listed for you whenever a <code>clip =</code> reference misses, and the generated templates carry them.</p>
+  <div class="warn note"><b>It has to be <code>[Graph:]</code>, not <code>[NewEnemy:]</code>, even though nothing here declares a state.</b> <code>clip &lt;Name&gt; = …</code> is a two-word key that only the graph reader recognises; on the <code>[NewEnemy:]</code> path those lines fall through to the field applier as unknown fields, and <code>pivot</code> is dropped silently besides (§10). The result is a creature that loads, spawns, and looks exactly like its donor — which is why the tests pin the failure message: a sheet with no <code>clip</code> lines cut from it cannot change anything, and it says so.</div>
+  <p class="dim">The clip names have to be exact, which is the sharpest edge in the format — they are listed for you whenever a <code>clip =</code> reference misses, and the generated templates carry them.</p>
 
   <h3>What it refuses</h3>
   <div class="scrollx">
@@ -627,17 +666,31 @@ pivot   = <span class="a">2</span>
 
 <section id="gotchas">
   <h2><span class="num">13</span>Known debts &amp; gotchas</h2>
-  <div class="warn note"><b>The MoveSpeed debt:</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to <code>3f</code> — nothing reads it from any definition asset. Chase and float-chase both compute <code>3 × SpeedMultiplier</code>, so <b>the chase config's <code>SpeedMultiplier</code> is the real per-enemy speed knob</b>. The Workbench owns up to it ("Base chase speed is 3 u/s" with a computed "chases at N u/s" label). Shipped multipliers: almost everyone 1; Krag enraged 1.35; PyreRegent 1.2 / enraged 1.5.</div>
+  <p class="lead">The things this page's cross-references point at: one real architectural debt (speed), a handful of conditions and fields whose behaviour is surprising rather than wrong, and the two clocks that make an enemy look soft-locked when it is not.</p>
+  <div class="warn note"><b>The MoveSpeed debt:</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to <code>3f</code> — nothing reads it from any definition asset. Chase and float-chase both compute <code>3 × SpeedMultiplier</code>, so <b>the chase config's <code>SpeedMultiplier</code> is the real per-enemy speed knob</b>, and the whole roster is authored through it (§01's Chase × column). The Workbench owns up to it ("Base chase speed is 3 u/s" with a computed "chases at N u/s" label).</div>
+  <div class="scrollx">
+  <table>
+    <tr><th>Definition</th><th><code>chase</code></th><th>enraged / float lane</th></tr>
+    <tr><td><code>CinderHoundDef</code></td><td>1.6</td><td>—</td></tr>
+    <tr><td><code>PyreRegentDef</code></td><td>1.2</td><td><code>chaseEnraged</code> 1.5</td></tr>
+    <tr><td><code>SootBomberDef</code></td><td>1.1</td><td>—</td></tr>
+    <tr><td><code>ImpScoutDef</code> · <code>CinderShepherdDef</code></td><td>1</td><td>—</td></tr>
+    <tr><td><code>EmberWispDef</code></td><td>1 <span class="dim">(unregistered)</span></td><td><code>floatChase</code> 1.2 — the only lane it has</td></tr>
+    <tr><td><code>KragDef</code></td><td>1</td><td><code>chaseEnraged</code> 1.35</td></tr>
+    <tr><td><code>PyreArcherDef</code></td><td>0.9</td><td>—</td></tr>
+    <tr><td><code>DemonKingDef</code></td><td>0.85</td><td><code>chaseEnraged</code> 1.5</td></tr>
+    <tr><td><code>VaultAcolyteDef</code></td><td>0.7</td><td>—</td></tr>
+  </table>
+  </div>
   <ul>
-    <li><code>CooldownCondition</code> is a stub — <code>Check</code> always returns true. Don't gate anything on it.</li>
     <li><code>HealthCondition</code> returns false for <code>MaxHealth ≤ 0</code> enemies — no-health enemies can't phase-switch on health.</li>
-    <li><code>AnimationEndCondition</code> has no full-path-hash guard (unlike attack phases) — on a state with no clip of its own it reads the lingering previous state's time. Always pair it with <code>HitStunCondition</code> like the shipped defs do.</li>
+    <li><code>AnimationEndCondition</code> asks how far along the current animation is, never whose clip it is — so unlike an attack phase it has no own-clip guard, and on a state with no clip of its own it reads the lingering previous state's time. Always pair it with <code>HitStunCondition</code> like the shipped defs do.</li>
     <li>One transition per Update, and transitions run <i>before</i> the state's own Update each frame.</li>
     <li>Every phase needs a clip; a clipless phase warns and advances immediately (no telegraph).</li>
-    <li><code>2.IntroLevel</code> starts frozen (<code>timeScale = 0</code> until the intro card is dismissed) — animators don't advance in editor tests until you set <code>Time.timeScale = 1</code>.</li>
+    <li><b>Anything modal freezes the world, and the freeze outlives it.</b> <code>MenuState.Push</code> sets <code>Time.timeScale = 0</code> while a full-screen panel is up — the level intro card pushes on show and pops on dismiss — and hitstop drives the same clock to a fraction of 1 for the length of a hit. Neither animation backend advances while it is held — the <code>SpriteAnimator</code> runs on scaled time unless something explicitly asks it not to — so an editor test that never sets <code>Time.timeScale = 1</code> in its <code>SetUp</code> reads a stuck enemy as a soft-lock.</li>
     <li>Executions require pre-hit readiness and fire once per enemy; the run's juggle stat counts every launch.</li>
     <li>Shared SOs are never mutated at runtime — depth scaling goes through <code>ApplyStatScale</code> on the context. The scene ring tuner is the deliberate exception: it writes shared definitions in-editor, with Undo.</li>
-    <li><code>EnemyJuggledConfig.AirDrop</code> is serialized but never read; <code>BossDefinition.musicCueId</code> is dead.</li>
+    <li><code>BossDefinition.musicCueId</code> is dead — <code>[HideInInspector]</code>, superseded by <code>musicTrack</code>, kept only so old assets deserialize. <code>EnemyJuggledConfig.AirDrop</code> used to be listed here beside it and is <b>gone</b> (D20): it was authored on every juggled config, read by nothing, and shipped as a live Workbench slider labelled "Fall Speed" — so it was tunable, visible, and inert at once. The field and the slider went in the same commit; any <code>AirDrop: 1</code> line still in a definition asset is inert and drops off on its next resave.</li>
     <li>Inactive spawn markers are skipped on purpose — disable a marker to mute it. <code>isBossPoint</code> implies defer-to-sequence at assembly.</li>
     <li>Asset filenames and nodeIds are save data — never rename shipped ones.</li>
     <li>Enemy strikes and projectiles damage the player's health directly (minimum 1 each); projectiles ignore trigger colliders, pass through enemies, and die on world geometry or lifetime.</li>
@@ -650,9 +703,11 @@ pivot   = <span class="a">2</span>
     <li>Definitions &amp; configs: <code>Assets/_Game/Enemies/Code/Definitions/</code> (<code>EnemyStateConfig.cs</code> + every state/execution config class) and the runtime pair <code>Assets/_Game/Enemies/Code/EnemyStateMachine.cs</code> / <code>EnemyContext.cs</code>.</li>
     <li>Phase &amp; reaction behavior: the state classes in <code>Assets/_Game/Enemies/Code/</code> (attack phase, hit, juggled, death, summon, relocate, hazard) and <code>EnemyRangePreview.cs</code> for the ring tuner.</li>
     <li>Boss staging: <code>Assets/_Game/Systems/Run/BossDefinition.cs</code> and <code>Assets/_Game/Systems/Run/ProcGen/</code> (<code>BossArenaSequence.cs</code>, <code>BossDoor.cs</code>, <code>BossDoorSequence.cs</code>, <code>BossGate.cs</code>, <code>EnemySpawner.cs</code>, <code>EnemySpawnMarker.cs</code>, <code>EnemySpawnTable.cs</code>).</li>
-    <li>Tooling: <code>Assets/_Game/Editor/ContentWorkbench.cs</code> (Enemies/Bosses split, sub-tabs, boss staging section) and <code>Assets/_Game/Editor/Enemies/EnemyExecutionPostProcessor.cs</code>.</li>
-    <li>Shipped values: <code>Assets/_Game/Enemies/Data/EnemyDefinitions/*.asset</code>, the <code>Boss_*.asset</code> staging assets under <code>Assets/_Game/Biomes/</code>, and <code>Assets/_Game/Content/GameContent.ini</code>.</li>
-    <li>Companion docs: <code>Documentation/ENEMY_ATTACKS_AND_SUPER_ARMOR.md</code>, <code>Documentation/GAME_TUNING_GUIDE.md</code>.</li>
+    <li>Tooling: <code>Assets/_Game/Editor/Workbench/WorkbenchCategories.cs</code> (the Enemies/Bosses split, the six sub-tabs, the Boss Staging section), <code>WorkbenchForm.cs</code> (<code>IsBoss</code>/<code>BossFor</code> — what makes a def a boss), <code>WorkbenchStates.cs</code> (the States tab), <code>Assets/_Game/Editor/ContentWorkbench.cs</code> (the window shell and its menu items), and <code>Assets/_Game/Editor/Enemies/EnemyExecutionPostProcessor.cs</code>.</li>
+    <li>Modding tiers (§10–§12): <code>Assets/_Game/Enemies/Code/Definitions/</code> — <code>EnemyOverrides.cs</code>, <code>EnemyVariants.cs</code>, <code>EnemyCatalog.cs</code>, <code>EnemyDefinitionClone.cs</code>, <code>EnemyGraphValidator.cs</code>, <code>EnemyAnimationWhitelist.cs</code> — and <code>Definitions/Graph/</code> (<code>EnemyGraphParser.cs</code>, <code>EnemyGraphBuilder.cs</code>, <code>EnemyConditionCompiler.cs</code>, <code>ModClipSetBuilder.cs</code>, <code>EnemyGraphSpec.cs</code>). Templates: <code>Assets/_Game/Systems/Utils/Build/Editor/EnemyTemplateBuildStep.cs</code>.</li>
+    <li>Adjacent systems this page quotes numbers from: <code>Assets/_Game/Combat/Code/CombatStatusManager.cs</code> (§05's meter and decay), <code>Assets/_Game/Systems/Animation/SpriteAnimator.cs</code> + <code>SpriteClipSet</code> and <code>Assets/_Game/Enemies/Code/EnemyAnimationProbe.cs</code> (the animation contract in §02/§03/§06/§07), <code>Assets/_Game/Systems/Audio/MusicDirector.cs</code> (§09's fade lengths), <code>Assets/_Game/Enemies/Code/EnemyProjectile.cs</code>, and <code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code> (§05's F1 path).</li>
+    <li>Shipped values: <code>Assets/_Game/Enemies/Data/EnemyDefinitions/*.asset</code> (ten), the four <code>Boss_*.asset</code> staging assets under <code>Assets/_Game/Biomes/</code>, the sheet <code>.meta</code> files under <code>Assets/_Sprites/Gleamwood/Enemies/</code> (PPU and pivots), and <code>Assets/_Game/Content/GameContent.ini</code>.</li>
+    <li>Companion doc: <code>Documentation/GAME_TUNING_GUIDE.md</code> (an index — it points back here rather than restating any of it).</li>
   </ul>
 </div>
 

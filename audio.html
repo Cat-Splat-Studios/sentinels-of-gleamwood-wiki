@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -100,7 +103,16 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
     <tr><td><code>FadeOutForVictory()</code></td><td>Crossfade to silence over <b>1.0 s</b> — the victory wind-down, so the boss's last line isn't competing with the theme. Music stays out until the next scene loads.</td></tr>
   </table>
   </div>
-  <p class="dim">Default crossfade is <code>CrossfadeSeconds = 1.5</code>, min fade 0.05 s, and every fade timer runs on <b>unscaled time</b> — hitstop and pause can't freeze a fade. Same-track requests early-out, so loading another scene on the same music keeps the track playing seamlessly.</p>
+  <h3>The three fade numbers</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Number</th><th>Value</th><th>Where it comes from</th></tr>
+    <tr><td>Default crossfade</td><td><b>0.3 s</b></td><td><code>CrossfadeSeconds</code> — used by every call that does not pass its own fade, which is every scene rule <em>and</em> <code>PlayBossTrack</code>.</td></tr>
+    <tr><td>Minimum fade</td><td><b>0.05 s</b></td><td><code>Mathf.Max(0.05f, fadeSeconds)</code> — a zero-length fade is a click, so there is a floor.</td></tr>
+    <tr><td>Fade clock</td><td><b>unscaled</b></td><td><code>Time.unscaledDeltaTime</code> — hitstop and pause cannot freeze a fade half way.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Same-track requests early-out, so loading another scene on the same music keeps the track playing seamlessly.</p>
 </section>
 
 <section id="scenerules">
@@ -109,14 +121,14 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
   <div class="scrollx">
   <table>
     <tr><th>Scene name contains</th><th>Track played</th><th>Biome override</th></tr>
-    <tr><td><code>BiomeHost</code> / <code>IntroLevel</code></td><td>the biome's pushed track, else <code>MusicSet.LevelTrack</code></td><td>kept</td></tr>
+    <tr><td><code>BiomeHost</code> (<code>IsLevelScene</code> also still accepts <code>IntroLevel</code> — no scene carries that name any more)</td><td>the biome's pushed track, else <code>MusicSet.LevelTrack</code></td><td>kept</td></tr>
     <tr><td><code>RestHost</code></td><td><code>HubTrack</code> (fallback <code>MenuTrack</code>) — <b>rests are an Overworld breather</b></td><td><b>kept</b> — "the next BiomeHost pushes fresh anyway"</td></tr>
     <tr><td><code>Hub</code></td><td><code>HubTrack</code> (fallback <code>MenuTrack</code>)</td><td><b>cleared</b> — run left or ended</td></tr>
     <tr><td>anything else (Boot, Title, TestSandbox…)</td><td><code>MenuTrack</code></td><td><b>cleared</b></td></tr>
   </table>
   </div>
   <p>An empty slot means silence, no errors — the MusicSet is a stub by design.</p>
-  <div class="warn note"><b>Renaming a scene silently reroutes the score.</b> The rules match on <code>BiomeHost</code>, <code>IntroLevel</code>, <code>RestHost</code>, <code>Hub</code> as substrings, nothing else. That's also why <code>3.TestSandbox</code> gets <em>menu</em> music: it matches no level rule and falls through.</div>
+  <div class="warn note"><b>Renaming a scene silently reroutes the score.</b> The rules match on <code>BiomeHost</code>, <code>RestHost</code>, <code>Hub</code> as substrings, nothing else — plus the vestigial <code>IntroLevel</code>, which outlived its scene. That's also why <code>3.TestSandbox</code> gets <em>menu</em> music: it matches no level rule and falls through.</div>
 </section>
 
 <section id="bossbeats">
@@ -127,7 +139,7 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
     <li><b>Canned walk-in</b> — the player strides in on the UI input map (<code>walkInDistance</code> default 4, <code>walkTimeoutSeconds</code> default 3), then a 0.4 s beat of stillness. Silence holds.</li>
     <li><b>Adds spawn staggered</b> (<code>spawnInterval</code> default 0.45 s), dormant; the boss arrives last after its <code>entranceDelay</code>.</li>
     <li><b>Dialogue plays</b> with the world still running — no time freeze, no music.</li>
-    <li><b>Fight-on:</b> boss theme erupts from silence (1.5 s crossfade) — or, if the boss has no theme, the level track restarts. Enemies wake, the gate arms, control returns.</li>
+    <li><b>Fight-on:</b> boss theme erupts from silence (the default <b>0.3 s</b> crossfade — <code>PlayBossTrack</code> passes no fade of its own) — or, if the boss has no theme, the level track restarts. Enemies wake, the gate arms, control returns.</li>
     <li><b>Boss falls → the gate opens:</b> <code>MusicDirector.FadeOutForVictory()</code> winds the theme down to silence over <b>1.0 s</b>; a ~1.2 s breath holds while it fades, then the reward spawns and the boss speaks its <code>Victory</code> line in the quiet. Music stays out until the next scene loads.</li>
   </ol>
 <pre><code><span class="c">// BossArenaSequence.Sequence() — the fight-on branch:</span>
@@ -160,11 +172,26 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
   <h3>Per-biome and per-boss overrides</h3>
   <div class="scrollx">
   <table>
-    <tr><th>Field</th><th>Behavior</th><th>Current assignments</th></tr>
-    <tr><td><code>BiomeDefinition.musicTrack</code> (Presentation header; Workbench Levels tab → "Level Music" row)</td><td>Looping music for the biome's levels, pushed by <code>BiomeHostController</code> at level assembly. Empty = <code>LevelTrack</code> fallback. The pushed track survives through rests into the next biome.</td><td>Emberfall → Forest of the Demon · EmberfallDepths → The Demon's Lair · cinderway → The Demon's Lair · pyre-crown → Road to Demon King · ashen-vaults → <i>empty (fallback)</i></td></tr>
-    <tr><td><code>BossDefinition.musicTrack</code> (Workbench Boss Staging → "Boss Music" row)</td><td>Boss-fight theme, crossfades in at fight-on (§04). Empty = level music continues.</td><td>PyreRegent → The Demon King · Krag → <i>empty</i> · CinderShepherd → <i>empty</i></td></tr>
+    <tr><th>Field</th><th>Behavior</th></tr>
+    <tr><td><code>BiomeDefinition.musicTrack</code> (Presentation header; Workbench Levels tab → "Level Music" row)</td><td>Looping music for the biome's levels, pushed by <code>BiomeHostController</code> at level assembly. Empty = <code>LevelTrack</code> fallback. The pushed track survives through rests into the next biome.</td></tr>
+    <tr><td><code>BossDefinition.musicTrack</code> (Workbench Boss Staging → "Boss Music" row)</td><td>Boss-fight theme, crossfades in at fight-on (§04). Empty = level music continues.</td></tr>
   </table>
   </div>
+
+  <h3>Assignments as of today</h3>
+  <p>Deliberately a separate table from the one above: the behaviour is stable, the inventory drifts every time a biome or boss ships. When it matters, re-read the assets rather than this list.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Asset</th><th>Track</th></tr>
+    <tr><td>Emberfall</td><td>Forest of the Demon</td></tr>
+    <tr><td>EmberfallDepths · cinderway</td><td>The Demon's Lair</td></tr>
+    <tr><td>pyre-crown</td><td>Road to Demon King</td></tr>
+    <tr><td>ashen-vaults · demon-king · gale · hollow · mire · spire</td><td><i>empty</i> → falls back to <code>LevelTrack</code></td></tr>
+    <tr><td>PyreRegent <span class="dim">(boss)</span></td><td>The Demon King</td></tr>
+    <tr><td>Krag · CinderShepherd · DemonKing <span class="dim">(bosses)</span></td><td><i>empty</i> → the level track keeps playing</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Six of the ten shipped biomes have no track of their own, and neither does the run's final boss.</b> All six fall through to <code>LevelTrack</code>, which is <i>Forest of the Demon</i> — so a route through <code>gale</code>, <code>hollow</code>, <code>mire</code>, <code>spire</code> or <code>demon-king</code> plays the Emberfall theme the whole way, and <code>Boss_DemonKing</code> then fights to whatever the level was already playing. Empty is a legal state: nothing errors, nothing warns, so nothing will tell you the last fight of a run has no theme.</div>
   <p class="dim">Both fields also import from <code>GameContent.ini</code> — <code>musicTrack =</code> under <code>[Biome:]</code> and <code>[Boss:]</code> sections (see <a href="tuning.html">Tuning &amp; INI</a>). The old <code>musicCueId</code> field is <code>[HideInInspector]</code> legacy — kept only so old assets deserialize, never read.</p>
 </section>
 
@@ -186,7 +213,7 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
   </table>
   </div>
   <div class="rule note"><b>The split that bites:</b> <code>EnterSound</code> lives on the <em>shared definition</em> — tuning one hound's telegraph tunes every hound. <code>hurtSound</code> lives on the <em>prefab</em>. The Workbench's Enemy Presentation tab edits both in one place and labels which is which.</div>
-  <div class="note"><b>Not yet in game:</b> <code>RangedWeaponDefinition.DrawSound</code> exists but is never played — shots are instant casts, and the Workbench prints exactly that. Don't spend authoring time on it.</div>
+  <div class="note"><b>Not yet in game:</b> <code>RangedWeaponDefinition.DrawSound</code> exists but is never played — no code plays it at all, and the Workbench prints exactly that. Don't spend authoring time on it. (The reason used to be given as “shots are instant casts”; that is no longer true of the bow, but this field is still unplayed.)</div>
 
   <h3>Where the Workbench puts the rows</h3>
   <p>Every clip field renders as a <b>SoundRow</b>: object field + a 44-px <b>Play</b> button (editor preview via <code>AudioUtil</code> reflection — there's no public preview API). Rows by category in <span class="kbd">Gleamwood ▸ Content Workbench</span>:</p>
@@ -210,12 +237,16 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
     <tr><td><code>UIAudio.Move()</code></td><td><code>ui_move</code></td><td>0.8</td><td>0.09 s (kills analog-stick machine-gunning)</td><td><code>MenuScreen</code> navigation (vector <code>sqrMagnitude &gt; 0.25</code>)</td></tr>
     <tr><td><code>UIAudio.Submit()</code></td><td><code>ui_submit</code></td><td>0.9</td><td>—</td><td><code>MenuScreen.HandleSubmitInput()</code></td></tr>
     <tr><td><code>UIAudio.Cancel()</code></td><td><code>ui_cancel</code></td><td>0.85</td><td>—</td><td><code>MenuScreen.HandleCancelInput()</code></td></tr>
-    <tr><td><code>UIAudio.Tab()</code></td><td><code>ui_tab</code></td><td>0.8</td><td>—</td><td><code>SettingsMenuController</code> — shoulder buttons, Q/E, tab clicks</td></tr>
+    <tr><td><code>UIAudio.Tab()</code></td><td><code>ui_tab</code></td><td>0.8</td><td>—</td><td><code>MenuTabBar</code> — shoulder buttons / <span class="kbd">Q</span><span class="kbd">E</span> (<code>Switch</code>) and tab clicks, so every tabbed screen (Settings, Shop) gets it free; also <code>SaveSlotsController</code> on a page jump</td></tr>
     <tr><td><code>UIAudio.Tick()</code></td><td><code>ui_tick</code></td><td>0.7</td><td>0.05 s (hold-to-repeat sliders)</td><td><code>SettingRow</code> slider value changes</td></tr>
   </table>
   </div>
+  <div class="note"><b>The tab click lives in the framework, not the screen.</b> Settings and Shop carried byte-identical copies of the tab-switch loop, so it was extracted into <code>MenuTabBar</code> — and the sound went with it. That is why a new tabbed screen is audible without wiring anything: it gets the click from <code>Switch()</code> and from the label's own <code>ClickEvent</code>. <code>SettingsMenuController</code> contains no <code>UIAudio</code> call at all today.</div>
+</section>
 
-  <h3>Current wiring (who plays what)</h3>
+<section id="wiring">
+  <h2><span class="num">07</span>Current wiring (who plays what)</h2>
+  <p class="lead">An inventory, not a contract — this is what the shipped assets carry today, and it drifts every time a weapon or an enemy ships. The seams that decide <i>where</i> a clip goes are §06; this is only what is currently in them.</p>
   <div class="scrollx">
   <table>
     <tr><th>Weapon</th><th>Swings</th><th>Dash</th><th>Impact FX</th></tr>
@@ -237,12 +268,14 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
     <tr><td>VaultAcolyte</td><td>L</td><td>sfx_telegraph_L</td><td>sfx_swing_great_1</td><td>sfx_strike_L</td><td>sfx_death_L</td><td>sfx_hurt_L</td></tr>
     <tr><td>Krag (boss)</td><td>L</td><td>sfx_telegraph_L (all four charge states)</td><td>sfx_swing_great_1</td><td>sfx_strike_L (attack + both slams)</td><td><b>sfx_death_boss</b></td><td>sfx_hurt_L</td></tr>
     <tr><td>PyreRegent (boss)</td><td>L</td><td>sfx_telegraph_L</td><td>sfx_swing_great_1</td><td>sfx_strike_L</td><td>sfx_death_L</td><td>sfx_hurt_L</td></tr>
+    <tr><td><b>DemonKing (boss)</b></td><td><i>none</i></td><td><i>empty</i></td><td><i>empty</i></td><td><i>empty</i></td><td><i>empty</i></td><td>sfx_hurt_L</td></tr>
   </table>
   </div>
+  <div class="warn note"><b>The final boss is nearly silent, and that is a gap rather than a style choice.</b> All fourteen of <code>DemonKingDef</code>'s state configs carry <code>EnterSound: none</code> — no telegraph, no strike, no death sting — so the only sound the Demon King makes is the <code>hurtSound</code> on its prefab (<code>sfx_hurt_L</code> at 0.8). It has not been sized against the S/M/L dict either (§10). Nothing errors: an empty <code>EnterSound</code> is a legal, silent state.</div>
 </section>
 
 <section id="settings">
-  <h2><span class="num">07</span>Volume sliders → mixer</h2>
+  <h2><span class="num">08</span>Volume sliders → mixer</h2>
   <p class="lead">Four sliders + four mutes on the Settings AUDIO tab map straight onto the buses (<code>Assets/_Game/Systems/Settings/GameSettings.cs</code>). Every setter re-applies immediately — apply-as-you-store, no Apply button.</p>
   <div class="scrollx">
   <table>
@@ -263,9 +296,10 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
 </section>
 
 <section id="recipe">
-  <h2><span class="num">08</span>Add or replace a clip, end to end</h2>
+  <h2><span class="num">09</span>Add or replace a clip, end to end</h2>
+  <p class="lead">Replacing a clip under its existing filename is the whole job — every wire is by filename or by asset reference, so nothing needs re-pointing. Everything below is for a <i>new</i> sound on <i>new</i> wiring.</p>
   <ol class="steps">
-    <li>Author a <b>mono 44.1 kHz WAV</b> that follows the style contract (§09). For combat clips, follow the <code>synth_sfx_pack_v2.py</code> conventions with a deterministic seed.</li>
+    <li>Author a <b>mono 44.1 kHz WAV</b> that follows the style contract (§10). For combat clips, follow the <code>synth_sfx_pack_v2.py</code> conventions with a deterministic seed.</li>
     <li>Drop it in the right home: <code>Assets/_Game/Audio/SFX/</code> (combat), <code>Assets/_Game/Audio/Resources/UISfx/</code> (UI — the filename <em>is</em> the wire: <code>ui_move</code> etc.), or <code>Assets/_Game/Audio/Music/</code> (music). <b>Replacing with the same filename ends the job — every wire holds.</b></li>
     <li>Import settings: stock defaults, nothing to replicate. Verified on <code>sfx_hit_spark.wav.meta</code>: Decompress On Load, Vorbis quality 1, normalize on, preload off, no force-to-mono. (The meta's <code>sampleRateOverride: 44100</code> is inert — <code>sampleRateSetting</code> is "preserve" and the source WAVs are already 44.1 kHz.)</li>
     <li>New clip on new wiring: open <span class="kbd">Gleamwood ▸ Content Workbench</span>, find the sound row for the seam (§06), drop the clip, press <b>Play</b> to preview in place.</li>
@@ -275,7 +309,7 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
 </section>
 
 <section id="style">
-  <h2><span class="num">09</span>The canon SFX style — so new sounds match</h2>
+  <h2><span class="num">10</span>The canon SFX style — so new sounds match</h2>
   <p class="lead">The whole combat pack is one family: <b>Street Fighter / Final Fight arcade character</b>, deterministic numpy synthesis (44.1 kHz mono WAV, seeded RNG — regenerating with the same filenames keeps every Unity wire). Two deliberate exceptions: the bow is <em>natural</em>, the UI is <em>clean</em>.</p>
   <div class="grid c3">
     <div class="card accent-ember">
@@ -295,12 +329,13 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
   <p>Each S/M/L family generates its own telegraph (riser), strike (flammed bap), death (KO boom), and hurt (lighter bap), scaled by one dict — size a new enemy's sounds by picking its class, not by inventing numbers:</p>
   <div class="scrollx">
   <table>
-    <tr><th>Class</th><th>Duration ×</th><th>f0 / f1 (Hz)</th><th>Knock (Hz)</th><th>Current members</th></tr>
-    <tr><td><b>S</b></td><td>1.0</td><td>260 / 110</td><td>520</td><td>EmberWisp, ImpScout</td></tr>
-    <tr><td><b>M</b></td><td>1.35</td><td>190 / 80</td><td>400</td><td>CinderHound, PyreArcher, SootBomber</td></tr>
-    <tr><td><b>L</b></td><td>1.8</td><td>140 / 55</td><td>300</td><td>CinderShepherd, VaultAcolyte, Krag, PyreRegent</td></tr>
+    <tr><th>Class</th><th>Duration ×</th><th>f0 / f1 (Hz)</th><th>Knock (Hz)</th></tr>
+    <tr><td><b>S</b></td><td>1.0</td><td>260 / 110</td><td>520</td></tr>
+    <tr><td><b>M</b></td><td>1.35</td><td>190 / 80</td><td>400</td></tr>
+    <tr><td><b>L</b></td><td>1.8</td><td>140 / 55</td><td>300</td></tr>
   </table>
   </div>
+  <p class="dim">Which enemy is in which class is <b>not</b> here on purpose — that roster drifts with every enemy added, so it lives in §07's wiring table beside the clips it explains. <code>DemonKing</code> appears in neither: it has no class sounds assigned at all.</p>
   <p class="dim">Specials sit on top of the families: <code>sfx_explosion_bomber</code> (bap + rumble + 130→32 Hz sweep), <code>sfx_death_wisp</code> (breath sweep + high shimmer, soft finish), <code>sfx_death_boss</code> (double KO boom, second delayed 0.28 s, + 1.3 s rumble).</p>
   <div class="rule note"><b>The contract for any new sound:</b> mono 44.1 kHz WAV. Combat = layered (thump+knock+slap or whoosh+body), 5.2 kHz band-limit + ~11 kHz rate crunch + tanh drive, dry and tight, sized S/M/L by the class dict. Bow family = natural anatomy, no sweeps, light finish. UI = clean blips ≤ 9 kHz, no crunch. A sound that skips the finish chain will stick out of the mix like a stock-asset thumb.</div>
   <p class="dim">Generators: <code>synth_sfx_pack_v2.py</code> (combat, seed <code>0x5F2A</code>), <code>synth_bow_natural.py</code> (bow, seed <code>0xB0B0</code>, writes straight into <code>Assets/_Game/Audio/SFX</code>), <code>synth_ui_sfx.py</code> (UI, seed <code>0x0111</code>). The v1 chiptune pack is superseded — v2 kept all 28 combat filenames, so nothing rewired.</p>
@@ -312,10 +347,10 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
     <li>Runtime sinks: <code>Assets/_Game/Systems/Audio/GameAudio.cs</code> · <code>UIAudio.cs</code> · <code>MusicDirector.cs</code> · <code>MusicSet.cs</code> (scene rules, fade times, pause behavior, API).</li>
     <li>The mixer + rebuild sweep: <code>Assets/_Game/Audio/Resources/GameAudioMixer.mixer</code>, <code>Assets/_Game/Editor/AudioMixerBootstrap.cs</code>.</li>
     <li>Boss beats: <code>Assets/_Game/Systems/Run/ProcGen/BossArenaSequence.cs</code>; the level-track push: <code>Assets/_Game/Systems/Run/BiomeHostController.cs</code>.</li>
-    <li>Settings mapping: <code>Assets/_Game/Systems/Settings/GameSettings.cs</code>; UI dispatch seams: <code>Assets/_Game/UI/Code/Framework/MenuScreen.cs</code> · <code>SettingRow.cs</code> · <code>Assets/_Game/UI/Code/Screens/SettingsMenuController.cs</code>.</li>
+    <li>Settings mapping: <code>Assets/_Game/Systems/Settings/GameSettings.cs</code>; UI dispatch seams: <code>Assets/_Game/UI/Code/Framework/MenuScreen.cs</code> · <code>MenuTabBar.cs</code> · <code>SettingRow.cs</code> · <code>Assets/_Game/UI/Code/Screens/SaveSlotsController.cs</code> (<code>SettingsMenuController.cs</code> no longer calls <code>UIAudio</code> — the tab click moved into the framework).</li>
     <li>Workbench sound rows: <code>Assets/_Game/Editor/ContentWorkbench.cs</code>; INI music keys: <code>Assets/_Game/Editor/ContentIniImporter.cs</code>.</li>
-    <li>Current wiring (§05–06 tables): the weapon assets in <code>Assets/_Game/Player/Resources/Weapons/</code>, the defs in <code>Assets/_Game/Enemies/Data/EnemyDefinitions/</code>, the prefabs in <code>Assets/_Game/Enemies/Prefabs/</code>, and <code>Assets/_Game/Audio/Resources/MusicSet.asset</code>.</li>
-    <li>The style contract mirrors the generator scripts <code>synth_sfx_pack_v2.py</code> / <code>synth_bow_natural.py</code> / <code>synth_ui_sfx.py</code> — currently in the working scratchpad, not committed to the repo. If they land in-repo or regenerate with new recipes, §09 must follow.</li>
+    <li><b>Regenerate on every content change</b> — the two inventory tables (§05 "Assignments as of today" and §07 "Current wiring") are snapshots, not contracts. Their sources: the biome and boss assets in <code>Assets/_Game/Biomes/</code> (listed by <code>Assets/_Game/Systems/Run/Resources/RunContentCatalog.asset</code>), the weapon assets in <code>Assets/_Game/Player/Resources/Weapons/</code>, the defs in <code>Assets/_Game/Enemies/Data/EnemyDefinitions/</code>, the prefabs in <code>Assets/_Game/Enemies/Prefabs/</code>, and <code>Assets/_Game/Audio/Resources/MusicSet.asset</code>. A new biome, boss, weapon or enemy makes both tables stale in the same commit.</li>
+    <li>The style contract mirrors the generator scripts <code>synth_sfx_pack_v2.py</code> / <code>synth_bow_natural.py</code> / <code>synth_ui_sfx.py</code> — currently in the working scratchpad, not committed to the repo. If they land in-repo or regenerate with new recipes, §10 must follow. <b>Until then §10 is the one unauditable section on this page</b>: nothing in the repo can confirm the seeds or the per-class numbers.</li>
   </ul>
 </div>
 

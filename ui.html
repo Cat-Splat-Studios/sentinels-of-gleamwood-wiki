@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -29,15 +32,18 @@
 
 <header class="page">
   <h1>UI &amp; the <span class="flame">HUD</span></h1>
-  <p class="lead">Every screen in Gleamwood is <b>UI Toolkit</b> — a <code>PanelRenderer</code> per panel, a <code>.uxml</code> for the structure and a <code>.uss</code> for the look. This page covers the two that run <i>during</i> play: the player HUD and the combat read. The menus (title, settings, shop, save slots) are built on the <a href="framework.html">menu framework</a> instead.</p>
+  <p class="tag">Every screen in Gleamwood is <b>UI Toolkit</b> — a <code>PanelRenderer</code> per panel, a <code>.uxml</code> for the structure and a <code>.uss</code> for the look. This page covers the two that run <i>during</i> play: the player HUD and the combat read. The menus (title, settings, shop, save slots) are built on the <a href="framework.html">menu framework</a> instead.</p>
 </header>
+
+<main>
 
 <section id="anatomy">
   <h2><span class="num">01</span>Where the pieces live</h2>
+  <p class="lead">Four in-play UI pieces, and the scene each one actually ships in — check this column first when a readout is missing, because "it is not in that scene" is the commonest answer.</p>
   <div class="scrollx">
   <table>
     <tr><th>Thing</th><th>Files</th><th>In which scenes</th></tr>
-    <tr><td><b>Player HUD</b> — health pips, combo, weapon chips, bow ring, damage vignette, Gleam, run modifiers, dev stamp</td><td><code>UI/Code/HUD/PlayerHUDController.cs</code> + <code>UI/Panels/PlayerHUD/PlayerHUD.uxml|.uss</code>, shipped on <code>Prefabs/UI/PlayerHUD.prefab</code></td><td>2.Hub, 3.BiomeHost, 4.RestHost</td></tr>
+    <tr><td><b>Player HUD</b> — portrait, health pips, status tags, combo, weapon chips (icon + name + binding glyph), bow ring, dash cooldown, damage vignette, Gleam (this run <i>and</i> the banked balance), run modifiers, dev stamp</td><td><code>UI/Code/HUD/PlayerHUDController.cs</code> + <code>UI/Panels/PlayerHUD/PlayerHUD.uxml|.uss</code>, shipped on <code>Prefabs/UI/PlayerHUD.prefab</code></td><td>2.Hub, 3.BiomeHost, 4.RestHost</td></tr>
     <tr><td><b>Combat read</b> — per-enemy tags (EXECUTE, health, execution meter, status chips) and the boss bar</td><td><code>UI/Code/HUD/EnemyUIController.cs</code> + <code>UI/Panels/EnemyUI/EnemyUI.uxml|.uss</code>, shipped on <code>Prefabs/UI/CombatHUD.prefab</code></td><td>3.BiomeHost only — enemies exist nowhere else</td></tr>
     <tr><td><b>Minimap</b></td><td><code>UI/Code/HUD/MinimapController.cs</code></td><td>3.BiomeHost</td></tr>
     <tr><td><b>Bow charge ring</b></td><td><code>UI/Code/HUD/BowChargeRing.cs</code> — a custom <code>VisualElement</code> that paints itself, added in code rather than authored in UXML</td><td>with the player HUD</td></tr>
@@ -49,7 +55,8 @@
 
 <section id="reload">
   <h2><span class="num">02</span>The one rule: the tree is rebuilt behind your back</h2>
-  <p>A <code>PanelRenderer</code> hands its visual tree to a controller through <code>RegisterUIReloadCallback</code>, and it can fire <b>more than once</b> — a window resize is enough. Every element reference a controller holds is stale after a reload.</p>
+  <p class="lead">Every element reference a controller holds is stale after a UI reload — so re-query in the callback and never cache across it.</p>
+  <p>A <code>PanelRenderer</code> hands its visual tree to a controller through <code>RegisterUIReloadCallback</code>, and it can fire <b>more than once</b> — a window resize is enough.</p>
   <p>So both HUD controllers follow the same shape, and anything new must too:</p>
   <ul>
     <li><b>Re-query every element</b> in the reload callback. Never cache across it.</li>
@@ -62,6 +69,7 @@
 
 <section id="readouts">
   <h2><span class="num">03</span>What the HUD shows, and where each number comes from</h2>
+  <p class="lead">One row per readout: the model field it reads and whether it is pushed by an event or pulled by a poll. If a number on screen is wrong, this table names the field to go and check.</p>
   <div class="scrollx">
   <table>
     <tr><th>Readout</th><th>Source</th><th>How it updates</th></tr>
@@ -69,7 +77,9 @@
     <tr><td>Combo counter</td><td><code>PlayerContext.ComboCount</code></td><td><code>OnPropertyChanged</code> subscription</td></tr>
     <tr><td>Weapon chips</td><td><code>PlayerContext.EquippedMeleeWeapon / EquippedRangedWeapon</code></td><td><code>GameSignals.WeaponsChanged</code></td></tr>
     <tr><td>Bow charge ring</td><td><code>PlayerContext.BowCharge / BowPerfectStart / BowPerfectEnd</code></td><td>polled in <code>LateUpdate</code>, positioned over the player</td></tr>
-    <tr><td><b>Gleam</b></td><td><code>RunDirector.RunCurrency</code></td><td>polled against its last value</td></tr>
+    <tr><td>Dash cooldown</td><td><code>PlayerContext.DashCooldownFraction</code></td><td>polled in <code>LateUpdate</code>; hidden while the dash is ready, and for a profile that has not bought it</td></tr>
+    <tr><td><b>Gleam — this run</b></td><td><code>RunDirector.RunCurrency</code></td><td>polled against its last value</td></tr>
+    <tr><td><b>Gleam — balance</b> (the permanent one the Shopkeeper spends)</td><td><code>RunDirector.CurrencyBalance</code> → <code>MetaProgress.currency</code></td><td>re-read on a run-phase change, on an active-slot change, and on a 0.5&nbsp;s <i>unscaled</i> clock while in the Hub phase — never per frame; hidden entirely with no slot bound</td></tr>
     <tr><td><b>Run modifiers</b></td><td><code>RunModifiers.Owned()</code></td><td>polled against <code>RunModifiers.Revision</code></td></tr>
     <tr><td><b>Enemy health</b></td><td><code>EnemyContext.Health / MaxHealth</code></td><td>polled per tag; hidden until the enemy is hurt</td></tr>
     <tr><td><b>Execution meter</b></td><td><code>CombatStatusManager.CurrentExecutionPoints / ExecutionThreshold</code></td><td>polled per tag; hidden at zero</td></tr>
@@ -79,7 +89,9 @@
 
   <div class="note"><b>Why some are polled and some are events.</b> An event is right when the publisher already raises one and the value changes rarely. Gleam moves on every kill, the modifier set at a reward and the seed once a run — three different publishers, none of which raised anything, and adding three events to serve one view is more machinery than the view is worth. Each poll is a single comparison; the modifier strip compares <code>RunModifiers.Revision</code> rather than diffing the list, so the allocating rebuild only runs when the set actually changed.</div>
 
-  <div class="note warn"><b>Never poll <code>RunDirector.CurrencyBalance</code>.</b> It calls <code>SaveSystem.Load</code> — a disk read — on every get. The in-run number the HUD wants is <code>RunCurrency</code>; the banked total is read once on entering the hub.</div>
+  <div class="note warn"><b>Never poll <code>RunDirector.CurrencyBalance</code> per frame.</b> It calls <code>SaveSystem.Load</code> — a file read and a JSON parse — on every get, so it can never join the plain per-frame comparisons above.
+  <br><br>The HUD shows it anyway, because the run counter alone answers only half of "how much Gleam do I have": the run's take is not credited until <code>EndRun</code>. <code>PlayerHUDController.PollGleamBalance</code> is the pattern to copy — re-read on the three moments it can have moved (the run phase changed, which <i>is</i> the banking; the active slot changed; or a 0.5&nbsp;s unscaled clock <b>while in the Hub phase</b>, because everything that spends Gleam is at the hub and none of it raises a signal). A biome does no disk reads at all. The clock is unscaled so it still comes due through hitstop and a paused menu.
+  <br><br>The two figures are <b>not summed</b>. The run-end bonus — depth, boss bounties, the clear bonus — is not in <code>RunCurrency</code>, so a combined total would be neither what the player can spend now nor what they are about to be paid.</div>
 
   <h3>Two bars that hide themselves</h3>
   <p>The enemy health bar appears on the first point of damage and the execution meter on the first point of EP. A room of eight untouched enemies each wearing a full bar is noise that makes the one you have actually hurt harder to find.</p>
@@ -88,6 +100,7 @@
 
 <section id="boss">
   <h2><span class="num">04</span>The boss bar, and remembered signals</h2>
+  <p class="lead">The bar is driven by a signal that <b>remembers its value</b>, because a panel rebuilt mid-fight was never subscribed when the fight started.</p>
   <p>A boss is not a property of a creature — the same prefab rolled from a spawn table is an ordinary enemy. Only <code>BossArenaSequence</code> knows which one came through the boss door, so the bar is driven by a signal:</p>
   <pre><code>GameSignals.<span class="a">RaiseBossEngaged</span>(boss, displayName);   <span class="c">// step 4, "fight on"</span>
 GameSignals.<span class="a">RaiseBossDisengaged</span>();               <span class="c">// the gate opened, or the arena was destroyed</span></code></pre>
@@ -100,15 +113,17 @@ GameSignals.<span class="a">RaiseBossDisengaged</span>();               <span cl
 
 <section id="dev">
   <h2><span class="num">05</span>The dev stamp</h2>
-  <p>Bottom-right of the HUD, in the editor and in development builds only: <b>version · commit · seed</b>.</p>
+  <p class="lead">Bottom-right of the HUD, in the editor and in development builds only: <b>version · commit · seed</b> — and the seed is the reason it exists.</p>
   <p>The seed is the point. A playtest report is worth far more with the number that reproduces the level in it, and it is the one value that is neither in the build nor in any log a player would think to send. Version and commit ride along because "which build was that" is the other question every report needs answered.</p>
   <p>It is gated by <code>#if UNITY_EDITOR || DEVELOPMENT_BUILD</code> and, outside that, the text is <b>cleared</b> rather than merely hidden — a populated-but-invisible label is one stylesheet edit away from shipping.</p>
-  <div class="note warn"><b><code>BuildInfo</code> must live in a <code>Resources/</code> folder.</b> Two runtime readers resolve it with <code>Resources.Load&lt;BuildInfo&gt;("BuildInfo")</code> — this stamp and the debug panel's Troubleshoot tab — and that call returns null for anything outside <code>Resources/</code> <b>in a build as well as in the editor</b>. It sits at <code>Assets/Resources/BuildInfo.asset</code>; its GUID is referenced by three scenes, so it must be moved, never re-created.</div>
+  <div class="note warn"><b><code>BuildInfo</code> must live in a <code>Resources/</code> folder.</b> Two runtime readers resolve it with <code>Resources.Load&lt;BuildInfo&gt;("BuildInfo")</code> — this stamp and the debug panel's Troubleshoot tab — and that call returns null for anything outside <code>Resources/</code> <b>in a build as well as in the editor</b>. It sits at <code>Assets/Resources/BuildInfo.asset</code>, and it must be <b>moved, never re-created</b>: its GUID is pinned as a literal by <code>BuildInfoAndSeedTests.TheBuildInfoAsset_ExistsAtItsPinnedGuid</code>, so a re-created asset fails the suite. A literal on purpose — the whole original failure was that value changing, which a test reading it from the file could never catch.
+  <br><br>The original break is worth keeping: the asset was <b>gitignored while its <code>.meta</code> was tracked</b>, so a fresh clone got broken references — and <code>BuildInfoProcessor</code> then created a replacement with a BRAND NEW GUID, so it never healed and the next scene commit would have repointed everything at a file nobody else had. <code>TheBuildInfoAsset_IsNotGitignored</code> pins that half. The three <i>scene</i> references it once had are gone: they belonged to the <code>GitInfoCanvas</code> uGUI overlay this stamp replaced, which is deleted — canvas, component and its TextMeshPro dependency.</div>
 </section>
 
 <section id="testing">
   <h2><span class="num">06</span>Testing a screen</h2>
-  <p>Two fixtures show the pattern: <code>DialogueRenderTests</code> and <code>RunHudTests</code>. Both do the same three things.</p>
+  <p class="lead">Instantiate the <b>shipped prefab</b>, yield twice, then read the controller's own cached element — that is the whole pattern, and every part of it is load-bearing.</p>
+  <p>Two fixtures show it: <code>DialogueRenderTests</code> and <code>RunHudTests</code>. Both do the same three things.</p>
   <ol>
     <li><b>Instantiate the shipped prefab</b> from <code>Assets/Prefabs/UI/</code>. Not a fixture built by hand — the prefab is what the game loads, and the difference between the two is where UI bugs hide.</li>
     <li><b>Yield twice</b>, for enable then the first UI reload.</li>
@@ -127,9 +142,23 @@ GameSignals.<span class="a">RaiseBossDisengaged</span>();               <span cl
     <li><code>Assets/_Game/Systems/Boot/GameSignals.cs</code> — <code>BossEngaged</code>/<code>BossDisengaged</code> and the remembered <code>CurrentBoss</code></li>
     <li><code>Assets/_Game/Systems/Run/ProcGen/BossArenaSequence.cs</code> — where the boss signal is raised and cleared</li>
     <li><code>Assets/_Game/Systems/Run/RunModifiers.cs</code> — <code>Owned()</code> and <code>Revision</code></li>
+    <li>The §03 numbers, which rot faster than anything else on this page: <code>Assets/_Game/Systems/Run/RunDirector.cs</code> (<code>RunCurrency</code>, <code>CurrencyBalance</code>) · <code>Assets/_Game/Combat/Code/CombatStatusManager.cs</code> (<code>CurrentExecutionPoints</code>, <code>ExecutionThreshold</code>) · <code>Assets/_Game/Systems/Run/BossDefinition.cs</code> (<code>displayName</code>, §04)</li>
+    <li>The §05 dev stamp: <code>Assets/Resources/BuildInfo.asset</code> and <code>Assets/Tests/PlayMode/BuildInfoAndSeedTests.cs</code> — that test <b>owns</b> the GUID claim and records its own corrections in the class doc, so read it before editing §05</li>
     <li><code>Assets/Tests/PlayMode/RunHudTests.cs</code>, <code>Assets/Tests/PlayMode/DialogueRenderTests.cs</code></li>
   </ul>
 </div>
+
+<div class="pn">
+  <a href="progression.html"><span>← Previous</span>Progression</a>
+  <a href="audio.html"><span>Next →</span>Audio</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
 
 </body>
 </html>

@@ -11,6 +11,9 @@
 <nav class="wiki">
   <a class="home on" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
@@ -55,7 +58,7 @@
     </div>
     <div class="card accent-green">
       <h4>Validated, loudly</h4>
-      <p>Two validators + the full PlayMode suite gate every change. (The exact count lives in <code>Logs/playmode_test_results.txt</code> and is deliberately not repeated here — it was hardcoded in seven places and every one of them went stale.) Unreachable rooms and unregistered weapons are <b>build-breaking errors</b>; missing animation states flag red in the Workbench and every <code>[AnimatorStateRef]</code> dropdown.</p>
+      <p>Two validators + the full PlayMode suite gate every change. Unreachable rooms and unregistered weapons are <b>build-breaking errors</b>; missing animation states flag red in the Workbench and every <code>[AnimatorStateRef]</code> dropdown. The exact test count lives in <code>Logs/playmode_test_results.txt</code> and is deliberately never copied into prose.</p>
     </div>
   </div>
 </section>
@@ -105,9 +108,19 @@
   <div class="note">Know which of the <b>three tuning surfaces</b> you're on: the <b>Workbench</b> edits authored assets (the source of truth), <b>scene tuners</b> edit those same assets visually, and the <b>F1 panel</b> edits the <i>runtime copy</i> in play mode — transcribe keepers back into the asset.</div>
 </section>
 
+<section id="onboarding">
+  <h2><span class="num">03</span>New here? Start with your craft</h2>
+  <p class="lead">Three road maps, one per discipline. Each takes somebody who has never opened this project to the point of shipping a change on their own — and each links out to the reference pages below rather than restating them, so there is only ever one copy of a fact to keep true.</p>
+  <div class="grid c3">
+    <a class="card accent-cyan" href="onboarding-programmer.html"><h4>For Programmers 🛠</h4><p>The architecture in one screen, the ten rules this codebase paid real bugs for, the state machine that is the spine of both the player and the enemies, the <b>Content Workbench in full detail</b> — including how to add a field and a whole new page — and how to verify a change without breaking the editor.</p></a>
+    <a class="card accent-violet" href="onboarding-artist.html"><h4>For Artists 🎨</h4><p>The spec first: 64 pixels per unit, sheet grids, what to export and how to name it. Then the art pipeline, how clips are sliced, the <b>split rig</b> and why both halves of the player must come from one drawing — and how to get art in and look at it without a programmer.</p></a>
+    <a class="card accent-green" href="onboarding-designer.html"><h4>For Designers 🎚</h4><p>The four authoring surfaces and when to use which, end-to-end recipes for weapons, enemies, bosses, biomes, dialogue and boons, the ordering rules that break content silently, and the F1-panel trap that makes a retune look like it did nothing.</p></a>
+  </div>
+</section>
+
 <section id="pages">
-  <h2><span class="num">03</span>The wiki</h2>
-  <p class="lead">Thirteen pages, each the complete story of one surface — with screenshots captured from the actual editor, field-by-field references, and step-by-step recipes. New here? Start with Quick Start.</p>
+  <h2><span class="num">04</span>The wiki</h2>
+  <p class="lead">Every page is the complete story of one surface — with screenshots captured from the actual editor, field-by-field references, and step-by-step recipes. These are the reference; the three guides above are the road maps into them.</p>
   <div class="grid c3">
     <a class="card accent-ember" href="quickstart.html"><h4>Quick Start ⚡</h4><p>Start here. Two hands-on guides: add content to a system that exists, and add a whole new mechanic — plus the one rule that keeps additions from breaking what already works.</p></a>
     <a class="card accent-cyan" href="workbench.html"><h4>The Content Workbench</h4><p>The designer cockpit: every category, every sub-tab, the save model, the validated dropdowns — a full guided tour in real screenshots.</p></a>
@@ -119,7 +132,7 @@
     <a class="card accent-ember" href="ui.html"><h4>UI &amp; HUD</h4><p>The two panels that run during play: what every readout binds to, why the visual tree is rebuilt behind your back, the boss bar and its remembered signal, and how to test a screen.</p></a>
     <a class="card accent-violet" href="audio.html"><h4>Audio</h4><p>Three buses, the music director's scene rules, the boss-intro hush, every SFX seam, and the house sound style.</p></a>
     <a class="card accent-green" href="tuning.html"><h4>Live Tuning &amp; INI</h4><p>The self-building F1 panel, [Tunable], settings, and the INI story: GameContent.ini today, content packs tomorrow.</p></a>
-    <a class="card accent-ember" href="modding.html"><h4>Modding &amp; Campaigns</h4><p>The player-facing story: a folder beside the game becomes a <b>campaign</b> you pick when you start a save. Text files retune enemies, weapons, dialogue and the player's look — and re-web the run itself. No Unity.</p></a>
+    <a class="card accent-ember" href="modding.html"><h4>Modding &amp; Campaigns</h4><p>The player-facing story: a folder beside the game becomes a <b>campaign</b> you pick when you start a save. Text files retune enemies, weapons, dialogue and the player's look — and re-web the run itself. No Unity. The destination is <b>maker mode</b>: a campaign is a whole game, and Gleamwood ships as its own first one.</p></a>
     <a class="card accent-cyan" href="extending.html"><h4>Extending the Game</h4><p>The seam catalog — every extension point in one place — plus meta-recipes for adding new seams when the catalog isn't enough.</p></a>
     <a class="card accent-violet" href="framework.html"><h4>Framework &amp; Architecture</h4><p>The state machine under everything, boot/services, signals — condensed, with pointers to the full API references.</p></a>
     <a class="card accent-red" href="publishing.html"><h4>Publishing to Steam</h4><p>Build → upload → set live, in three commands. Who can play an unreleased app, the pinned-executable contract, and the traps that make a good build refuse to start.</p></a>
@@ -128,7 +141,8 @@
 </section>
 
 <section id="reference">
-  <h2><span class="num">04</span>Reference card</h2>
+  <h2><span class="num">05</span>Reference card</h2>
+  <p class="lead">The whole wiki in one screen: what you want to do, the menu item that does it, and the page that explains it.</p>
   <div class="scrollx">
   <table>
     <tr><th>I want to…</th><th>Go to</th><th>Wiki page</th></tr>
@@ -147,7 +161,7 @@
     <tr><td>Add a whole new mechanic / content type</td><td>One SO class + attributes</td><td><a href="extending.html">Extending</a></td></tr>
   </table>
   </div>
-  <p class="dim">Deep markdown companions: <code>Documentation/GAME_TUNING_GUIDE.md</code> · <code>ROOM_STANDARDS.md</code> · <code>ENEMY_ATTACKS_AND_SUPER_ARMOR.md</code> · <code>HANDOVER.md</code> (repo root) — the <a href="maintaining.html">documentation map</a> says which is the source of record for what.</p>
+  <p class="dim">Markdown alongside: <code>Documentation/GAME_TUNING_GUIDE.md</code> (an index into these pages) · <code>ROOM_STANDARDS.md</code> (the room/socket standard) · <code>FINALIZATION-PLAN.md</code> (what is <i>next</i> — this wiki only documents what is <i>built</i>) · <code>HANDOVER.md</code> (repo root) — the <a href="maintaining.html">documentation map</a> says which is the source of record for what.</p>
 </section>
 
 </main>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artist Onboarding — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a class="on" href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Artist <span class="flame">Onboarding</span></h1>
+  <p class="tag">Day one, from nothing. The spec you draw against, the pipeline that processes what you draw, the one rig that will bite you if nobody explains it, and exactly what to hand over. Everything here was read off the actual assets and code — where a number appears, its source is named.</p>
+</header>
+
+<main>
+
+<section id="spec">
+  <h2><span class="num">01</span>The spec — read this before you draw a pixel</h2>
+  <p class="lead">Gleamwood is a 2D pixel-art game with a <b>fixed pixel density</b>. Almost everything an artist can get wrong here is a scale mistake, and a scale mistake is invisible in your art program and obvious in the game.</p>
+
+  <div class="rule note"><b>Pixels-per-unit is 64. It is not a preference, it is the project's unit of measurement.</b> One world unit = 64 texels of your art. Every world-space character sheet the game renders is at 64: all 33 enemy/boss sheets in <code>Assets/_Sprites/Gleamwood/Enemies/</code>, all 15 player sheets in <code>Assets/_Sprites/Placeholder/Player/</code>, and every processed sheet in <code>Assets/_Sprites/Generated/Player/</code>. The one file in those folders at another value is <code>REF_Archer_Idle.png</code>, a reference image nothing renders.</div>
+
+  <h3>The numbers you are drawing against</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Thing</th><th>Value</th><th>In texels @ 64 PPU</th><th>Where it comes from</th></tr>
+    <tr><td><b>Pixels per unit</b></td><td>64</td><td>—</td><td><code>spritePixelsToUnits: 64</code> on every shipped character <code>.png.meta</code>; <code>ModImageLoader.DefaultPixelsPerUnit</code></td></tr>
+    <tr><td><b>The camera window</b> (base zoom)</td><td>10 × 5.625 units</td><td><b>640 × 360</b></td><td><code>PixelPerfectCamera</code> in <code>2.Hub</code>, <code>3.BiomeHost</code>, <code>4.RestHost</code>: <code>m_AssetsPPU: 64</code>, ref resolution 640×360. Cross-checked by <code>CameraFollow.FallbackViewHalfHeight = 2.8125</code> (= 360 / (2 × 64))</td></tr>
+    <tr><td><b>One tilemap cell</b></td><td>1 × 1 unit</td><td>64 × 64</td><td><code>m_CellSize: {x: 1, y: 1, z: 1}</code> on a room's <code>Grid</code></td></tr>
+    <tr><td><b>Player collision box</b></td><td>0.565 × 1.328 units</td><td><b>36 × 85</b></td><td><code>BoxCollider2D</code> on <code>Assets/Prefabs/Player.prefab</code></td></tr>
+    <tr><td><b>Player art, actual</b></td><td>—</td><td>idle 68 × 85, run 75–95 × 77–82</td><td>Slice rects in <code>archer-Sheet.png.meta</code></td></tr>
+    <tr><td><b>Waist cut</b> (the split rig, §06)</td><td>0.625 units above the feet</td><td><b>40</b> (exactly 40/64)</td><td><code>PlayerSplitRig.waistLocalY</code></td></tr>
+    <tr><td><b>Smallest shipped enemy</b></td><td>Ember Wisp, 0.5 × 0.8 u</td><td>32 × 52</td><td><code>emberwisp-idle.png.meta</code></td></tr>
+    <tr><td><b>Largest shipped enemy</b></td><td>Demon King, 2.8 × 3.4 u</td><td>181 × 220</td><td><code>demonking-*.png.meta</code>; <code>DemonKingArtBuilder.CellW/CellH</code></td></tr>
+    <tr><td><b>Dialogue portrait</b></td><td>—</td><td>128 × 160</td><td>All 15 files in <code>Assets/_Game/Content/Dialogue/Portraits/</code></td></tr>
+    <tr><td><b>Weapon icon</b></td><td>—</td><td>39 × 40</td><td><code>Assets/_Game/Player/Resources/Weapons/Icons/T_Icon_*.png</code></td></tr>
+  </table>
+  </div>
+  <p class="dim">Sanity check while you draw: a 640 × 360 canvas is <i>the whole screen</i>. An 85-texel-tall archer fills 24% of it. A 220-texel Demon King fills 61% — which is why he reads as a boss.</p>
+
+  <h3>Pivots — feet on the floor, centred</h3>
+  <p>A sprite's pivot is where the game thinks the character <i>is</i>. Get it wrong and the character floats or sinks, and nothing logs an error. <b>Every shipped enemy frame is horizontally centred</b> — pivot x = 0.5 on all 272 sliced frames across all 33 sheets, without exception. Vertically the rule holds on the sheets you can rely on and not on the ones you cannot: every <i>idle</i> and <i>death</i> frame sits within four texels of the bottom of its rect, while <i>attack</i> sheets are pivoted wherever the pose's feet actually are — <code>cinderhound-attack_6</code> is 18 texels up, <code>pyreregent-attack_6</code> 24, and <code>pyrearcher-attack_11</code> is 50 texels up an 81-texel rect. Aim for feet-on-the-bottom; if a leaping frame's anchor is somewhere else, say where (§09). The player is simpler: <code>archer-Sheet.png</code>'s frames are Bottom-Center, pivot (0.5, 0), every frame.</p>
+  <div class="rule note"><b>Bottom-centre is not just a convention on the player — it is what makes the split rig work at all.</b> The waist cut is computed in object space, which on a <code>SpriteRenderer</code> is anchored at the pivot. With a bottom-centre pivot, "height above the pivot" <i>is</i> "height above the feet", so one number cuts every frame in the same place. Move the pivot and the cut moves with it. See §06.</div>
+  <p>Three pivot styles are legal and all three ship:</p>
+  <ul>
+    <li><b>Uniform grid, pivot at the bottom of the cell.</b> Draw all frames on identical cells, feet resting on a constant baseline. The Demon King (181 × 220, pivot 0.5/0) and the Imp (63 × 61, pivot 0.5/0) are built this way. <b>Prefer this.</b> It is the only style a modder can address with <code>sprite = sheet.png 8x3</code>, and the only one the Clip Set Builder can slice for you.</li>
+    <li><b>Tight per-frame rects with a custom pivot.</b> Every frame cropped to its own ink, each carrying its own pivot fraction. The Cinder Hound and the Pyre Archer are like this. It packs tighter but every frame has to be pivoted by hand, and a mod sheet cannot reproduce it.</li>
+    <li><b>Tight per-frame rects, one shared Bottom-Center pivot.</b> The middle case, and what fourteen of the fifteen player sheets do: rects vary frame to frame (<code>archer-Sheet.png</code>'s 46 frames span 67–95 wide by 77–96 tall, 29 distinct sizes) but every frame is Bottom-Center at (0.5, 0), because the art is drawn feet-down on a common baseline. Nothing is pivoted by hand, and it is what §06's split rig requires. <code>T_DaggerDashAtk</code> is the one player sheet that is not.</li>
+  </ul>
+  <p class="dim">Read the pivot values, not the alignment enum — they disagree. Every enemy sheet is <code>alignment: 9</code> (Custom) except the Demon King's nine at <code>7</code>, yet the Imp's Custom pivots are all exactly (0.5, 0) on a uniform 63 × 61 grid, which makes it a grid sheet in everything but the enum.</p>
+
+  <h3>Backgrounds: transparent, except in one place</h3>
+  <div class="grid c2">
+    <div class="card accent-green">
+      <h4>Everything you deliver: real alpha</h4>
+      <p>Anything that goes into <code>Assets/_Sprites/</code> or a mod's <code>sprites/</code> folder ships with a genuine transparent background — the importer runs <code>alphaIsTransparency: 1</code> and the shader multiplies against it. No matte colour, no white halo, no semi-transparent fringe from a bilinear resize.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Generator raws: opaque magenta</h4>
+      <p>The <b>only</b> keyed-background art in the project is the untouched generator output kept in <code>Tools/ArtPipeline/raws/</code>. Image generators do not emit alpha — they paint a flat magenta field — so those files are opaque RGB and the pipeline (§04) keys them. If you are drawing by hand, you never produce one of these.</p>
+    </div>
+  </div>
+  <p class="dim">One consequence worth knowing: a magenta key is not free. <code>process_boss_strip.py</code> records that the border ring of one generated sheet held 92 distinct colours dithering around ≈<code>#F70B8E</code>, which is why the key is now the statistical mode of the whole ring rather than a corner sample. Real alpha has none of these problems.</p>
+</section>
+
+<section id="importer">
+  <h2><span class="num">02</span>Importer settings, field by field</h2>
+  <p class="lead">Unity's texture importer defaults are wrong for this project in three ways at once, and all three are silent. Set these on every sheet you add. (If you never open Unity, skip to §08 — the mod route applies them for you.)</p>
+
+  <div class="warn note"><b>The three defaults that will get you.</b> Unity ships new sprites at <b>100</b> pixels per unit (your character arrives at 64% of the size it should be), <b>Bilinear</b> filtering (your pixel art arrives blurred), and a <b>Center</b> pivot (half your character sinks through the floor — a renderer puts the pivot on the transform, and in this project the transform origin is at the feet: the player's hurtbox is 1.328 u tall at offset y 0.664, i.e. it starts at zero and goes up). None of the three throws an error.</div>
+
+  <div class="scrollx">
+  <table>
+    <tr><th>Inspector field</th><th>Set to</th><th>Serialized as</th><th>Why</th></tr>
+    <tr><td>Texture Type</td><td><b>Sprite (2D and UI)</b></td><td><code>textureType: 8</code></td><td>Anything else is not a sprite.</td></tr>
+    <tr><td>Sprite Mode</td><td><b>Multiple</b></td><td><code>spriteMode: 2</code></td><td>A sheet is many frames. <code>Single</code> gives you one sprite and no way to address a frame.</td></tr>
+    <tr><td>Pixels Per Unit</td><td><b>64</b></td><td><code>spritePixelsToUnits: 64</code></td><td>§01. This is the whole ballgame.</td></tr>
+    <tr><td>Filter Mode</td><td><b>Point (no filter)</b></td><td><code>filterMode: 0</code></td><td>Bilinear smears every texel edge. Set on all 33 enemy sheets and every player sheet.</td></tr>
+    <tr><td>Generate Mip Maps</td><td><b>off</b></td><td><code>enableMipMap: 0</code></td><td>Mips are a downscaling pyramid; the camera never downscales sprite art here.</td></tr>
+    <tr><td>Compression</td><td><b>None</b></td><td><code>textureCompression: 0</code> on the <code>DefaultTexturePlatform</code> entry</td><td>Block compression invents colours between neighbouring texels. Shipped sheets are all uncompressed.</td></tr>
+    <tr><td>Alpha Is Transparency</td><td><b>on</b></td><td><code>alphaIsTransparency: 1</code></td><td>Stops a dark fringe bleeding out of fully-transparent texels.</td></tr>
+    <tr><td>Pivot (per sprite)</td><td><b>Bottom Center</b>, or Custom on the feet</td><td><code>alignment: 7</code>, or <code>9</code> + an explicit pivot</td><td>§01. The Demon King uses 7, and so does the player's art even though its rects are tight (<code>T_DaggerDashAtk</code> is the one exception); the enemy sheets that carry a per-frame pivot use 9.</td></tr>
+  </table>
+  </div>
+  <p class="dim"><code>DemonKingArtBuilder.SliceSheet</code> writes exactly this set in code (<code>spritePixelsPerUnit = 64</code>, <code>FilterMode.Point</code>, <code>Uncompressed</code>, <code>mipmapEnabled = false</code>, <code>SpriteAlignment.BottomCenter</code>) — it is the shortest readable statement of the house import settings.</p>
+
+  <h3>Slicing</h3>
+  <ol class="steps">
+    <li>Select the PNG, set the fields above, hit <b>Apply</b>.</li>
+    <li><b>Sprite Editor ▸ Slice</b>. For a uniform sheet use <i>Grid By Cell Size</i> with your cell dimensions and Pivot <b>Bottom Center</b>. For a tight-cropped sheet use <i>Automatic</i> and then fix each pivot.</li>
+    <li>Frames end up named <code>&lt;sheet&gt;_0</code>, <code>&lt;sheet&gt;_1</code>, … <b>That trailing number is the frame index every later tool addresses</b> — the Clip Set Builder sorts on it (<code>ClipSetBuilderWindow.SpriteIndex</code>) and so does <code>DemonKingArtBuilder.NameIndex</code>.</li>
+    <li>Or skip 2–3 entirely: the <b>Clip Set Builder</b> (§05) will grid-slice a sheet for you with a pixel pivot, then build the clips in the same click.</li>
+  </ol>
+  <p><b>Cells number left-to-right, then top-to-bottom.</b> Row 0 of an 8-wide sheet is frames 0–7, row 1 is 8–15. Unity's texture origin is bottom-left, so every reader in this project explicitly flips the row (<code>ModClipSetBuilder</code>: <code>int y = (art.Rows - 1 - row) * cellH;</code>) — meaning you export the way an exporter writes, top row first, and it comes out the right way up.</p>
+</section>
+
+<section id="where">
+  <h2><span class="num">03</span>Where art lives in the repo</h2>
+  <div class="scrollx">
+  <table>
+    <tr><th>Folder</th><th>What belongs there</th></tr>
+    <tr><td><code>Assets/_Sprites/Gleamwood/Enemies/</code></td><td>Shipped enemy and boss sheets + their <code>.anim</code> clips and <code>.controller</code>. Named <code>&lt;enemyid&gt;-&lt;sheet&gt;.png</code>.</td></tr>
+    <tr><td><code>Assets/_Sprites/Placeholder/Player/</code></td><td>The archer's hand-authored sheets — idle, run, bow, the melee combos.</td></tr>
+    <tr><td><code>Assets/_Sprites/Generated/Player/</code></td><td>Output of the art pipeline (§04): the aerial and ground directional attack sheets. <b>Never hand-edit these</b> — they are rewritten by a script from the raws.</td></tr>
+    <tr><td><code>Tools/ArtPipeline/raws/</code></td><td>The untouched generator output the processed sheets are derived from, plus <code>aerial_cut.json</code> / <code>ground_plan.json</code>. Committed on purpose so a re-roll is reproducible.</td></tr>
+    <tr><td><code>Assets/_Game/Content/Dialogue/Portraits/</code></td><td>128 × 160 portraits, named <code>&lt;speaker&gt;.&lt;mood&gt;.png</code> (<code>krag.angry</code>, <code>demonking.defeated</code>, …). → <a href="dialogue.html#presentation">Dialogue §06</a></td></tr>
+    <tr><td><code>Assets/_Game/Player/Resources/Weapons/Icons/</code></td><td>Weapon icons, <code>T_Icon_&lt;WeaponName&gt;.png</code>, 39 × 40.</td></tr>
+    <tr><td><code>Assets/_Game/Biomes/Greybox/</code></td><td>The 32 × 32 greybox tiles rooms are blocked out with before real tiles exist. → <a href="levels.html#anatomy">Levels §02</a></td></tr>
+    <tr><td><code>Mods/&lt;campaign-id&gt;/…/sprites/</code></td><td>Art loaded from disk at runtime, no Unity involved. → §08 and <a href="modding.html">Modding</a></td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Only two of the four shipped weapons have a real icon.</b> <code>SolarGreatsword</code> and <code>DaggerUnseen</code> point at <code>T_Icon_*.png</code>; <code>DefaultSword</code>'s icon resolves to a sub-sprite of a slash-effect sheet and <code>DefaultBow</code>'s to a sub-sprite of the level <b>tileset</b>. Both are placeholders standing in for art that does not exist yet — a good first real deliverable (§09).</div>
+</section>
+
+<section id="pipeline">
+  <h2><span class="num">04</span>The art pipeline — <code>Tools/ArtPipeline/</code></h2>
+  <p class="lead">Three Python scripts that turn generator output into game-ready sheets. You do not need them for hand-drawn art — if you are exporting clean, uniform, transparent sheets from Aseprite or Photoshop, skip to §05. You need them when art arrives as an <b>unsliced strip on a painted background</b>, which is what an image generator produces.</p>
+
+  <h3>Running them</h3>
+<pre><code><span class="c"># From the repo root. numpy, Pillow and scipy are required and already installed</span>
+<span class="c"># for the interpreter at C:/Python313/python.exe.</span>
+<span class="c"># build_ground_raws.py and process_aerial_sheets.py resolve their own paths off</span>
+<span class="c"># __file__, so cwd cannot break them. process_boss_strip.py takes every path from</span>
+<span class="c"># the command line and opens it as given -- so BOTH sides of #3 are repo-relative.</span>
+
+<span class="c"># 1. Rebuild the GROUND raws from art already in the game (dry run first)</span>
+python Tools/ArtPipeline/build_ground_raws.py
+python Tools/ArtPipeline/build_ground_raws.py --apply
+
+<span class="c"># 2. Key / cut / feet-anchor / repack every player attack sheet</span>
+python Tools/ArtPipeline/process_aerial_sheets.py
+python Tools/ArtPipeline/process_aerial_sheets.py --apply
+
+<span class="c"># 3. One boss strip -> one game-ready sheet</span>
+python Tools/ArtPipeline/process_boss_strip.py in.png out.png --cell-h <span class="a">193</span> --expect <span class="a">6</span>
+
+<span class="c"># 3b. SEVERAL boss strips under ONE shared scale and ONE shared cell</span>
+python Tools/ArtPipeline/process_boss_strip.py \
+    idle=Tools/ArtPipeline/raws/demonking-concept/idle3-strip-RAW.png \
+    walk=Tools/ArtPipeline/raws/demonking-concept/walk-strip-RAW.png \
+    cast=Tools/ArtPipeline/raws/demonking-concept/cast-strip-RAW.png \
+    ignite=Tools/ArtPipeline/raws/demonking-concept/ignite2-strip-RAW.png \
+    slam2=Tools/ArtPipeline/raws/demonking-concept/slam2-strip-RAW.png \
+    --batch Assets/_Sprites/Gleamwood/Enemies --ref idle --body-h <span class="a">150</span> \
+    --fit ignite --fit slam2:<span class="a">1</span></code></pre>
+  <p class="dim">Every <code>--fit</code> name must also be one of the <code>name=path</code> pairs. The fit table is only consulted for sheets that were measured, so <code>--fit ignite</code> without an <code>ignite=</code> pair is a <b>silent</b> no-op — no warning, and the sheet that needed its own scale quietly gets the shared one. The name on the left of the <code>=</code> is what the output is called (<code>demonking-&lt;name&gt;.png</code>), which is why the pair is <code>ignite=…/ignite2-strip-RAW.png</code> and not the other way round.</p>
+
+  <div class="warn note"><b>Both bulk scripts are dry-run by default and write nothing until you pass <code>--apply</code>.</b> Read the printed report first — it names the frame count, cell size and pivot it measured for every sheet. <code>process_aerial_sheets.py</code> additionally <b>refuses the whole run</b> and writes nothing if a direction variant does not cut to the same frame count as the neutral sheet it was derived from.</div>
+
+  <h3>What each one does</h3>
+  <div class="grid c3">
+    <div class="card accent-cyan">
+      <h4><code>build_ground_raws.py</code></h4>
+      <p><b>In:</b> a clip name in <code>Player.asset</code> and its source sheet. <b>Out:</b> a 1024 × 1024 magenta raw in <code>raws/</code>, plus <code>ground_plan.json</code>.</p>
+      <p>Runs <i>backwards</i>: it unpacks an already-shipped, already-transparent strip and lays it back out on a magenta grid, because a generator handed a transparent strip invents a background and returns frames at different sizes. It records the exact upscale it used so step 2 can invert it rather than guess.</p>
+    </div>
+    <div class="card accent-ember">
+      <h4><code>process_aerial_sheets.py</code></h4>
+      <p><b>In:</b> <code>raws/&lt;Name&gt;.png</code> for each of the 22 sheets in its <code>SHEETS</code> table. <b>Out:</b> packed sheets into <code>Assets/_Sprites/Generated/Player/</code> + <code>aerial_cut.json</code>.</p>
+      <p>Keys the magenta, isolates each figure by connected components, cuts merged figures at the cell wall, then <b>feet-anchors</b> every frame into one uniform cell so the character cannot slide or bob between frames.</p>
+    </div>
+    <div class="card accent-violet">
+      <h4><code>process_boss_strip.py</code></h4>
+      <p><b>In:</b> an evenly-spaced pose strip on a painted background. <b>Out:</b> a uniform-cell sheet, feet on a common baseline.</p>
+      <p>Measures the frame grid off the image instead of trusting a requested count, and in <code>--batch</code> mode scales every sheet by <b>one</b> factor taken from one reference pose.</p>
+    </div>
+  </div>
+
+  <h3>The flags that matter</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Flag</th><th>Script</th><th>What it does</th></tr>
+    <tr><td><code>--apply</code></td><td>ground / aerial</td><td>Actually write. Without it you get a report and no files.</td></tr>
+    <tr><td><code>--batch &lt;dir&gt;</code></td><td>boss</td><td>Process several <code>name=path.png</code> pairs together under one shared scale and one shared cell. Output is named <code>&lt;dir&gt;/demonking-&lt;name&gt;.png</code> — the prefix is hard-coded, so a different boss needs a rename afterwards.</td></tr>
+    <tr><td><code>--ref &lt;name&gt;</code></td><td>boss (batch)</td><td>Which sheet's <b>first frame</b> is the reference standing body. Defaults to the first pair on the command line.</td></tr>
+    <tr><td><code>--body-h &lt;px&gt;</code></td><td>boss (batch)</td><td>The height that reference body is scaled to. Everything else scales by the same factor. Default 150.</td></tr>
+    <tr><td><code><b>--fit &lt;name&gt;</b></code><br><code><b>--fit &lt;name&gt;:&lt;frame&gt;</b></code></td><td>boss (batch)</td><td><b>Give one sheet its own scale factor</b>, derived from its own frame instead of the shared one. Read the note below — this is the flag people misuse.</td></tr>
+    <tr><td><code>--cell-h &lt;px&gt;</code></td><td>boss (single)</td><td>Output frame height. Default 193, which is the Pyre Regent's frame height.</td></tr>
+    <tr><td><code>--expect &lt;n&gt;</code></td><td>boss (single)</td><td>How many poses you asked the generator for. A mismatch prints loudly but is <b>not</b> fatal — the measurement wins, deliberately, so a surprise is seen rather than absorbed.</td></tr>
+    <tr><td><code>--merge-gap &lt;px&gt;</code> · <code>--debris &lt;f&gt;</code></td><td>boss (single)</td><td>How close two column-runs must be to count as one pose (default 4), and the share of median ink below which a run is debris (default 0.06).</td></tr>
+  </table>
+  </div>
+
+  <div class="rule note">
+    <p><b><code>--fit</code>, properly.</b> The default rule is one scale factor for every sheet in a batch, and that rule exists because the alternative visibly breaks the character: scaling each sheet to its own tallest pose means a raised arm plus a fireball (476 px on the cast strip) normalises to the same cell height as a plain standing figure (349 px on idle), so <b>the boss shrinks every time he casts</b>.</p>
+    <p>The invariant actually wanted is "his body is the same height in every sheet". The shared factor is only the cheapest way to get it, and it holds only while every raw draws the character at roughly the same size — which a later generation need not. The ignite strip came back with the figure ≈1.7× larger than idle, so the shared factor left him towering over his own other animations. <code>--fit ignite</code> derives that one sheet's factor from its own frame 0 instead: the same rule, applied to a sheet the shared factor does not fit.</p>
+    <p><b>It is opt-in because frame 0 must be a plain standing body to be a valid reference, and often is not.</b> The relocate strip's frame 0 is a bodiless cape and the death strip's is a lightning burst — fitting either scales the boss to the size of a prop. When the rest pose is not first, name it: <code>--fit slam2:1</code> uses frame index 1, because that strip opens on a deep crouch and fitting a crouch to standing-body height inflates the whole sheet.</p>
+  </div>
+
+  <h3>What the pipeline knows that you should too</h3>
+  <p>These are recorded as comments in the scripts because each one shipped a plausible-looking, silently wrong sheet first. They are also a decent checklist for <i>hand</i>-drawn strips:</p>
+  <ul>
+    <li><b>The frame count is measured, never assumed.</b> A sheet prompted for six poses came back with five. Slicing on the assumed count shears every frame in half — and the result still imports, still animates, and reads as a rigging bug rather than a slicing one.</li>
+    <li><b>Debris is not a frame.</b> Trailing embers and single-pixel edge noise produced spans one pixel wide; the cast sheet measured eight frames for six poses until runs carrying a trivial share of ink were dropped.</li>
+    <li><b>Poses that touch are not one pose.</b> A greatsword reaching into the next figure's column made a five-pose walk cycle measure as a single span. The strip's <i>repeat period</i> is measured by autocorrelation and arbitrates — taking the <b>smallest</b> strong period, because a walk cycle's left and right steps are mirror images and correlate better at twice the true spacing.</li>
+    <li><b>An even cut through overlapping art leaves a sliver of the neighbour</b> in each cell — a scrap of cape hanging in mid-air that animates as a flicker at the sprite's edge. Only the dominant connected blob survives, with a floor low enough that a legitimately detached part (the relocate strip is a body dissolving into separate embers) is kept.</li>
+    <li><b>Feet are the lowest row wide enough to be feet</b> — <code>max(4, 18% of the frame's widest row)</code> — not simply the lowest ink. Blades and capes hanging below the boots were dragging the baseline down; under this rule they hang below the pivot instead of moving it.</li>
+    <li><b>Scale is calibrated on face area.</b> Cape extent oversized the body ~1.5×, hair-blob width disagreed with itself by 1.8× across sheets, and judging by eye off a contact sheet undershot by 20–48% — which shipped, and was reported from a build as "the aerial attacks now are all smaller". Face pixel area is small, rigid and pose-invariant; linear scale = <code>sqrt(reference_area / measured_area)</code>.</li>
+  </ul>
+  <div class="warn note"><b>Lowering PPU is never the fix for "this sheet is the wrong size".</b> It was the obvious move for the aerial sheets and it is wrong: those sheets would then be the only player art at a different pixel density, and mismatched pixel size is visible in pixel art. The raws are 1024 × 1024, so scaling <i>up</i> in the processor resamples less and keeps every player sprite at 64.</div>
+
+  <h3>After the pipeline: getting the cut back into Unity</h3>
+  <p><code>process_aerial_sheets.py</code> writes PNGs and records the cell size and pivot it packed to in <code>raws/aerial_cut.json</code>, but <b>nothing reads that file back automatically</b> — the Unity-side slice is manual. Open each sheet's Sprite Editor, <i>Grid By Cell Size</i> with the recorded <code>cell</code>, pivot <b>Custom</b> with the recorded fraction. The values in the json match the shipped <code>.meta</code> exactly, so a re-run that changes a number is telling you the slice has to be redone.</p>
+<pre><code><span class="c">// raws/aerial_cut.json, first entry — and the same numbers appear in</span>
+<span class="c">// Assets/_Sprites/Generated/Player/AerialSword.png.meta</span>
+{ <span class="s">"name"</span>: <span class="s">"AerialSword"</span>, <span class="s">"frames"</span>: <span class="a">6</span>,
+  <span class="s">"cell"</span>: [<span class="a">138</span>, <span class="a">153</span>], <span class="s">"pivot"</span>: [<span class="a">0.41304</span>, <span class="a">0.19608</span>] }</code></pre>
+  <p class="dim">Note that pivot x is <b>not</b> 0.5 there. These frames are anchored on the feet, and a swinging figure's feet are not under the centre of its bounding box.</p>
+</section>
+
+<section id="animation">
+  <h2><span class="num">05</span>Animation — what a clip is, and how you write one</h2>
+  <p class="lead">There is no Animator Controller graph to learn. A character's whole animation vocabulary is a plain data asset — <code>SpriteClipSet</code> — holding named clips, each a list of sprite frames with a rate and a loop flag. The state machine calls <code>Play("Run")</code>; there are no transitions, no parameters and no animation events anywhere in it.</p>
+
+  <div class="note">Why it is data and not a controller: a controller cannot be authored at runtime, so a mod could never add an animation — and a missing state made <code>Animator.Play</code> silently no-op, freezing a character forever with no error. <code>SpriteClipSet</code> is ordinary serialized data, so it can be built at runtime from a sheet and a text file, which is the whole point. (<code>SpriteClipSet.cs</code>.)</div>
+
+  <h3>A clip, field by field</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Field</th><th>Means</th></tr>
+    <tr><td><code>name</code></td><td>What a state config names. Matched <b>case-insensitively</b>.</td></tr>
+    <tr><td><code>frames</code></td><td>Sprites in order. <b>One frame is legal</b> — a static pose.</td></tr>
+    <tr><td><code>fps</code></td><td>Frames per second.</td></tr>
+    <tr><td><code>loop</code></td><td>Repeat, or hold the last frame.</td></tr>
+    <tr><td><code>duration</code></td><td>Seconds for one pass. <code>0</code> derives it as <code>FrameCount / fps</code>. Set it explicitly only when your clip genuinely ends part-way through its last frame's slice — seven player clips do, and deriving them stretched the fall loop 36% and the jump apex 21%, which retimes the transitions gated on them rather than looking obviously broken.</td></tr>
+    <tr><td><code>slot</code></td><td>Which renderer this clip drives, when a character has more than one. Empty = the track's default. <b>This is the split rig — see §06.</b></td></tr>
+    <tr><td><code>hide</code></td><td>This clip <i>hides</i> its renderer rather than showing frames — the "nothing here right now" state. Has no frames by definition.</td></tr>
+  </table>
+  </div>
+
+  <h3>The grammar (this is the mod file's; the editor tool reads a subset)</h3>
+  <p>A mod's <code>.ini</code> declares clips with the line format below, parsed by <code>ModClipSetBuilder.ParseClipLine</code>. The Clip Set Builder window inside Unity reads a <b>subset</b> of it — see the warning after the tables before you write a line there. Learn the full form once:</p>
+<pre><code><span class="c">; Name = &lt;frames&gt; [fps N] [loop|once] [pivot P] [slot S] [duration D]</span>
+
+<span class="a">clip</span> Idle  = <span class="a">0-7</span>              fps <span class="a">8</span>
+<span class="a">clip</span> Bite  = <span class="a">16-21</span>            fps <span class="a">16</span> <span class="a">once</span>
+<span class="a">clip</span> Rewind= <span class="a">7-0</span>              fps <span class="a">12</span>          <span class="c">; a DESCENDING range plays backwards</span>
+<span class="a">clip</span> Blink = <span class="a">0,3,5</span>            fps <span class="a">10</span>          <span class="c">; an explicit list</span>
+<span class="a">clip</span> Hover = <span class="a">hover_*.png</span>      fps <span class="a">12</span>          <span class="c">; separate files, one per frame</span>
+<span class="a">clip</span> Down  = <span class="a">23</span>               <span class="a">once</span> pivot <span class="a">0</span>  <span class="c">; a corpse lies flat on the floor</span>
+<span class="a">clip</span> Weapon= <span class="a">hides</span>                           <span class="c">; show nothing at all</span></code></pre>
+  <div class="scrollx">
+  <table>
+    <tr><th>Frame source</th><th>Means</th></tr>
+    <tr><td><code>0-7</code></td><td>An inclusive range, ascending.</td></tr>
+    <tr><td><code>7-0</code></td><td>The same range <b>reversed</b> — how you get a rewind out of a sheet drawn one way.</td></tr>
+    <tr><td><code>0,3,5</code></td><td>Exactly those frames, in that order. Combine freely: <code>0-3,7,5-4</code>.</td></tr>
+    <tr><td><code>run_*.png</code></td><td>A glob over separate image files, sorted by name. <b>Zero-pad your numbers</b> (<code>run_00</code>, <code>run_01</code>, …) — the sort is ordinal, so <code>run_10</code> would otherwise land before <code>run_2</code>.</td></tr>
+    <tr><td><code>one.png</code></td><td>A single named file.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Clips loop by default — write <code>once</code> for attacks and deaths.</b> The asymmetry is deliberate: a clip that loops when it should not keeps moving while the state machine still advances, whereas a clip that stops when it should not holds its last frame forever with no error. Looping is the failure you can see. A death clip is the one you will forget, and the mod loader logs every <b>multi-frame</b> clip that took the default — the note is gated on <code>frames.Count &gt; 1</code> (<code>ModClipSetBuilder.cs</code>), so a one-frame corpse or held pose is <i>not</i> flagged and has to be checked by hand. The Clip Set Builder window does not log this at all.</div>
+
+  <div class="rule note">
+    <p><b>The two routes share the RANGE parser, not the grammar.</b> <code>ClipSetBuilderWindow</code> calls <code>ModClipSetBuilder.ParseIndices</code> for the frame list — so <code>0-7</code>, <code>7-0</code> and <code>0-3,7,5-4</code> mean the same thing in both places and cannot drift. Everything else is its own scanner, and it is narrower:</p>
+    <div class="scrollx">
+    <table>
+      <tr><th>Keyword</th><th>Mod <code>.ini</code></th><th>Clip Set Builder window</th></tr>
+      <tr><td><code>fps N</code> · <code>loop</code> · <code>once</code></td><td>yes</td><td>yes</td></tr>
+      <tr><td><code>slot S</code> · <code>duration D</code> · <code>hide</code></td><td>yes</td><td>yes</td></tr>
+      <tr><td><code>pivot P</code></td><td>yes (also <code>pivot x,y</code> and <code>bottom</code>/<code>center</code>/<code>top</code>)</td><td>accepted and <b>ignored, deliberately</b> — a pivot is a property of the sliced sprites, not of a clip. Use the window's own <b>Pivot (px above bottom)</b> field.</td></tr>
+      <tr><td><code>run_*.png</code> · <code>one.png</code></td><td>yes</td><td>no — the window addresses a sliced sheet by index only</td></tr>
+    </table>
+    </div>
+    <p><b>It used to drop <code>slot</code> on the floor, and that is worth knowing about.</b> Until recently the window knew only <code>fps</code>/<code>loop</code>/<code>once</code>/<code>pivot</code>: typing <code>Upper_Run = 0-11 fps 18 slot UpperBody</code> built a clip with an <i>empty</i> slot and reported success, <code>PlayerAnimation.RendererForSlot</code> routed it to the default renderer, and the waist came apart with nothing on screen to explain it — exactly the failure §06 exists to prevent. The keyword set matches the mod grammar now, and a word the window cannot read is <b>refused with the list of what it can</b> rather than ignored. If you are reading an older doc that says to hand-author split pairs in <code>Player.asset</code>, that instruction is stale.</p>
+  </div>
+
+  <h3>The tool: Clip Set Builder</h3>
+  <p>Inside Unity, <span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span> turns a sheet plus a few lines of text into a <code>SpriteClipSet</code> asset, instead of dragging sprites into an array one at a time.</p>
+  <ol class="steps">
+    <li>Drop your sheet into the <b>Sheet</b> field.</li>
+    <li>If it is not sliced yet, tick <b>"Slice the sheet to a grid first"</b> and give it <b>Columns</b>, <b>Rows</b>, and <b>Pivot (px above bottom)</b> — how many pixels your character's feet sit above the bottom of a cell, usually 0. (This rewrites the sheet's slice, so leave it unticked for a sheet you sliced by hand.)</li>
+    <li>Write one clip per line in the <b>Clips</b> box, using the <i>subset</i> of the grammar this window reads: <code>run = 4-9 fps 12</code>. Frame ranges and <code>fps</code>/<code>loop</code>/<code>once</code> only — anything else is dropped without a word.</li>
+    <li>Leave <b>Update (optional)</b> empty to create a new asset beside the sheet, named <code>&lt;sheet&gt;_Clips.asset</code>; or point it at an existing set to overwrite it.</li>
+    <li><b>Build</b>, then <b>read the report line by line</b> — see below.</li>
+  </ol>
+  <div class="warn note"><b>"Built N clip(s)" is not a pass.</b> A line that fails is <i>skipped</i> and the surviving lines are written anyway; the failures are demoted under a <b>Notes:</b> heading beneath a success header, so three clip lines with one bad frame range writes two clips and reads as a win. Count the N. Nothing is written only in three whole-run cases: the grid slice failed, the sheet has no sliced sprites, or <i>every</i> line failed. And because <b>Update (optional)</b> replaces the clip array wholesale (<code>set.clips = clips.ToArray()</code>), one mistyped range on an existing set <b>deletes</b> that clip from the asset under the same cheerful header.</div>
+  <p class="dim">One limitation worth knowing before you rely on it: its grid slicer always centres the pivot horizontally. Sheets that need an off-centre anchor — the feet-anchored aerial attacks from §04 — must be sliced in the Sprite Editor instead.</p>
+  <p>There is also <span class="kbd">right-click an AnimatorController ▸ Gleamwood ▸ Convert Animator to SpriteClipSet</span> for legacy art. It refuses any clip carrying rotation, position, scale or float curves rather than silently flattening it to a sprite swap.</p>
+</section>
+
+<section id="splitrig">
+  <h2><span class="num">06</span>The split rig — the one thing you must understand</h2>
+  <p class="lead">The player runs and aims at the same time. The legs keep their stride while the arms hold a bow, and firing must not reset the stride. That needs two independently-timed animation tracks on one character — and the way this project does it constrains how you export art. It is the subtlest thing on this page and the most expensive to get wrong.</p>
+
+  <h3>How it works</h3>
+  <p>The player has two <code>SpriteRenderer</code>s under it, named <code>Legs</code> and <code>UpperBody</code> (those exact GameObject names are what a clip's <code>slot</code> matches). Both draw <b>full-body frames</b>. The shader they share — <code>UniversalSpriteLit</code>, via <code>SliceEffect.hlsl</code> — carries a half-plane cut:</p>
+<pre><code>dist = dot(localPos - _SliceOrigin, _SliceNormal);
+discard where dist * _CullSide &gt; 0;</code></pre>
+  <p>Object space on a <code>SpriteRenderer</code> is anchored at the sprite's pivot, so with a bottom-centre pivot and an up normal <code>dist</code> is simply <b>height above the feet</b>. <code>PlayerSplitRig</code> gives the legs renderer <code>+1</code> and the torso renderer <code>−1</code>, and the same drawing is cut in half at the waist. Both halves then share <b>one</b> pivot, so the feet cannot disagree — the old failure (two hand-tuned anchors in different files) stops being a bug to fix and becomes a state that cannot be represented.</p>
+  <p>The cut sits at <code>waistLocalY = 0.625</code> — exactly 40/64, i.e. <b>40 texels above the feet</b>, on the belt. It is on an exact texel boundary on purpose: the previous value, 0.62, is 39.68 px, two-thirds of the way <i>into</i> texel row 39. The discard is per-fragment on an interpolated position, and the camera smooth-damps its orthographic size during a room zoom, so at intermediate scales the top third of row 39 flipped from the legs to the torso. A row of the character changed owner depending on how far the camera had zoomed.</p>
+
+  <div class="rule note">
+    <p><b>THE RULE: both halves of a split pair must come from the SAME drawing.</b> Not a matching drawing. Not a carefully-posed torso over a matching stride. The same frames.</p>
+    <p>Measured silhouette discontinuity across the join, averaged over all twelve stride frames of the shipped archer:</p>
+<pre><code>Run legs + standbowdraw torso (the old pairing)      <span class="a">11.01 px</span>
+Run legs + RunBowCharge torso, matched stride        <span class="a">12.01 px</span>
+Run legs + the BEST torso frame an oracle can pick    <span class="a">10.26 px</span>
+RunBowCharge on BOTH halves                           <span class="s">2.72 px</span>   &lt;- the floor</code></pre>
+    <p>2.72 px is what adjacent rows of any single drawing differ by anyway, so that is as good as a cut gets. Two different drawings never come close. <b>Pivots, canvas size, slice angle and per-frame remapping were each implemented and measured before this was accepted</b> — including an oracle allowed to hand-pick the best torso frame for every leg frame, which still lost by a factor of four. Do not propose them again; propose one drawing.</p>
+  </div>
+
+  <h3>The three pairs</h3>
+  <p>Only three clip pairs exist. In <code>Player.asset</code> today each pair is a <b>byte-identical frame list</b> — same sheet guid, same fileIDs, same fps — which is exactly the property a test asserts at runtime (<code>PlayerBowAimSplitTests</code> reads both renderers and requires <code>AreSame</code> on the sprite).</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Legs clip</th><th>Torso clip</th><th>Frames</th><th>When</th></tr>
+    <tr><td><code>Run</code> <span class="pill">slot Legs</span></td><td><code>Upper_Run</code> <span class="pill">slot UpperBody</span></td><td>12 @ 18 fps</td><td>Ordinary running.</td></tr>
+    <tr><td><code>RunBowCharge</code> <span class="pill">slot Legs</span></td><td><code>Upper_RunBowCharge</code> <span class="pill">slot UpperBody</span></td><td>12 @ 18 fps</td><td>Running while drawing/holding the bow.</td></tr>
+    <tr><td><code>RunBowShoot</code> <span class="pill">no slot</span></td><td><code>Upper_RunBowShoot</code> <span class="pill">slot UpperBody</span></td><td>12 @ 18 fps</td><td>Firing on the move — but see the note.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Only the first two are split at runtime.</b> Firing on the move swaps <b>layer 1 only</b> to <code>Upper_RunBowShoot</code>, at the legs' current phase; the base track is left playing <code>RunBowCharge</code> and is never touched (<code>PlayerBowAimState.cs</code>). <code>RunBowShoot</code> is the companion full-body drawing the torso half was cut from — it carries an empty <code>slot</code> and no code plays it. Deliver it as one drawing all the same: it is where <code>Upper_RunBowShoot</code> comes from, and pairing the torso with a <i>different</i> drawing is the failure this whole section is about.</div>
+  <p>Everything else — every melee combo step, every aerial and ground directional attack, idle, jump, dash, death — is a single full-body clip on one renderer, with the cut switched off (<code>_CullSide = 0</code> is the shader's own "no cut").</p>
+
+  <h3>What this means for how you export</h3>
+  <div class="grid c2">
+    <div class="card accent-green">
+      <h4>Draw whole characters, once</h4>
+      <p>You never author a torso sheet. The waist is a <i>number</i>, not a second set of frames. Draw the running-with-bow cycle as one complete figure and hand it over once; the same twelve frames become both halves.</p>
+    </div>
+    <div class="card accent-red">
+      <h4>Never pair two drawings</h4>
+      <p>A standing bow pose over a run cycle is two bodies: one leans, one stands. No anchor reconciles them. If a new split behaviour is ever needed, it needs a new <b>hand-drawn full-body cycle</b> for that behaviour, not a recombination of two you already have.</p>
+    </div>
+    <div class="card accent-gold">
+      <h4>Export the cape and the bow as their own layers</h4>
+      <p>This is the concrete ask. Today the cape and bow are <b>baked into the body sprite</b>, and at the waist they dominate the silhouette — the cape crosses the cut in nearly every frame and the carried bow dips below it. That is why a horizontal torso correction is currently disabled in code: on the body alone the correct offset is +14 to +17 texels, but applied to today's art it makes the seam <b>47% worse</b>, because it drags the cape and bow further out of register. Separate layers unlock it.</p>
+    </div>
+    <div class="card accent-cyan">
+      <h4>Keep the pivot bottom-centre and identical</h4>
+      <p>Both halves share one pivot by construction. Do not give a torso clip its own pivot to "line it up" — there is nothing to line up, and doing so re-introduces exactly the class of bug the shader cut removed. (An <code>x,y</code> pivot form exists and is still right for enemy art whose anchor is not centred.)</p>
+    </div>
+  </div>
+  <div class="warn note"><b>So the standing ask for any new split-capable player art is: deliver the flattened sheet <i>and</i> the layers.</b> Body, cape and carried weapon as separate layers registered on one shared cell grid — whatever cell size the sheet uses, as long as all three layers share it. The code note is explicit that the horizontal correction "becomes correct the moment the cape and the bow are exported as their own layers and stop being cut", with the offsets to re-apply written down ready (<code>PlayerAnimation.cs</code>). Nothing else is blocking it.</div>
+  <p class="dim">Why keep the split at all, if one full-body clip would draw the same thing? Because the two renderers are independent tracks: firing swaps layer 1 only, so the stride survives any amount of button-mashing. A single clip could not do that — and "tapping the bow while running makes the legs stutter every shot" is the bug that shape is preventing.</p>
+</section>
+
+<section id="enemies">
+  <h2><span class="num">07</span>Enemies and bosses</h2>
+  <p class="lead">An enemy's art is a small, regular package: a handful of sheets, one clip set, one prefab with colliders sized in world units. The behaviour side is <a href="enemies.html">Enemies &amp; Bosses</a>; this is only the part you draw.</p>
+
+  <h3>What a shipped enemy actually ships</h3>
+  <p><b>Three sheets, usually.</b> The shipped roster settled on <code>&lt;enemyid&gt;-idle.png</code>, <code>&lt;enemyid&gt;-attack.png</code> and <code>&lt;enemyid&gt;-death.png</code>, with the <i>attack</i> sheet carrying the whole melee chain <b>and the run cycle</b>. Cinder Hound is representative: its seven clips cut from three files —</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Clip</th><th>Frames</th><th>fps</th><th>Loops</th><th>Cut from</th></tr>
+    <tr><td><code>cinderhound-idle</code></td><td>14</td><td>10</td><td>yes</td><td><code>cinderhound-idle.png</code></td></tr>
+    <tr><td><code>cinderhound-run</code></td><td>4</td><td>10</td><td>yes</td><td rowspan="5"><code>cinderhound-attack.png</code></td></tr>
+    <tr><td><code>cinderhound-charge</code></td><td>6</td><td>10</td><td>no</td></tr>
+    <tr><td><code>cinderhound-lunge</code></td><td>1</td><td>4</td><td>no</td></tr>
+    <tr><td><code>cinderhound-strike</code></td><td>2</td><td>10</td><td>no</td></tr>
+    <tr><td><code>cinderhound-recover</code></td><td>3</td><td>8</td><td>no</td></tr>
+    <tr><td><code>cinderhound-death</code></td><td>6</td><td>8</td><td>no</td><td><code>cinderhound-death.png</code></td></tr>
+  </table>
+  </div>
+  <p>A one-frame clip is fine — <code>lunge</code> is a single held pose. Only <code>idle</code> and <code>run</code> loop; everything else plays once. The Imp Scout is the exception that proves a fourth sheet is allowed when the motion earns it: it has a dedicated <code>imp-run.png</code>.</p>
+
+  <div class="rule note"><b>Clip names are lowercase <code>&lt;enemyid&gt;-&lt;state&gt;</code>, and they are load-bearing.</b> An enemy's states name their animation by string, and <code>EnemyAnimationWhitelist</code> <b>refuses to spawn</b> a creature whose state names a clip that does not exist — with a message listing every clip it does have. So a typo is caught at the door, not found as a character that flickers oddly three rooms later. Match the shipped naming exactly unless a programmer is renaming states in the same change.</div>
+
+  <h3>Sheet sizes across the shipped roster</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Character</th><th>Idle cell</th><th>Frames on the idle sheet</th><th>Slice style</th></tr>
+    <tr><td>Ember Wisp</td><td>32 × 52</td><td>9</td><td>tight, custom pivot</td></tr>
+    <tr><td>Imp Scout</td><td>63 × 61</td><td>16</td><td><b>uniform grid</b>, pivot (0.5, 0)</td></tr>
+    <tr><td>Soot Bomber</td><td>~67 × 99</td><td>6</td><td>tight, custom pivot</td></tr>
+    <tr><td>Pyre Archer</td><td>~97 × 120</td><td>9</td><td>tight, custom pivot</td></tr>
+    <tr><td>Cinder Hound</td><td>~178 × 89</td><td>8</td><td>tight, custom pivot</td></tr>
+    <tr><td>Vault Acolyte</td><td>155 × ~148</td><td>9</td><td>tight, custom pivot</td></tr>
+    <tr><td>Cinder Shepherd</td><td>~112 × 175</td><td>6</td><td>tight, custom pivot</td></tr>
+    <tr><td>Pyre Regent <span class="pill">boss</span></td><td>~112 × 179</td><td>6</td><td>tight, custom pivot</td></tr>
+    <tr><td>Demon King <span class="pill">boss</span></td><td><b>181 × 220</b></td><td>6</td><td><b>uniform grid</b>, Bottom Center</td></tr>
+  </table>
+  </div>
+  <p class="dim">Every one of those <i>idle</i> pivots is horizontally centred (x = 0.5) with y between 0 and 0.077 — feet on the floor, without exception. The ceiling is <code>emberwisp-idle</code> at 0.0769, four texels up a 52-texel rect. Attack sheets are looser; see §01.</p>
+
+  <h3>Bosses</h3>
+  <p>A boss is the same package with more sheets and one extra rule. The Demon King ships <b>nine</b>: idle, walk, cast, attack, hit, relocate, death, ignite, slam2. All nine share <b>one cell size (181 × 220) and one scale</b>, because a boss that changes size when he changes state is the first thing anyone notices. That uniformity is produced by <code>process_boss_strip.py --batch</code> (§04) and then <b>asserted</b> in the editor: <code>DemonKingArtBuilder</code> refuses to build if any sheet slices to a different frame count than it expects, because a silently short clip animates as a stutter and reads as a timing bug rather than a slicing one.</p>
+  <p>Clip ranges are written against the sheets that <i>exist</i>, not the poses that were requested — the attack and cast strips were asked for six and returned five. If you deliver a strip with a different pose count than planned, say so; the clip ranges are hand-authored against your actual frames.</p>
+
+  <h3>Colliders — what your sprite size costs</h3>
+  <p>Hurtboxes and ground colliders are authored on the prefab in <b>world units</b>, not derived from the sprite. At 64 PPU, multiply by 64 to compare against your art:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Prefab</th><th>Hurtbox (units)</th><th>In texels</th><th>Art height</th></tr>
+    <tr><td><code>ImpScout.prefab</code></td><td>0.91 × 0.91</td><td>58 × 58</td><td>61</td></tr>
+    <tr><td><code>CinderHound.prefab</code></td><td>1.53 × 1.28</td><td>98 × 82</td><td>89</td></tr>
+    <tr><td><code>PyreArcher.prefab</code></td><td>0.84 × 1.71</td><td>54 × 109</td><td>120</td></tr>
+    <tr><td><code>DemonKing.prefab</code></td><td>0.94 × 2.53</td><td>60 × 162</td><td>220</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>The collider is smaller than the drawing, deliberately, and it will not follow your art.</b> A hurtbox covers the <i>body</i>; capes, weapons, horns and flame trails hang outside it. If you make a creature noticeably bigger or smaller than the sheet it is replacing, the collider does not move and the fight silently retunes — hits land on empty air, or the player takes damage from a gap. Flag any size change in the handover (§09) so the prefab is retuned in the same change, and check it with <span class="kbd">F2</span> in play (§08).</div>
+  <p class="dim">Sorting is not something you configure per sheet, but it is not trivial either. <code>ProjectSettings/TagManager.asset</code> declares <b>three</b> sorting layers, in draw order back to front: <code>Default</code>, <code>Play Area</code>, <code>Player</code>. Every shipped enemy prefab renders on <code>Play Area</code>; the player's three renderers are on <code>Player</code> at orders 1–2; <code>Default</code> is what a fresh <code>SpriteRenderer</code> gets and it draws <i>behind</i> both. So a new character left on the default layer disappears behind the level no matter what sorting order it is given — flag it and let a programmer set the layer on the prefab.</p>
+</section>
+
+<section id="ship">
+  <h2><span class="num">08</span>Getting art into the game and looking at it</h2>
+  <p class="lead">Two routes. One needs Unity, one does not. Both end with you looking at your own pixels moving.</p>
+
+  <div class="grid c2">
+    <div class="card accent-ember">
+      <h4>Route A — in the editor</h4>
+      <ol class="steps">
+        <li>Drop the PNG into the right folder (§03).</li>
+        <li>Set the importer fields (§02) and slice.</li>
+        <li><span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span> → point at the sheet, write your clip lines, <b>Build</b> (§05).</li>
+        <li>Assign the resulting <code>SpriteClipSet</code> to the character's <code>SpriteAnimator</code>, or point an existing clip set's clips at your new frames.</li>
+        <li>Press Play.</li>
+      </ol>
+      <p>Weapon and bow clip names are chosen in the workbench, not in code: <span class="kbd">Gleamwood ▸ Content Workbench ▸ Ranged ▸ Presentation ▸ Animation</span> holds the bow's draw/hold/release states, and <span class="kbd">▸ Melee ▸ Aerials</span> / <span class="kbd">▸ Ground</span> ▸ <i>The Move</i> holds each directional attack's clip. → <a href="workbench.html">Workbench</a></p>
+      <div class="note"><b>Those dropdowns read the clip set, so they list what the game actually plays.</b> <code>AnimatorStateRefDrawer</code> resolves the <code>SpriteClipSet</code> on the rig's <code>SpriteAnimator</code> — <code>Player.asset</code> for the player, the enemy's own set for an enemy. It did not always: it read the legacy <code>Assets/_Sprites/Placeholder/Player/Anim/Player.controller</code>, which knows 3 of the 21 directional clip names the shipped weapons author, so 18 correct values rendered red with <code>[MISSING]</code> and a clip you had just authored never appeared in the list at all. A validator that flags the right answer as wrong teaches you to ignore it. If a name still shows red, it is genuinely absent from the clip set — believe it. The small <b><code>[T]</code></b> toggle still drops to raw text when you need it.</div>
+    </div>
+    <div class="card accent-violet">
+      <h4>Route B — the mod folder, no Unity at all</h4>
+      <p>A campaign is a folder next to the game carrying a <code>mod.ini</code>. Its art is read off disk at runtime — no import, no meta, no editor.</p>
+<pre><code>Mods/&lt;campaign-id&gt;/
+  mod.ini
+  Player/
+    myskin.ini
+    sprites/          &lt;- your PNGs
+  Enemies/
+    myenemies.ini
+    sprites/</code></pre>
+      <p>You write the same clip grammar from §05 into the ini. Pixels-per-unit is <b>derived from the shipped art</b> and cannot be set — so your frames land at 64 by construction. Full guides: <a href="modding.html#player">Modding §06</a> for the player, <a href="enemies.html#art">Enemies §12</a> for creatures.</p>
+    </div>
+  </div>
+
+  <div class="rule note"><b>The player skin is LOOK-only, permanently.</b> A skin supplies frames. It cannot change what the player does — the moves, the timing and the states are compiled. A frame past the end of the sheet refuses <b>the whole skin</b> rather than applying half of it, and the player keeps its shipped art. That ceiling is deliberate: <code>Player/</code> has no behaviour tier the way enemies have <code>[Graph:]</code>.</div>
+  <div class="warn note"><b>A misspelled clip name is the one mistake nothing tells you about.</b> Nothing compares your names against the player's vocabulary — <code>ModClipSetBuilder.Build</code> adds every declared clip to the set verbatim. Under the default <code>clips = extend</code>, <code>clip Idel = 0-7</code> is carried into the set, never played, and the shipped <code>Idle</code> is inherited unchanged: correct-looking game, silent log, wasted afternoon. Check every name against the generated template below. The <i>reverse</i> case is loud — under <code>clips = replace</code>, a name the game asks for and your skin does not supply raises <code>[SpriteAnimator] … has no clip …</code> once, listing what you did supply.</div>
+
+  <h3>Start from the generated template, not a blank file</h3>
+  <p><span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span> writes <code>Documentation/PlayerSkinTemplate/PlayerSkin.ini</code> listing <b>every clip the player actually has</b>, in two blocks (body/legs, then the <code>slot UpperBody</code> torso clips), each with its real frame rate and loop flag, every line commented out. It is read from the live <code>Player.asset</code>, so it is always current at the moment you generate it — <b>regenerate before you use it</b> rather than trusting the copy in the repo, which is only as fresh as the last time somebody ran the menu item. A build ships the same file at <code>Mods/_Templates/example-campaign/Player/PlayerSkin.ini</code>.</p>
+  <p>There is also a complete, droppable example campaign in <code>Documentation/ExampleMod/</code> — a working <code>[PlayerSkin]</code> recolouring the archer icy blue, with one PNG per frame and a glob per clip. Regenerate it with <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Example Skin</span> before using it as a reference; like the template, the committed copy is a snapshot.</p>
+
+  <h3>Seeing it</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>To check…</th><th>Do this</th></tr>
+    <tr><td>A mod skin, from inside the editor</td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span> (a toggle), <b>then play from the Boot scene and start or continue a save slot bound to your campaign</b> — see the warning below. Authoring is unaffected. Same menu has <b>Enemies</b>, <b>Weapons</b> and <b>Dialogue</b>.</td></tr>
+    <tr><td>Whether the skin loaded, and what it complained about</td><td>The <code>GLEAMWOOD PLAYER SKIN REPORT</code> block in the log — it names the skin, the clip count, <code>extend</code> vs <code>replace</code>, and every message. It is printed only while a campaign is active; no block at all means no campaign, not no skin.</td></tr>
+    <tr><td>Whether your sprite matches its hitbox</td><td><span class="kbd">F2</span> in play mode draws the live hitboxes, reaches and the bow lane <b>in the game</b>, not the Scene view. It re-derives nothing — it draws the same boxes the swing actually scans.</td></tr>
+    <tr><td>Feel, timing, camera</td><td><span class="kbd">F1</span> opens the debug panel. → <a href="tuning.html#panel">Tuning §03</a></td></tr>
+    <tr><td>Reach boxes on a weapon</td><td>Open a scene with the Player, set your weapon on its <code>PlayerCombatRangePreview</code>, and drag the box handles in the Scene view. → <a href="combat.html#tuner">Combat §06</a></td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>The toggle alone is not enough — a skin loads for the ACTIVE CAMPAIGN only.</b> <code>PlayerSkinOverrides.Load</code> asks <code>ModSet.ActiveSource("Player")</code> for a folder and returns immediately when nothing is active, and a campaign only becomes active through the title screen's save-slot flow (a new slot picks one, an existing slot is bound to one for life). There is no ambient <code>Mods/</code> folder any more. So: drop your campaign folder beside the game, tick the toggle, press Play <b>from the Boot scene</b>, and at the title start a new slot and choose your campaign — or continue one already bound to it. Tick the toggle and press Play in a level scene and you get the shipped archer, no report block, and nothing explaining why.</div>
+  <div class="warn note"><b>Never author a gameplay value into <code>DebugSettings/DebugSettings.json</code>.</b> The F1 panel persists some of its controls into that tracked file and re-applies them at boot, <i>over</i> the asset. If the game contradicts what you can see serialized, check there first. → <a href="tuning.html#saving">Tuning §05</a></div>
+</section>
+
+<section id="handover">
+  <h2><span class="num">09</span>The handover checklist</h2>
+  <p class="lead">What to deliver, in what format, named how. If every box here is ticked, your art can be in the game without a single question coming back to you.</p>
+
+  <h3>Every delivery</h3>
+  <ul>
+    <li><b>PNG, 8-bit RGBA, real alpha.</b> No matte colour, no flattened white, no JPEG anywhere in the chain.</li>
+    <li><b>Nearest-neighbour everywhere.</b> If you scaled anything, it was by an integer factor with no interpolation. A single row of semi-transparent fringe is visible at 64 PPU.</li>
+    <li><b>Drawn at final size.</b> Do not deliver a 4× sheet expecting it to be downscaled — see §01 on why lowering PPU is not the fix either.</li>
+    <li><b>Feet on a constant baseline</b> across every frame of a clip, so the character cannot bob when the animation plays.</li>
+    <li><b>State the cell size and the pivot in texels</b> in the handover note: "cells are 96 × 112, feet sit 2 px above the bottom of a cell". That sentence is exactly what both the Sprite Editor and a mod's <code>pivot =</code> line need.</li>
+  </ul>
+
+  <h3>Per asset type</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Asset</th><th>Format</th><th>Name it</th><th>Also include</th></tr>
+    <tr><td><b>Enemy</b></td><td>3 sheets: idle, attack (incl. the run cycle), death. Uniform cells strongly preferred.</td><td><code>&lt;enemyid&gt;-idle.png</code>, <code>-attack.png</code>, <code>-death.png</code>, all lowercase</td><td>Which frame ranges are which clip, e.g. "attack: 0–5 charge, 6 lunge, 7–8 strike, 9–11 recover, 12–15 run". The clip names will be <code>&lt;enemyid&gt;-&lt;state&gt;</code>.</td></tr>
+    <tr><td><b>Boss</b></td><td>One sheet per behaviour (the Demon King has nine), <b>all at one shared cell size and one shared scale</b>.</td><td><code>&lt;bossid&gt;-&lt;behaviour&gt;.png</code></td><td>The shared cell size, the actual pose count per sheet (say so if it differs from what was planned), and which pose is the plain standing body.</td></tr>
+    <tr><td><b>Player clip</b></td><td>One full-body sheet, bottom-centre pivot.</td><td>The exact clip name from the generated template (<code>Idle</code>, <code>Dash</code>, <code>GreatswordAttack1</code>, …)</td><td>fps and whether it loops. If it is one of the three split pairs (§06): <b>one</b> set of frames, stated as serving both halves.</td></tr>
+    <tr><td><b>Split-pair clip</b> <span class="pill">§06</span></td><td>One drawing. Plus <b>body / cape / carried weapon as separate layers</b>, registered on the same cell grid as the flattened sheet.</td><td><code>Run</code> + <code>Upper_Run</code> are the same frames — deliver once and say so</td><td>Confirmation that the waist (40 texels above the feet) crosses body, not a prop or a billowing cape.</td></tr>
+    <tr><td><b>Dialogue portrait</b></td><td>128 × 160 PNG</td><td><code>&lt;speaker&gt;.&lt;mood&gt;.png</code> — moods in use are <code>neutral</code>, <code>angry</code>, <code>defeated</code> and <code>shadow</code> (only <code>mystery.shadow</code>). The mood is just the second dotted segment, so a new one is legal as long as the <code>.dlg</code> line and <code>PoseCatalog.asset</code> agree.</td><td>Nothing else; the pose id is the filename. → <a href="dialogue.html#presentation">Dialogue §06</a></td></tr>
+    <tr><td><b>Weapon icon</b></td><td>39 × 40 PNG</td><td><code>T_Icon_&lt;WeaponName&gt;.png</code></td><td><code>DefaultSword</code> and <code>DefaultBow</code> currently borrow sub-sprites of unrelated sheets — real icons for those two are an outstanding gap.</td></tr>
+    <tr><td><b>Tile / environment</b></td><td>Square tiles sized so one cell = one world unit — which means the tile's pixel size and the sheet's PPU must be the <b>same number</b></td><td>—</td><td>State your tile pixel size and the PPU you want it imported at. Greybox — what every shipped room is actually painted with — does this correctly: 32 px at 32 PPU, one cell = one unit. The <code>Emberfall_Platform</code> sheet in the repo does <b>not</b>: 96 px cells imported at 64 PPU, so each of its tiles is 1.5 × 1.5 units, and no room paints with it. Match the set you are extending; do not assume the pixel size is the PPU. → <a href="levels.html#anatomy">Levels §02</a></td></tr>
+    <tr><td><b>Generator raw</b></td><td>Untouched output, opaque background, no cropping</td><td>Its behaviour name</td><td>Commit it to <code>Tools/ArtPipeline/raws/</code> alongside the processed sheet — the raw is what makes a re-roll or a re-cut possible.</td></tr>
+  </table>
+  </div>
+
+  <h3>Flag these explicitly — they are not visible in the file</h3>
+  <ul>
+    <li><b>A size change.</b> "This creature is 20% taller than the one it replaces" means a prefab collider has to be retuned in the same change (§07).</li>
+    <li><b>A frame-count change.</b> Clip ranges are hand-authored against your frames; one fewer pose silently shortens a clip.</li>
+    <li><b>Anything that crosses the player's waist</b> — a longer cape, a slung weapon, a trailing scarf (§06).</li>
+    <li><b>Anything that should loop.</b> The default is loop; attacks and deaths must be marked <code>once</code>, and a death clip is the one everyone forgets.</li>
+    <li><b>Non-centred anchors.</b> If a frame's feet are not under the middle of its cell, say where they are in texels — the <code>x,y</code> pivot form exists for exactly this.</li>
+  </ul>
+  <div class="note">Before it is called done: import it, play it, and look at it with <span class="kbd">F2</span> on. A sheet that imports cleanly and animates smoothly can still be a texel off the floor or half a body wider than its hurtbox, and neither shows up anywhere but on screen.</div>
+</section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>The 64 PPU spec: <code>spritePixelsToUnits</code> in every <code>Assets/_Sprites/**/*.png.meta</code> · <code>Assets/_Game/Systems/Dialogue/ModImageLoader.cs</code> (<code>DefaultPixelsPerUnit</code>) · <code>Assets/_Game/Editor/Art/DemonKingArtBuilder.cs</code> (<code>Ppu</code>, and the whole importer set).</li>
+    <li>The camera window: <code>PixelPerfectCamera</code> in <code>Assets/_Scenes/2.Hub.unity</code>, <code>3.BiomeHost.unity</code>, <code>4.RestHost.unity</code> · <code>Assets/_Game/Systems/Mechanics/CameraFollow.cs</code> (<code>FallbackViewHalfHeight</code>).</li>
+    <li>The pipeline: <code>Tools/ArtPipeline/process_boss_strip.py</code> (the <code>--fit</code> / <code>--ref</code> / <code>--body-h</code> / <code>--cell-h</code> / <code>--expect</code> flags and every failure recorded in §04) · <code>process_aerial_sheets.py</code> (keying, feet anchor, the frame-count refusal, the face-area scale note) · <code>build_ground_raws.py</code> · <code>raws/aerial_cut.json</code> · <code>raws/ground_plan.json</code>.</li>
+    <li>Clips and the grammar: <code>Assets/_Game/Systems/Animation/SpriteClipSet.cs</code> · <code>Assets/_Game/Enemies/Code/Definitions/Graph/ModClipSetBuilder.cs</code> (<code>ParseClipLine</code>'s keyword set, <code>ParseIndices</code>, <code>PivotFor</code>, and the <code>frames.Count &gt; 1</code> guard on the loop-default note) · <code>Assets/_Game/Editor/Animation/ClipSetBuilderWindow.cs</code> (<code>BuildClip</code>'s narrower keyword set, and <code>Build</code>/<code>WriteAsset</code>/<code>Report</code> for what a partial failure writes) · <code>Assets/_Game/Systems/Animation/SpriteAnimator.cs</code> (the "has no clip" error) · <code>SpriteClipSetConverter.cs</code>.</li>
+    <li>The workbench animation dropdowns: <code>Assets/_Game/Editor/Combat/AnimatorStateRefDrawer.cs</code> (<code>ResolveController</code> loads <code>Assets/Prefabs/Player.prefab</code>'s controller) · the state list in <code>Assets/_Sprites/Placeholder/Player/Anim/Player.controller</code> against the <code>AnimationState</code> values in <code>Assets/_Game/Player/Resources/Weapons/*.asset</code>.</li>
+    <li>Sorting layers: <code>ProjectSettings/TagManager.asset</code> (<code>m_SortingLayers</code>) · <code>m_SortingLayerID</code> on <code>Assets/Prefabs/Player.prefab</code> and <code>Assets/_Game/Enemies/Prefabs/*.prefab</code>.</li>
+    <li>What makes a skin load at all: <code>Assets/_Game/Systems/Modding/ModSet.cs</code> (<code>ActiveSource</code>) · <code>CampaignSession.cs</code> · <code>Assets/_Game/UI/Code/Screens/SaveSlotsController.cs</code> (the only non-test callers of <code>Activate</code>).</li>
+    <li>The split rig: <code>Assets/_Game/Player/Code/Animation/PlayerSplitRig.cs</code> (waist 0.625, the 2.72 px floor) · <code>PlayerAnimation.cs</code> (the disabled horizontal correction and its measurements) · <code>PlayerBowAimState.cs</code> · <code>PlayerRunState.cs</code> · <code>Assets/Shaders/Includes/SliceEffect.hlsl</code> · <code>Assets/Tests/PlayMode/PlayerBowAimSplitTests.cs</code> · the pair definitions in <code>Assets/_Game/Player/Data/Player.asset</code>.</li>
+    <li>Skins and templates: <code>Assets/_Game/Player/Code/PlayerSkinOverrides.cs</code> · <code>Assets/_Game/Systems/Utils/Build/Editor/PlayerSkinTemplateBuildStep.cs</code> · <code>Assets/_Game/Editor/Player/PlayerSkinExampleGenerator.cs</code> · <code>Documentation/PlayerSkinTemplate/</code> · <code>Documentation/ExampleMod/</code>.</li>
+    <li>Enemy art facts: the sheets and <code>.meta</code> slices in <code>Assets/_Sprites/Gleamwood/Enemies/</code> · the clip sets in <code>Assets/_Game/Enemies/Data/ClipSets/</code> · <code>EnemyAnimationWhitelist.cs</code> · the colliders on <code>Assets/_Game/Enemies/Prefabs/*.prefab</code>.</li>
+    <li>Menu paths are <code>[MenuItem]</code> strings — <code>Gleamwood/Dev/Animation/Clip Set Builder</code>, <code>Gleamwood/Dev/Player/Generate Skin Template</code>, <code>Gleamwood/Dev/Player/Generate Example Skin</code>, <code>Gleamwood/Simulate Mods/Player</code>, <code>Gleamwood/Content Workbench</code>, <code>Assets/Gleamwood/Convert Animator to SpriteClipSet</code>. <span class="kbd">F1</span> is <code>DebugUI.toggleKey</code>; <span class="kbd">F2</span> is <code>CombatHitboxViewer.ToggleKey</code>.</li>
+    <li>Sizes quoted for portraits, weapon icons, the player collider and tiles: <code>Assets/_Game/Content/Dialogue/Portraits/</code> and <code>PoseCatalog.asset</code> · <code>Assets/_Game/Player/Resources/Weapons/Icons/</code> · <code>Assets/Prefabs/Player.prefab</code> · <code>spritePixelsToUnits</code> in <code>Assets/_Sprites/Placeholder/Level/*.png.meta</code> and <code>Assets/_Game/Biomes/Greybox/*.png.meta</code> · <code>Documentation/ROOM_STANDARDS.md</code>.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="index.html"><span>← Home</span>Wiki index</a>
+  <a href="modding.html"><span>Next →</span>Modding — shipping your art without Unity</a>
+</div>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>
