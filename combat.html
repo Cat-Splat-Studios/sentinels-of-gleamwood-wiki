@@ -317,7 +317,7 @@ size   = <span class="k">new</span> <span class="t">Vector2</span>(reach, height
   <table>
     <tr><th>Handle</th><th>Writes</th><th>Clamp</th></tr>
     <tr><td>Cube on each swing box's <b>far edge</b></td><td>That swing's <code>HitboxReach</code></td><td>0.2 – 6</td></tr>
-    <tr><td>Handle on each swing box's <b>top edge</b> (top sits at <code>origin.y + 0.95·height</code>)</td><td><code>HitboxHeight</code></td><td>0.3 – 5</td></tr>
+    <tr><td>Handle on each swing box's <b>top edge</b> (top sits at <code>origin.y + 0.95·height + HitboxOffsetY</code> — the same span §05 states, and the handle re-derived it WITHOUT the offset until 2026-08-12)</td><td><code>HitboxHeight</code></td><td>0.3 – 5</td></tr>
     <tr><td>Same two handles on the <b>violet</b> box</td><td><code>DashAttackConfig.HitboxReach</code> / <code>HitboxHeight</code></td><td>same clamps</td></tr>
     <tr><td>Green free-move handle at the bow origin</td><td><code>PlayerBowAimConfig.FireOriginOffset</code></td><td>—</td></tr>
     <tr><td>Handle at the end of the green lane</td><td><code>PlayerBowAimConfig.ProjectileMaxDistance</code> — the <b>default</b> lane length. A bow that authors its own <code>LaneDistance</code> (§04) overrides it and this handle will not move that bow's real reach.</td><td>1 – 40</td></tr>

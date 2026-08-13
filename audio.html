@@ -192,7 +192,7 @@ src.outputAudioMixerGroup = <span class="t">GameAudio</span>.SfxGroup;</code></p
   </table>
   </div>
   <div class="warn note"><b>Six of the ten shipped biomes have no track of their own, and neither does the run's final boss.</b> All six fall through to <code>LevelTrack</code>, which is <i>Forest of the Demon</i> — so a route through <code>gale</code>, <code>hollow</code>, <code>mire</code>, <code>spire</code> or <code>demon-king</code> plays the Emberfall theme the whole way, and <code>Boss_DemonKing</code> then fights to whatever the level was already playing. Empty is a legal state: nothing errors, nothing warns, so nothing will tell you the last fight of a run has no theme.</div>
-  <p class="dim">Both fields also import from <code>GameContent.ini</code> — <code>musicTrack =</code> under <code>[Biome:]</code> and <code>[Boss:]</code> sections (see <a href="tuning.html">Tuning &amp; INI</a>). The old <code>musicCueId</code> field is <code>[HideInInspector]</code> legacy — kept only so old assets deserialize, never read.</p>
+  <p class="dim">Both fields also import from <code>GameContent.ini</code> — <code>musicTrack =</code> under <code>[Biome:]</code> and <code>[Boss:]</code> sections (see <a href="tuning.html">Tuning &amp; INI</a>). The old <code>musicCueId</code> field is <b>gone</b> — deleted on 2026-08-13 — it was written and never read, and the importer now reports it as an unknown key, never read.</p>
 </section>
 
 <section id="seams">
