@@ -95,6 +95,26 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 
   <p><b><code>build-channel.txt</code> is the marker.</b> The Build Manager writes it beside the executable as plain text, because nothing else about the folder tells you which channel it is: same pinned exe name, same version, and <code>BuildInfo</code> is baked inside <code>*_Data</code> where a PowerShell script cannot read it. The uploader reads it and <b>throws on a mismatch in either direction</b>. The direction that matters is an explicit <code>-BuildPath</code> aimed at a development folder while <code>-Channel</code> says release — that would otherwise sail through, because the tier check only runs during auto-selection. A folder with no marker predates it, so the script <i>warns</i> instead of throwing and says plainly that the guard did not run.</p>
 
+  <p><b><code>build-incomplete.txt</code> is the other marker, and it is a hard stop.</b> The version number is
+  bumped <i>before</i> the build, so a build that fails or is cancelled leaves an output folder carrying the
+  <b>highest version in its channel</b> — which is exactly what the folder pick above selects. It can never carry a
+  <code>build-channel.txt</code> either, because that is written on success only, so the channel guard would find
+  nothing and merely warn. The Build Manager therefore writes <code>build-incomplete.txt</code> into that folder on
+  both of its failure paths, recording why, and the uploader <b>throws</b> on any folder carrying one — an explicit
+  <code>-BuildPath</code> included. It does <i>not</i> quietly fall back to the next-highest good build: uploading a
+  different build than the one you asked for is its own bad surprise. <b>Recovery is to build that version again, or
+  delete the folder</b> — until it is gone it keeps winning the pick. The folder is marked rather than deleted so the
+  failed build's output survives as the evidence for why it failed.</p>
+
+  <p><b><code>build-commit.txt</code> names the commit the build came from.</b> The Steam build description is the
+  only thing distinguishing builds in SteamPipe &rsaquo; Builds &mdash; the list where someone later clicks
+  <b>Set Build Live</b> &mdash; and it used to stamp <code>git rev-parse HEAD</code> <i>at upload time</i>. Upload a
+  folder built last week, or upload after committing anything at all, and the one traceability field on that list
+  named a commit that never produced the build. <code>BuildInfo</code> already captures the sha and branch during the
+  version bump, so the Build Manager now writes them beside the executable on success and the uploader reads them
+  from there. A folder built before the marker existed shows <code>(commit unknown)</code> and warns; HEAD is
+  <b>deliberately not substituted</b>, because a confidently wrong sha is worse than an admitted gap.</p>
+
   <div class="warn note"><b>Pushing a development build is supported, and sometimes exactly what you want</b> — playtesters need the F1 panel and the on-screen version/commit/seed stamp to file a useful report. What is guarded is doing it <i>by accident</i>. Set one live on a <b>beta branch only</b> (<code>-Branch playtest</code> — §07), never default; its Steam description is prefixed <code>[DEVELOPMENT - DO NOT SET LIVE ON DEFAULT]</code> because SteamPipe ▸ Builds is the last place the mistake can be caught by eye. Development builds are also never git-tagged: a throwaway playtest build publishing a <code>build-x.y.z.n</code> tag into the same namespace as the Steam releases is not recoverable without a force-delete on a shared ref.</div>
 </section>
 
@@ -157,7 +177,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
-    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> (folder pick, the channel guard, steamcmd resolution, the confirm prompt) · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> (the exclusion list in §02) · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §02 in step).</li>
+    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> (folder pick, the channel guard, the incomplete-build guard, the build description&rsquo;s commit, steamcmd resolution, the confirm prompt) · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> (the exclusion list in §02) · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §02 in step).</li>
     <li>The build side: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildManagerWindow.cs</code> — <code>GetBuildPath</code> (the channel tier), <code>WriteChannelMarker</code>, <code>BeginPendingVersion</code>/<code>DiscardPendingVersion</code> (the version rollback) and <code>CreateGitTagForBuild</code>. Both of that file's stale "NOT uploadable" claims — the on-screen channel note and the <code>DevelopmentBuild</code> doc comment — are fixed; it now names the invocation (<code>-Channel development -Branch playtest</code>) instead of denying the workflow. <code>Upload-SteamBuild.ps1</code> remains the authority: write §03 from the PowerShell.</li>
     <li>The pinned exe: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildNaming.cs</code>, consumed by <code>BuildManagerWindow.GetBuildPath</code>. Identity lives in <code>ProjectSettings/ProjectSettings.asset</code>.</li>
     <li>The release notes: <code>Documentation/BUILD-NOTES.md</code> — §02 step 4 is the only instruction in the wiki to write them, so a change to how they are kept lands here as well as on <a href="maintaining.html#map">maintaining §05</a>.</li>
