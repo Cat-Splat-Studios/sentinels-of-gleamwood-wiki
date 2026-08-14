@@ -65,7 +65,7 @@
   <h2><span class="num">02</span>Your first mod, in five minutes</h2>
   <p class="lead">Make the starting sword hit like a truck. Nothing to install.</p>
   <ol class="steps">
-    <li><b>Find the game folder.</b> The one with <code>Gleamwood.exe</code> in it. Next to it is a <code>Mods/</code> folder holding <code>_Templates/example-campaign/</code>.</li>
+    <li><b>Find the game folder.</b> The one with <code>sentinels-of-gleamwood.exe</code> in it — that name is pinned, because Steam's launch option points at a fixed path and a versioned executable would break it on every upload. Next to it is a <code>Mods/</code> folder holding <code>_Templates/example-campaign/</code>.</li>
     <li><b>Copy the example campaign.</b> Copy <code>Mods/_Templates/example-campaign/</code> up one level into <code>Mods/</code> and rename it to <code>my-campaign</code>. Open its <code>mod.ini</code> and change <code>name</code> to whatever you want to see on the menu. Everything else is comments, so on its own it changes nothing.</li>
     <li><b>Uncomment one line.</b> Open your copy and find <code>; BaseDamage = 1</code>. Delete the <code>;</code> and the space, and change the number:
 <pre><code><span class="c">; before</span>
@@ -118,7 +118,7 @@ declared weapons: 1   [NewWeapon:...]
     OK  Frostbite            ranged, 14 dmg, icon, weight 1
 RESULT: OK — 1 declared, 1 retuned.
 =============================================</code></pre>
-  <p>Find the log at <code>%USERPROFILE%\AppData\LocalLow\Cat Splat Studios\Sentinels of Gleamwood\Player.log</code> (Windows). A line that starts <code>FAILED</code> or a message under <code>-- N message(s) --</code> tells you the file, the line and what was expected.</p>
+  <p>Find the log at <code>%USERPROFILE%\AppData\LocalLow\Cat Splat Studios\sentinels-of-gleamwood\Player.log</code> (Windows). That second folder is the <i>product</i> name, not the title on the window — lowercase and hyphenated, exactly as it is spelled here. A line that starts <code>FAILED</code> or a message under <code>-- N message(s) --</code> tells you the file, the line and what was expected.</p>
   <div class="note warn"><b>Only object <em>numbers, words and switches</em> are text-moddable.</b> You cannot name a sound, a projectile or an animation in a text file — there is no way to point at one — so those fields are not offered in the templates at all. Artwork is the exception with its own route: enemies can bring a sprite <b>sheet</b> their animations are cut from (<a href="enemies.html#art">Enemies §12</a>), and a new weapon can carry an <code>icon</code>.</div>
 </section>
 
@@ -235,7 +235,8 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
     <tr><td><code>bypass</code></td><td><code>[Node:]</code></td><td>The skip-the-boss route. Needs the biome's calm room switched on.</td></tr>
     <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — numbers and text</b></td></tr>
     <tr><td><code>displayName</code> <code>chapter</code> <code>objective</code></td><td><code>[Biome:]</code></td><td>What the intro card says.</td></tr>
-    <tr><td><code>minRooms</code> <code>maxRooms</code> <code>verticalJogChance</code> <code>branchChance</code> <code>maxBranches</code> <code>branchRunMax</code> <code>calmRoomBeforeBoss</code></td><td><code>[Biome:]</code></td><td>How the layout generates.</td></tr>
+    <tr><td><code>minRooms</code> <code>maxRooms</code> <code>calmRoomBeforeBoss</code></td><td><code>[Biome:]</code></td><td>How big the layout gets, and whether a calm room stands before the boss. <code>minRooms</code> and <code>maxRooms</code> are read by <b>every</b> generator; <code>calmRoomBeforeBoss</code> by <code>Chain</code> and <code>Branching</code> — so on every biome the game ships, all three are live.</td></tr>
+    <tr><td><code>verticalJogChance</code> <code>branchChance</code> <code>maxBranches</code> <code>branchRunMax</code></td><td><code>[Biome:]</code></td><td><b>These belong to another generator.</b> <code>verticalJogChance</code>, <code>maxBranches</code> and <code>branchRunMax</code> are <code>Chain</code>-only; <code>branchChance</code> is read by <code>Chain</code> and <code>Lattice</code>. Every shipped biome is <code>Branching</code>, so on one of those they are parsed, clamped, stored — and never consulted. The loader says exactly that, by name, and prints the keys your topology <i>does</i> read. Branching's own shape dials are in the <code>topology</code> row below.</td></tr>
     <tr><td><code>statScalePerStage</code></td><td><code>[Biome:]</code></td><td>How much tougher enemies get with depth.</td></tr>
     <tr><td><code>topology</code> <code>latticeTier</code> <code>branches</code> <code>pathRoomsMin</code> <code>pathRoomsMax</code> <code>bandHeight</code></td><td><code>[Biome:]</code></td><td>Which <i>shape</i> of level the generator builds. Their own subsection, below the table.</td></tr>
     <tr><td colspan="3"><b><code>[Biome:&lt;id&gt;]</code> — shipped assets, by name</b></td></tr>
@@ -268,13 +269,15 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
   <p>A name that does not resolve, or a web that cannot be played — an entry pointing nowhere, a door to a node that does not exist, a node nothing can reach, a loop with no ending — <b>refuses the campaign</b>. The slot will not start, and it tells you which line is at fault. That is deliberate: dropping you into a half-broken run would waste more of your time than refusing to start does.</p>
   <p>A <i>value</i> that will not parse is different: <code>minRooms = eight</code> is reported and the shipped number is kept, so one typo does not silently flatten a biome to zero rooms. Same for a key nobody recognises — reported, and the rest of the file still applies.</p>
 
-  <div class="note rule"><b>Editing a web under your own save.</b> A suspended run remembers the shape of the web it was suspended on. Change that shape — add a node, rewire a door, point a node at a different biome — and that run is reported as unresumable rather than quietly continuing into a different game. <b>The save survives</b>; only the run in progress is lost, and you start a fresh one on the new web. Retuning a biome's numbers does not do this, so you can tune room counts all day with a run in flight.</div>
+  <div class="note rule"><b>Editing a web under your own save.</b> A suspended run remembers the shape of the web it was suspended on. Change that shape — add a node, rewire a door, point a node at a different biome — and that run is reported as unresumable rather than quietly continuing into a different game. <b>The save survives</b>; only the run in progress is lost, and you start a fresh one on the new web. Retuning a biome's numbers does not do this, so you can tune room counts all day with a run in flight.
+  <br><br>
+  <b>One biome key is the exception, and it is the only one: <code>topology</code>.</b> Every other biome number changes how BIG a level is; topology changes what a level IS — a <code>Chain</code> node has one way out where a <code>Branching</code> one has several, and layouts are regenerated from the seed rather than stored. So a run suspended under one topology and resumed under another would not strand, it would silently RELOCATE: same seed, same node, an entirely different level, and nothing said so. That is worse than a refusal, which is why <code>topology</code> rides the fingerprint along with the web's own shape. A <code>[Biome:]</code> retune reaches it because the retune is what the node is bound to.</div>
 </section>
 
 
 <section id="progression">
   <h2><span class="num">08</span>Set the economy</h2>
-  <p class="lead">A campaign that supplies its own rooms, enemies, weapons and conversations is still selling Gleamwood's upgrades at Gleamwood's prices. <code>Progression/</code> is the last thing a campaign was renting: <b>what a profile can buy, and what a run can become.</b></p>
+  <p class="lead">A campaign that supplies its own rooms, enemies, weapons and conversations is still selling Gleamwood's upgrades at Gleamwood's prices. <code>Progression/</code> is the last thing a campaign was renting: <b>what a profile can buy, what a run can become, and what a run earns.</b></p>
 
   <pre><code><span class="c">; my-campaign/Progression/Progression.ini</span>
 
@@ -322,7 +325,16 @@ effect        = Imbue
 maxStacks     = 1
 imbue.flag    = IsLauncher
 imbue.default = aerial:forward
-imbue.legal   = aerial:forward | aerial:down</code></pre>
+imbue.legal   = aerial:forward | aerial:down
+
+<span class="c">; what a run EARNS — one section, no id</span>
+[<span class="a">Economy</span>]
+currencyName = <span class="a">Gleam</span>
+perKill      = <span class="a">2</span>
+perDepth     = <span class="a">20</span>
+clearBonus   = <span class="a">100</span>
+slipBonus    = <span class="a">25</span>
+perBoss      = <span class="a">60</span></code></pre>
 
   <h3>The two kinds, and why they are different</h3>
   <div class="scrollx">
@@ -348,7 +360,21 @@ imbue.legal   = aerial:forward | aerial:down</code></pre>
   </div>
   <div class="note"><b>Only melee moves can be imbued, and leave out anything that already does the thing.</b> An imbue writes into a <code>MeleeAttackConfig</code>, so a bow target could never fire — a mask that reaches outside the melee set is refused by name. The second half is your design rather than a rail: <code>ground:up</code> always launches, so imbuing <code>IsLauncher</code> onto it is a reward the player cannot see. That is why the game's own launcher lists five moves and not seven.</div>
 
-  <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result.</div>
+  <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result. There is a hard ceiling of <b>10</b>, and it is a <i>refusal</i> rather than a clamp: an entry asking for more is dropped by name, whole, and the modifier stops existing. The highest any shipped modifier declares is 5, so the ceiling leaves room to double the most generous one and still catches the order-of-magnitude typo, which is the actual hazard.</div>
+
+  <h3>What a run EARNS</h3>
+  <p>Setting every price and no income only rebalances half the loop — halve what the Shopkeeper charges without touching these and the game is simply twice as generous. <code>[Economy]</code> is the other half. It takes <b>no id</b>: there is exactly one economy per campaign, so it is a section rather than a family, and it clones the shipped one the same way everything else here does.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>What it is</th><th>Shipped</th></tr>
+    <tr><td><code>currencyName</code></td><td>What the meta currency is called, everywhere the player sees it. Rename it and the whole game re-themes.</td><td><code>Gleam</code></td></tr>
+    <tr><td><code>perKill</code></td><td>Per enemy felled inside a biome — the moment-to-moment trickle.</td><td><code>2</code></td></tr>
+    <tr><td><code>perDepth</code></td><td>Run-end bonus per depth tier reached — what rewards pushing deeper.</td><td><code>20</code></td></tr>
+    <tr><td><code>clearBonus</code></td><td>Extra on a full clear, over a death at the same depth.</td><td><code>100</code></td></tr>
+    <tr><td><code>slipBonus</code></td><td>Extra for reaching the end and walking past the boss. <b>The gap between this and <code>clearBonus</code> IS the decision</b> — slipping out is a real ending with a real payout, never the efficient way to farm. Raise it above the clear bonus and you have inverted the game's central choice, which is your right, but do it knowing that.</td><td><code>25</code></td></tr>
+    <tr><td><code>perBoss</code></td><td>Bounty per boss actually put down, on top of everything else. This is what gives the boss road its price — without it a boss was worth the same 2 Gleam as a Cinder Hound.</td><td><code>60</code></td></tr>
+  </table>
+  </div>
 
   <div class="note warn"><b>This tier buys RETUNE, not EXTEND — and the difference is worth knowing before you plan around it.</b>
   You can rename, reprice, redescribe and re-cap <i>every</i> entry the game ships, and you can declare your own
@@ -359,7 +385,11 @@ imbue.legal   = aerial:forward | aerial:down</code></pre>
   <code>AttackDirection</code>) are compiled C# enums read at fixed seams, so a new entry would have no bit to grant and
   nothing would consult it — it would show up in the shop, be bought, and do nothing at all. Refusing loudly beats
   selling that. <code>[Move:]</code> and <code>[Ability:]</code> reach only the entries the game already ships, for the
-  same reason; a header naming anything else is quietly nothing.
+  same reason — but a header naming anything else is <b>not</b> silent: it is reported by name, with the
+  count of settings it changed (none), the list of real ids, and a "did you mean". That report covers all four
+  families, so a misspelled <code>[Upgrade:vigour]</code> is caught the same way. It exists because this tier
+  is otherwise strict — an unknown <i>key</i> inside a section was always named, so a modder who has learned
+  the loader catches their typos had been taught to trust a clean console.
   <br><br>
   <b>Extend is deferred, not abandoned.</b> The eventual answer is string-keyed registries, and the reason it has not
   happened yet is a real cost rather than a missing afternoon: <code>MoveSet</code> is an allocation-free bitset tested

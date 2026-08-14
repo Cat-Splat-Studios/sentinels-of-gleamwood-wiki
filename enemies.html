@@ -54,12 +54,14 @@
   </div>
 
   <h3>EnemyDefinition — the top-level fields</h3>
-  <p>Create one with <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Beyond the inherited <code>States</code> list and <code>InitialState</code>, it carries exactly four things:</p>
+  <p>Create one with <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span>. Beyond the inherited <code>States</code> list and <code>InitialState</code>, it carries exactly six things:</p>
   <div class="scrollx">
   <table>
     <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
     <tr><td><code>MaxHealth</code></td><td>3</td><td>Hit points. Damage routes through <code>EnemyStateMachine.TakeHit</code>; 0 HP enters the <code>dead</code> state. <b>0 = no health system:</b> the enemy cannot die from plain damage — executions still kill it.</td></tr>
     <tr><td><code>ExecutionThreshold</code></td><td>100</td><td>Execution points this enemy takes before it can be finished — the per-enemy half of the execution economy (the weapon authors the points a hit grants). <code>EnemyStateMachine</code> pushes it into the prefab's <code>CombatStatusManager</code> at Awake, so the component's own serialized 100 only ever applies to a CSM with no definition — the player's, and a bare test rig's. Shipped: 100 everywhere except <code>ImpScoutDef</code> 95 and <code>DemonKingDef</code> 140.</td></tr>
+    <tr><td><code>ExecutionDecaySeconds</code></td><td>3</td><td>Seconds without an execution hit before the meter starts draining. Adopted into the prefab's <code>CombatStatusManager</code> at Awake beside the threshold, so the prefab's own <code>executionTimeToDecay</code> is dead for any enemy with a definition.</td></tr>
+    <tr><td><code>ExecutionDecayRate</code></td><td>25</td><td>Points per second the meter drains once that grace has passed. <b>Unlike the threshold, 0 means 0 here</b> — either field at 0 authors a meter that never drains, which is a campaign's knob, not a missing value. Both sit on the Workbench's <b>Vitals</b> section right under Execution Threshold; until 2026-08-13 they were prefab-only, so the Workbench could tune the threshold and not the thing that empties it.</td></tr>
     <tr><td><code>CanBeJuggled</code></td><td>true</td><td>When on, a swing whose <code>IsLauncher</code> is set (the up-attacks) can put the enemy airborne, in one hit. Off, nothing can. All four bosses ship with this off.</td></tr>
     <tr><td><code>Executions</code></td><td>empty</td><td>List of <code>ExecutionDefinition</code> assets this enemy can be finished with (§05). All ten shipped ones are reusable, and every enemy in the roster <b>except the Demon King</b> wires all ten — they differ by TRIGGER, not by animation, so adding one costs no graph wiring (§05). <code>DemonKingDef.Executions</code> is empty, so the final boss cannot be executed at all.</td></tr>
   </table>
@@ -136,7 +138,9 @@
   <div class="rule note"><b>Rename at your peril:</b> the runtime hard-looks-up <code>"dead"</code>, <code>"juggled"</code>, <code>"hitstun"</code> and <code>"idle"</code> (TakeHit and fallbacks), and <code>"chase"</code> is the default <code>NextStateName</code> everywhere. Keep the conventional ids.</div>
 
   <h3>Transition conditions</h3>
-  <p>Condition sub-assets live under <span class="kbd">Create ▸ Enemies ▸ Transitions ▸ …</span>. The catalog you'll actually use:</p>
+  <p>Conditions are authored <b>on the transition itself</b>, not created and dragged in: select the state sub-asset (the foldout arrow on the definition asset in the Project window), expand its transition in the Inspector, and press <b>Add Condition</b>. That menu is <i>reflected</i> over every non-abstract <code>TransitionCondition&lt;EnemyContext&gt;</code> subclass, so it lists all nine of them with no registration step, and it does the <code>AddObjectToAsset</code> for you — which is the part that matters, because a condition that is not a sub-asset of the definition is a loose file the definition silently depends on.</p>
+  <div class="warn note"><b><span class="kbd">Create ▸ Enemies ▸ Transitions ▸ …</span> is <i>not</i> the route</b>, whatever the Workbench's States tab still hints. Only <code>DistanceCondition</code> and <code>AngleCondition</code> carry a <code>[CreateAssetMenu]</code>, so that submenu holds exactly two of the nine — <code>HealthCondition</code>, the one §08's boss recipe needs for the half-health phase switch, is not among them — and what it makes is a standalone <code>.asset</code> beside the definition rather than a sub-asset inside it. Use <b>Add Condition</b> and the question never comes up.</div>
+  <p>The catalog you'll actually use:</p>
   <div class="scrollx">
   <table>
     <tr><th>Condition</th><th>Fields (defaults)</th><th>Behavior</th></tr>
@@ -628,7 +632,7 @@ pivot   = <span class="a">2</span>
     <tr><td><code>pivot = &lt;pixels&gt;</code></td><td>How far your character's feet sit above the bottom of a cell. Default <code>0</code>. Also takes <code>bottom</code>, <code>center</code>, <code>top</code>, or an <code>x,y</code> pair (<code>pivot = 5,2</code> — x from the left, y from the bottom) when the anchor is not horizontally centred, e.g. a split-body sheet.</td></tr>
     <tr><td><code>clips = extend | replace</code></td><td>Default <code>extend</code>: your animations join the donor's. <code>replace</code>: yours are the whole vocabulary.</td></tr>
     <tr><td><code>clip &lt;Name&gt; = &lt;frames&gt; [options]</code></td><td>One animation. Frames are <code>0-7</code>, <code>0,3,5</code>, a descending range like <code>7-0</code> to play backwards, a file name, or a <code>*</code> glob.</td></tr>
-    <tr><td><code>clip &lt;Name&gt; hides</code></td><td>An animation that shows nothing — the "no weapon in hand right now" state.</td></tr>
+    <tr><td><code>clip &lt;Name&gt; = hides</code></td><td>An animation that shows nothing — the "no weapon in hand right now" state. <code>hides</code> is the <b>value</b>, exactly like a frame list; a line with no <code>=</code> is not one of the parser's four shapes, and one bad line refuses the whole graph (§11).</td></tr>
   </table>
   </div>
   <p>Options after the frames, in any order: <code>fps &lt;n&gt;</code> · <code>loop</code> · <code>once</code> · <code>pivot &lt;p&gt;</code> (or <code>pivot &lt;x,y&gt;</code>) · <code>slot &lt;name&gt;</code> · <code>duration &lt;secs&gt;</code>.</p>

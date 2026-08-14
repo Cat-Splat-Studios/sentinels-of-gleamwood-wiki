@@ -113,10 +113,13 @@
   <h2><span class="num">02</span>The rotation — how "what they say next" is picked</h2>
   <p class="lead">This is the Hades trick, and the whole reason the structure has an Encounter level. Every beat keeps its own count of how many times it has played, and that count indexes the encounter list.</p>
 
-<pre><code><span class="c">// DialogueSet.Next(trigger) — the entire selection rule</span>
+<pre><code><span class="c">// DialogueGroup.IndexFor(seen) — the entire selection rule, and the ONE copy of it:</span>
+<span class="c">// both DialogueSet.Next(trigger) and VoiceKeyPrefix(trigger) call it. Change it here.</span>
 <span class="k">int</span> index = group.cycleWhenExhausted
     ? seen % group.sequences.Length          <span class="c">// wrap back to the first</span>
     : <span class="t">Mathf</span>.Min(seen, group.sequences.Length - <span class="a">1</span>);  <span class="c">// stick on the last</span></code></pre>
+
+  <div class="note"><b>It lives on <code>DialogueGroup</code>, not in <code>Next</code>, and that is deliberate.</b> The rule had been written out twice — once in <code>DialogueSet.Next</code> and once in <code>VoiceKeyPrefix(trigger)</code> — and those two must agree or the panel speaks one encounter's TEXT while asking the voice bank for another encounter's AUDIO. That is the shape of the 2026-07-25 coverage/bake mismatch. Editing <code>Next</code> alone is the bug the extraction exists to prevent. (<code>IndexFor</code> also clamps a negative <code>seen</code> to 0 rather than throwing: it can only come from a corrupt save counter, and a silent restart from the top beats an exception mid-encounter.)</div>
 
   <div class="scrollx">
   <table>
@@ -266,7 +269,7 @@ KRAG: You. Again. Sparks are not supposed to come BACK.
 
 @Phase Two [nocycle]
 --- encounter
-KRAG [krag.enraged|right|shake|sfx:krag_growl]: Enough.</code></pre>
+KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
 
   <div class="scrollx">
   <table>

@@ -89,11 +89,11 @@
 </section>
 
 <section id="currency">
-  <h2><span class="num">02</span>The currency — one file, six numbers</h2>
-  <p class="lead">Everything about <i>how much</i> a run earns lives in <code>Assets/_Game/Systems/Run/Economy.cs</code> — a static tuning class, so the curve is read and changed in one place.</p>
+  <h2><span class="num">02</span>The currency — one asset, six numbers</h2>
+  <p class="lead">Everything about <i>how much</i> a run earns lives in <code>Assets/_Game/Systems/Run/Resources/Economy.asset</code> — an <code>EconomyDefinition</code>. <code>Economy.cs</code> is six get-only properties over it (<code>Economy.Current</code>), so the curve is still <i>read</i> in one place, and a campaign retunes every number from an <code>[Economy]</code> block in its <code>Progression/</code> folder exactly as it retunes an upgrade's price.</p>
   <div class="scrollx">
   <table>
-    <tr><th>Constant</th><th>Value</th><th>Meaning</th></tr>
+    <tr><th>Number</th><th>Value</th><th>Meaning</th></tr>
     <tr><td><code>CurrencyName</code></td><td><b>"Gleam"</b></td><td>Display name everywhere. Rename here to re-theme the whole economy.</td></tr>
     <tr><td><code>PerKill</code></td><td><b>2</b></td><td>Awarded per enemy felled inside a biome — the moment-to-moment trickle (<code>RunDirector.ReportKill</code>).</td></tr>
     <tr><td><code>PerDepth</code></td><td><b>20</b></td><td>Run-end bonus per depth tier reached — rewards pushing deeper. Depth pays for <i>every</i> ending: reaching the end is worth something however you leave it.</td></tr>
@@ -117,7 +117,8 @@
       <p>The Death and Results screens read <code>BuildStats().currencyEarned</code> and show "+N Gleam". <code>RunDirector.CurrencyBalance</code> reads the banked total for the hub (reads disk — call it on hub entry, not per frame).</p>
     </div>
   </div>
-  <div class="note">Want the curve authored live instead of in code? Promote these six constants to <code>[Tunable]</code> fields or a small ScriptableObject — the seam is called out in <code>Economy.cs</code>'s own summary. Until then, it is deliberately one file.</div>
+  <div class="note"><b>The curve <i>is</i> authored live</b> — this was once a "promote the constants to a ScriptableObject someday" note, and the someday shipped. <code>EconomyDefinition</code> carries all six as <code>[WorkbenchField]</code> rows, so they are editable in the inspector or under the Workbench's own <b>Economy</b> category, and a campaign overrides any of them by field name (case-insensitive, like every other tier) in an <code>[Economy]</code> section of a <code>Progression/*.ini</code>: <code>currencyName</code> · <code>perKill</code> · <code>perDepth</code> · <code>clearBonus</code> · <code>slipBonus</code> · <code>perBoss</code>. It takes no id, because there is exactly one economy per campaign.
+  <br><br><b>The C# field initialisers are not the live numbers.</b> They are the shipped defaults and the fallback for when there is no asset in <code>Resources</code> at all — which is what keeps a bare test scene earning exactly what the shipped game earns. While <code>Economy.asset</code> exists it wins, so editing those initialisers compiles green and changes nothing.</div>
 </section>
 
 <section id="upgrades">
@@ -211,7 +212,7 @@
 
 <section id="moves">
   <h2><span class="num">04c</span>The directional moveset</h2>
-  <p class="lead">Five of the nine directional moves are permanent Gleam purchases, and <b>their prices live in ASSETS</b> — a cost edited in C# after its asset exists changes nothing at runtime, so read the asset when a number matters.</p>
+  <p class="lead">Seven of the ten directional moves are permanent Gleam purchases, and <b>their prices live in ASSETS</b> — a cost edited in C# after its asset exists changes nothing at runtime, so read the asset when a number matters.</p>
   <p>The moveset went from one swing to nine in a day. Handing all of it over at once is both a worse first hour and a wasted progression axis — Hisham: <i>"in order to make the perm upgrade shop more interesting - should we have to purchase all aerial and directional attacks? this makes a lot of sense"</i>. Everything outside <code>MoveCatalog.Baseline</code> is bought at the shopkeeper's <b>Ground</b>, <b>Air</b> and <b>Bow</b> tabs — one tab per input family, so the tab name and the row's own instruction line (<i>"Ground: UP + attack"</i>) say the same word. It was ONE "Moves" tab until the bow's moves took it to eight rows and the panel outgrew the screen; the split is filtered through <code>MoveKey.TryParse</code>, so a new move lands in its tab with no category field to keep in sync.</p>
 
   <div class="scrollx">
@@ -390,7 +391,8 @@
   <h2><span class="num">07</span>Recipes</h2>
 
   <h3>Retune the reward curve</h3>
-  <p>Edit the six constants in <code>Economy.cs</code>. Everything downstream — trickle, run-end bonus, the "+N Gleam" display — recomputes from them. Re-run <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>; <code>RunDirectorTests</code> asserts the earn/bank math.</p>
+  <p>Edit <code>Assets/_Game/Systems/Run/Resources/Economy.asset</code> — an <code>EconomyDefinition</code>, in the inspector or under the Workbench's <b>Economy</b> category. Everything downstream — trickle, run-end bonus, the "+N Gleam" display — recomputes from it, because all eight read sites go through <code>Economy.Current</code>. Re-run <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>; <code>RunDirectorTests</code> asserts the earn/bank math.</p>
+  <p><b>Do not go looking for constants in <code>Economy.cs</code>.</b> It has none — it is six properties over the resolved asset, and the nearest thing that <i>looks</i> like constants, <code>EconomyDefinition</code>'s field initialisers, is the shipped default and the no-asset fallback (§02). Retuning those gives a green build and no runtime change at all, silently, because the asset wins. To retune for one campaign instead of for the game, write an <code>[Economy]</code> section in that campaign's <code>Progression/*.ini</code> rather than touching the asset.</p>
 
   <h3>Add a kit upgrade (existing effect)</h3>
   <ol>
