@@ -312,7 +312,17 @@ maxStacks = 3
 displayName = Iron Lungs
 description = One more melee attack per airtime.
 effect      = AerialAttacks
-maxStacks   = 2</code></pre>
+maxStacks   = 2
+
+<span class="c">; declare an IMBUE — the one effect that needs more than numbers</span>
+[<span class="a">NewRunModifier:cruel-edge</span>]
+displayName   = Cruel Edge
+description   = One of your air attacks launches this run.
+effect        = Imbue
+maxStacks     = 1
+imbue.flag    = IsLauncher
+imbue.default = aerial:forward
+imbue.legal   = aerial:forward | aerial:down</code></pre>
 
   <h3>The two kinds, and why they are different</h3>
   <div class="scrollx">
@@ -325,6 +335,18 @@ maxStacks   = 2</code></pre>
   </table>
   </div>
   <p>An upgrade takes <code>perLevel</code> (how much one level grants), <code>maxLevel</code>, <code>baseCost</code> and <code>costGrowth</code> (added per level after the first). A modifier takes <code>maxStacks</code> — plus <code>scalePerStack</code> for the ones that <i>multiply</i> a value rather than count something: <code>PerfectWindow</code> and the five movement effects. Leave that at 1 on a multiplying effect and the entry is refused, because one stack of it would change nothing.</p>
+
+  <h3>An <code>Imbue</code> takes three keys of its own</h3>
+  <p><code>Imbue</code> is the one effect that is not a number: it turns a single named <b>flag</b> on, for a single <b>move</b>, for one run. Those do not fit a scalar field, so they are written as dotted sub-keys — and until they existed, <code>Imbue</code> was an effect this page listed and a campaign could not actually declare. An entry naming <code>effect = Imbue</code> and nothing else names no move, and is refused.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>What it is</th></tr>
+    <tr><td><code>imbue.flag</code></td><td>Which flag to turn on. <code>IsLauncher</code> or <code>CanBeCancelled</code> — those two and no others, because those are the two the game can set. The name is the config <i>field</i> name, spelled exactly as a weapon .ini spells it. A typo is refused rather than ignored: it would otherwise be a modifier that saves, restores, shows in the panel and does nothing.</td></tr>
+    <tr><td><code>imbue.default</code></td><td>The move it points at when nothing has rolled one — and what a save written before the modifier was targeted resolves to. A move key: <code>aerial:up</code>, <code>ground:forward</code>. It must satisfy the mask below.</td></tr>
+    <tr><td><code>imbue.legal</code></td><td>Every move the run is allowed to roll it onto. A list separated by <code>|</code> or <code>,</code>, where each item is either a move key (<code>aerial:down</code>) or a <code>MoveSet</code> name including the composite <code>Melee</code> — mix them freely. A <b>raw number is refused</b>: it means whatever the bits meant on the day it was typed, and that set has grown before. There is no subtraction; the melee set is seven items, so list what you want.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Only melee moves can be imbued, and leave out anything that already does the thing.</b> An imbue writes into a <code>MeleeAttackConfig</code>, so a bow target could never fire — a mask that reaches outside the melee set is refused by name. The second half is your design rather than a rail: <code>ground:up</code> always launches, so imbuing <code>IsLauncher</code> onto it is a reward the player cannot see. That is why the game's own launcher lists five moves and not seven.</div>
 
   <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result.</div>
 

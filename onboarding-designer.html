@@ -301,7 +301,7 @@
   <h3>2 · A bow</h3>
   <ol class="steps">
     <li><span class="kbd">Assets ▸ Create ▸ Combat ▸ Weapon ▸ Ranged Weapon</span> into the same folder, named final.</li>
-    <li><b>Shot &amp; Timing</b>: set <b>Draw Time</b> (releasing earlier cancels the shot), the <b>Perfect Window</b> min–max slider and <b>Perfect Damage ×</b>, and <b>Execution Points</b>.</li>
+    <li><b>Shot &amp; Timing</b>: set <b>Draw Time</b> (releasing earlier cancels the shot), the <b>Perfect Window</b> min–max slider and <b>Perfect Damage ×</b>, and <b>Execution Points</b>. <b>Watch the line under the slider.</b> The window has to open at or after <b>Draw Time</b> and close at or before the player's <b>Max Charge</b> (1.50&nbsp;s, on the bow-aim state — <b>Player ▸ Bow</b> — not on your weapon); anything outside that pays nothing, and the form says which slice and why. The slider goes to 3&nbsp;s, so overshooting the far edge is easy.</li>
     <li>Fill <b>The Arrow</b> group. The projectile is what carries the damage — <b>leave it empty and the bow fires something invisible</b>. <b>Speed</b> 0 = the prefab's own; <b>Durability</b> is how many enemies one arrow may strike — <b>1 is a clean single hit and 2 or more pierces</b>, while <b>0</b> means "ask the bow-aim state's <b>Single Target</b> switch", which is on in every shipped bow and so also reads as single target (turn it off and 0 becomes unlimited). <b>Range</b> and <b>Lane Radius</b> at 0 fall back to the bow-aim state's values the same way.</li>
     <li><b>Presentation</b>: Release and Perfect Release sounds, the hit effect, and three animator dropdowns (Draw on layer 0; Hold and Release on layer 1, which apply <i>while moving only</i>). Leave the layer-1 two empty unless you have art drawn to match — the defaults are the torso half of a run-and-aim drawing and a mismatched clip splits the character at the waist.</li>
     <li>Register in <code>WeaponCatalog.asset</code> and in <code>Loot_HubBow.asset</code>. Skip <b>Draw Sound</b> and <b>Perfect Force ×</b>; the first has no reader, the second is read but inert (§01). <a href="combat.html#ranged">→ Combat §04</a></li>
@@ -437,7 +437,7 @@
     </div>
     <div class="card accent-gold">
       <h4>In the Scene view — drag, don't type</h4>
-      <p>Select the <b>Player</b> prefab and the preview draws every swing box, the violet dash box, and the bow's origin and lane, each with cube handles you drag. Select an <b>enemy prefab</b> and every range becomes a ring you pull. Handles write straight to the asset, with Undo.</p>
+      <p>Select the <b>Player</b> prefab and the preview draws every swing box, the violet dash box, each directional move that has its own numbers, and the bow's origin and lane, each with cube handles you drag. Select an <b>enemy prefab</b> and every range becomes a ring you pull. Handles write straight to the asset, with Undo.</p>
     </div>
   </div>
   <div class="shotgrid">
