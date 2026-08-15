@@ -379,7 +379,7 @@
 </section>
 
 <section id="player">
-  <h2><span class="num">09</span>Player — Balen's one asset, five sub-tabs</h2>
+  <h2><span class="num">09</span>Player — Balen's two assets, six sub-tabs</h2>
   <p class="lead">The Player tab edits <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> — except the Bow sub-tab, which reaches into <code>Assets/_Game/Player/Data/PlayerDef.asset</code> and edits its bow-aim state config.</p>
   <div class="scrollx">
   <table>
@@ -389,6 +389,7 @@
     <tr><td><b>Dash &amp; Wall</b></td><td><i>Dash:</i> Dash Distance (u) + Dash Duration (s) with effective <i>dash speed N u/s</i>, Cooldown, Input Buffer. <i>Dash Jump:</i> Vertical ×, Horizontal ×. <i>Wall Slide:</i> Slide Speed (u/s), Slide Buffer (s), Wall Jump Cooldown (s).</td></tr>
     <tr><td><b>Bow</b></td><td><i>Archery:</i> Max Charge (s) (auto-release after this; the HUD ring normalizes to it), Aim Move Speed × (0 = stationary bow). <i>Shot Cast:</i> Fire Origin (drag the green dot on a selected Player in a scene), Shot Radius, Shot Range, Single Target (off = the shot pierces everything in the lane). Per-bow numbers live on the bow asset, not here.</td></tr>
     <tr><td><b>Vitals</b></td><td>Max Health, Combo Reset (s). Per-weapon combat numbers live on weapon assets; live movement tuning in play mode is the <b>F1 debug panel</b> — see <a href="tuning.html">Tuning &amp; INI</a>.</td></tr>
+    <tr><td><b>Attacks</b></td><td>The per-state <b>feel</b> numbers, straight off the nine <code>PlayerStateConfig</code> sub-assets of <code>PlayerDef.asset</code> — the dash's momentum lock, the fall's gravity multiplier, the wall-slide and climb rates, the attack and hurt timings. These were authored in the asset and reachable from nowhere until 2026-08-15; a designer hunting one of them searched this window and found nothing. <b>Workbench only, deliberately:</b> a state is created from the SHIPPED sub-asset with no clone, so an F1 slider would write into a tracked <code>.asset</code> during play.</td></tr>
   </table>
   </div>
   <figure class="shot">
