@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagrams — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+<style>
+  .diagram { overflow-x: auto; margin: 1.2rem 0; }
+  .diagram .mermaid { min-width: min-content; }
+  .diagram-src { font-size: .85em; opacity: .7; }
+</style>
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a class="on" href="diagrams.html">Diagrams</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<main>
+<h1>System diagrams</h1>
+<p class="lead"><b>This page is GENERATED.</b> Every diagram on it is drawn from the code and the shipped assets — the class boxes come from reflection over the real types, and the state graphs from the machines as they are actually BUILT, which is not the same as what the definition assets author. Regenerate with <span class="kbd">Gleamwood ▸ Docs ▸ Generate Diagrams</span>.</p>
+<p>The prose, the tables and the notes marking which parts are AUTHORED rather than derived live beside each diagram in its markdown source, linked under every section. They are deliberately not copied here: two copies of an explanation means one of them is wrong, and it is always the one nobody regenerates.</p>
+
+<h2>Weapons, and the run-scoped instance</h2>
+<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/combat.md</code></p>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class WeaponDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string WeaponName
+        +string Description
+        +Sprite Icon
+        +int BaseDamage
+        +float BaseKnockback
+        +float BaseHitstun
+        +float BaseHitstop
+        +bool ArmorPiercing
+        +List~CombatStatusDefinition~ StatusesToApply
+        +bool lockedUntilUnlocked
+        +int unlockCost
+    }
+    class MeleeWeaponDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +List~MeleeAttackConfig~ ComboAttacks
+        +float RecoveryTime
+        +float InputBufferTime
+        +DashAttackConfig DashAttackConfig
+        +List~DirectionalAttack~ AerialAttacks
+        +List~DirectionalAttack~ GroundAttacks
+    }
+    class RangedWeaponDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +List~RangedAttack~ BowAttacks
+        +GameObject ProjectilePrefab
+        +float DrawTime
+        +float PerfectTimingStart
+        +float PerfectTimingEnd
+        +float ExecutionPoints
+        +ArrowLook arrowLook
+        +float LaneRadius
+        +float LaneDistance
+        +float ProjectileSpeed
+        +int Durability
+        +float PerfectDamageMultiplier
+        +float PerfectForceMultiplier
+        +GameObject HitEffect
+        +AudioClip DrawSound
+        +AudioClip ReleaseSound
+        +AudioClip PerfectReleaseSound
+        +string DrawAnimationState
+        +string HoldAnimationState
+        +string ReleaseAnimationState
+    }
+    class MeleeAttackConfig {
+        &lt;&lt;struct&gt;&gt;
+        +float Duration
+        +float ComboWindow
+        +float DamageMultiplier
+        +Vector2 KnockbackForce
+        +bool LockMovement
+        +Vector2 MovementForce
+        +GameObject HitEffect
+        +AudioClip AttackSound
+        +float ExecutionPoints
+        +bool IsLauncher
+        +bool CanBeCancelled
+        +HitReaction Reaction
+        +float HitstunDuration
+        +float HitstopDuration
+        +float HitstopScale
+        +Vector2 HitShake
+        +string CustomPlayerAnimationState
+        +float HitboxReach
+        +float HitboxHeight
+        +float HitboxOffsetY
+        +float HitWindowStart
+        +float HitWindowEnd
+    }
+    class DashAttackConfig {
+        &lt;&lt;struct&gt;&gt;
+        +float DamageMultiplier
+        +Vector2 KnockbackForce
+        +float HitstunDuration
+        +float HitstopDuration
+        +float HitstopScale
+        +Vector2 HitShake
+        +float ExecutionPoints
+        +GameObject HitEffect
+        +AudioClip AttackSound
+        +string CustomPlayerAnimationState
+        +float HitboxReach
+        +float HitboxHeight
+    }
+    class DirectionalAttack {
+        &lt;&lt;struct&gt;&gt;
+        +AttackDirection Direction
+        +string AnimationState
+        +bool OverrideConfig
+        +MeleeAttackConfig Config
+    }
+    class RangedAttack {
+        &lt;&lt;struct&gt;&gt;
+        +AttackDirection Direction
+        +string AnimationState
+        +BowMoveKind Kind
+        +float DamageMultiplier
+    }
+    class IDirectionalMove {
+        &lt;&lt;interface&gt;&gt;
+        +AttackDirection Direction
+        +string AnimationState
+    }
+    class WeaponInstance {
+        +WeaponDefinition Definition
+        +UpgradeTrack Track
+        +int UpgradeLevel
+        +string WeaponId
+        +float DamageScale
+        +float ExecutionScale
+        +bool CanUpgrade
+        +Upgrade() bool
+    }
+    class UpgradeTrack {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +int maxLevel
+        +float damagePerLevel
+        +float executionPerLevel
+    }
+    class WeaponCatalog {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +MeleeWeaponDefinition defaultMelee
+        +RangedWeaponDefinition defaultRanged
+        +WeaponDefinition[] weapons
+        +UpgradeTrack defaultTrack
+    }
+    class LootTable {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +Entry[] entries
+        +Roll(Random,ICollection~WeaponDefinition~) WeaponDefinition
+    }
+    DirectionalAttack *-- MeleeAttackConfig : Config
+    IDirectionalMove &lt;|.. DirectionalAttack
+    IDirectionalMove &lt;|.. RangedAttack
+    LootTable ..&gt; WeaponDefinition : Roll()
+    MeleeWeaponDefinition "1" *-- "*" DirectionalAttack : AerialAttacks
+    MeleeWeaponDefinition "1" *-- "*" DirectionalAttack : GroundAttacks
+    MeleeWeaponDefinition "1" *-- "*" MeleeAttackConfig : ComboAttacks
+    MeleeWeaponDefinition *-- DashAttackConfig : DashAttackConfig
+    RangedWeaponDefinition "1" *-- "*" RangedAttack : BowAttacks
+    WeaponCatalog "1" --&gt; "*" WeaponDefinition : weapons
+    WeaponCatalog --&gt; MeleeWeaponDefinition : defaultMelee
+    WeaponCatalog --&gt; RangedWeaponDefinition : defaultRanged
+    WeaponCatalog --&gt; UpgradeTrack : defaultTrack
+    WeaponDefinition &lt;|-- MeleeWeaponDefinition
+    WeaponDefinition &lt;|-- RangedWeaponDefinition
+    WeaponInstance --&gt; UpgradeTrack : Track
+    WeaponInstance --&gt; WeaponDefinition : Definition
+    note for LootTable "The unlock gate is HERE, at OFFER time - not in WeaponCatalog.Resolve"
+    note for MeleeAttackConfig "An imbue writes into a by-VALUE struct copy, never back into the asset"
+    note for WeaponInstance "Definition may be an in-memory CLONE, not the shipped asset"
+</pre></div>
+<h3>A hit</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class HitInfo {
+        &lt;&lt;struct&gt;&gt;
+        +int damage
+        +float hitTime
+        +Vector2 knockbackForce
+        +float hitstunDuration
+        +float hitstopDuration
+        +float hitstopScale
+        +Vector2 shake
+        +Vector3 attackerPosition
+        +bool isLauncher
+        +DamageType damageType
+        +bool armorPiercing
+        +float executionPoints
+        +bool isPerfect
+        +List~CombatStatusDefinition~ statusesToApply
+        +HitReaction reaction
+    }
+    class HitReaction {
+        &lt;&lt;enumeration&gt;&gt;
+        +Standard = 0
+        +Spike = 1
+        +Crumple = 2
+    }
+    class DamageType {
+        &lt;&lt;enumeration&gt;&gt;
+        +MELEE_SLASH = 0
+        +RANGED_PIERCE = 1
+        +DASH_SLASH = 2
+    }
+    class IHittable {
+        &lt;&lt;interface&gt;&gt;
+        +CanBeHit() bool
+        +TakeHit(HitInfo) void
+    }
+    class CombatStatusDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string StatusName
+        +string Description
+        +Sprite Icon
+        +float DecayTime
+        +int MaxStacks
+    }
+    HitInfo "1" --&gt; "*" CombatStatusDefinition : statusesToApply
+    HitInfo ..&gt; DamageType : damageType
+    HitInfo ..&gt; HitReaction : reaction
+    note for HitInfo "No knockback helper: every consumer reads the raw fields its own way"
+</pre></div>
+<h3>The move vocabulary</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class MoveKey {
+        &lt;&lt;static&gt;&gt;
+        +string AerialPrefix$
+        +string GroundPrefix$
+        +string BowPrefix$
+        +string BowNeutral$
+        +string BowUp$
+        +string BowForward$
+        +string AerialNeutral$
+        +string AerialUp$
+        +string AerialDown$
+        +string AerialForward$
+        +string GroundUp$
+        +string GroundDown$
+        +string GroundForward$
+        +For(bool,AttackDirection) string$
+        +For(MoveWeapon,bool,AttackDirection) string$
+        +TryParse(string,bool,AttackDirection) bool$
+        +TryParse(string,MoveWeapon,bool,AttackDirection) bool$
+        +Of(bool,AttackDirection) MoveSet$
+        +Of(MoveWeapon,bool,AttackDirection) MoveSet$
+        +Of(string) MoveSet$
+        +Describe(string) string$
+    }
+    class MoveSet {
+        &lt;&lt;flags enum&gt;&gt;
+        +None = 0
+        +AerialNeutral = 1
+        +AerialUp = 2
+        +AerialDown = 4
+        +AerialForward = 8
+        +GroundUp = 16
+        +GroundDown = 32
+        +GroundForward = 64
+        +Melee = 127
+        +BowNeutral = 128
+        +BowUp = 256
+        +BowForward = 512
+        +Bow = 896
+        +All = 1023
+    }
+    class MoveWeapon {
+        &lt;&lt;enumeration&gt;&gt;
+        +Melee = 0
+        +Bow = 1
+    }
+    class AttackDirection {
+        &lt;&lt;enumeration&gt;&gt;
+        +Neutral = 0
+        +Up = 1
+        +Down = 2
+        +Forward = 3
+    }
+    class AttackDirections {
+        &lt;&lt;static&gt;&gt;
+        +float HoldThreshold$
+        +FromInput(Vector2) AttackDirection$
+        +TryResolve(List~T~,AttackDirection,T,Func~AttackDirection,bool~) bool$
+        +Resolve(List~T~,AttackDirection) string$
+        +TryResolveExact(List~T~,AttackDirection,T,Func~AttackDirection,bool~) bool$
+    }
+    note for MoveKey "Two holes on purpose: ground:neutral and bow:down are not keys"
+</pre></div>
+<h3>Executions, and the order they are tried in</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class EnemyDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +int MaxHealth
+        +float ExecutionThreshold
+        +float ExecutionDecaySeconds
+        +float ExecutionDecayRate
+        +bool CanBeJuggled
+        +List~ExecutionDefinition~ Executions
+    }
+    class ExecutionDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string ExecutionName
+        +ExecutionStateConfig ExecutionConfig
+        +DamageType RequiredDamageType
+        +bool MustBeAirborne
+        +bool MustBeGrounded
+        +bool RequireSpecificReaction
+        +HitReaction RequiredReaction
+        +bool RequireRecentlySpiked
+        +CombatStatusDefinition RequiredStatus
+        +int MinStatusCount
+        +bool ConsumeStatusOnTrigger
+        +CheckConditions(EnemyContext,HitInfo) bool
+        +CheckConditions(EnemyContext,HitInfo,string) bool
+        +DescribeGates() string
+    }
+    class CombatStatusDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string StatusName
+        +string Description
+        +Sprite Icon
+        +float DecayTime
+        +int MaxStacks
+    }
+    class HitReaction {
+        &lt;&lt;enumeration&gt;&gt;
+        +Standard = 0
+        +Spike = 1
+        +Crumple = 2
+    }
+    class DamageType {
+        &lt;&lt;enumeration&gt;&gt;
+        +MELEE_SLASH = 0
+        +RANGED_PIERCE = 1
+        +DASH_SLASH = 2
+    }
+    EnemyDefinition "1" --&gt; "*" ExecutionDefinition : Executions
+    ExecutionDefinition --&gt; CombatStatusDefinition : RequiredStatus
+    ExecutionDefinition ..&gt; DamageType : RequiredDamageType
+    ExecutionDefinition ..&gt; HitReaction : RequiredReaction
+    note for EnemyDefinition "Executions is FIRST-MATCH-WINS - the list order IS behaviour"
+    note for EnemyDefinition "plus 2 serialized field(s) inherited from StateMachineDefinition, not drawn here"
+</pre></div>
+<h3>The per-run modifier tier</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class RunModifiers {
+        &lt;&lt;static&gt;&gt;
+        +int Revision$
+        +Count(string) int$
+        +Has(string) bool$
+        +Budget(RunEffect,int) int$
+        +Scale(RunEffect,float) float$
+        +Grant(string,string) bool$
+        +TargetOf(string) string$
+        +SetTarget(string,string) void$
+        +Imbue(string,MeleeAttackConfig) void$
+        +SetCount(string,int) void$
+        +Owned() List~ValueTuple~RunModifierDef,int~~$
+        +Clear() void$
+        +Write(RunSave) void$
+        +Read(RunSave) void$
+    }
+    class RunModifierDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +int MaxStacksCeiling$
+        +string id
+        +string displayName
+        +string description
+        +int maxStacks
+        +float scalePerStack
+        +RunEffect effect
+        +bool targeted
+        +MoveImbue imbue
+        +ToRuntime() RunModifierDef
+        +Problems() List~string~
+    }
+    class RunModifierDef {
+        +string id
+        +string displayName
+        +string description
+        +int maxStacks
+        +float scalePerStack
+        +RunEffect effect
+        +MoveImbue imbue
+    }
+    class RunEffect {
+        &lt;&lt;enumeration&gt;&gt;
+        +ComboCancels = 0
+        +AerialAttacks = 1
+        +Imbue = 2
+        +PerfectWindow = 3
+        +JumpHeight = 4
+        +MoveSpeed = 5
+        +RunAccel = 6
+        +DashDistance = 7
+        +DashCooldown = 8
+    }
+    class RunEffects {
+        &lt;&lt;static&gt;&gt;
+        +IsScale(RunEffect) bool$
+    }
+    class MoveImbue {
+        +string IsLauncher$
+        +string CanBeCancelled$
+        +string TextPrefix$
+        +string FlagKey$
+        +string DefaultKey$
+        +string LegalKey$
+        +string[] TextKeys$
+        +string[] KnownFlags$
+        -string flagName
+        -string defaultMoveKey
+        -MoveSet legal
+        +string flag
+        +string defaultTarget
+        +MoveSet legalTargets
+        +CanTarget(string) bool
+        +Apply(MeleeAttackConfig) bool
+        +SetFromText(string,string,string) bool
+        +TryParseSet(string,MoveSet,string) bool$
+        +IsKnownFlag(string) bool$
+    }
+    class MoveSet {
+        &lt;&lt;flags enum&gt;&gt;
+        +None = 0
+        +AerialNeutral = 1
+        +AerialUp = 2
+        +AerialDown = 4
+        +AerialForward = 8
+        +GroundUp = 16
+        +GroundDown = 32
+        +GroundForward = 64
+        +Melee = 127
+        +BowNeutral = 128
+        +BowUp = 256
+        +BowForward = 512
+        +Bow = 896
+        +All = 1023
+    }
+    class RunSave {
+        +string[] weaponIds
+        +string[] modifierIds
+        +string[] modifierTargets
+    }
+    MoveImbue ..&gt; MoveSet : legal
+    MoveImbue ..&gt; MoveSet : legalTargets
+    RunModifierDef *-- MoveImbue : imbue
+    RunModifierDef ..&gt; RunEffect : effect
+    RunModifierDefinition *-- MoveImbue : imbue
+    RunModifierDefinition ..&gt; RunEffect : effect
+    RunModifierDefinition ..&gt; RunModifierDef : ToRuntime()
+    RunSave ..&gt; RunModifierDefinition : modifierIds by id
+    note for RunModifierDefinition "maxStacks is the LOOP GUARD, not balance"
+    note for RunModifiers "Budget and Scale are keyed by EFFECT, never by id"
+</pre></div>
+
+<h2>CinderHoundDef, ImpScoutDef, SootBomberDef, VaultAcolyteDef — 4 machines, one identical graph</h2>
+<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/enemy-states.md</code></p>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackLunge" as s_attackLunge
+    state "attackRecover" as s_attackRecover
+    state "attackStrike" as s_attackStrike
+    state "bowExecution" as s_bowExecution
+    state "chase" as s_chase
+    state "dashExecution" as s_dashExecution
+    state "dead" as s_dead
+    state "explosiveExecution" as s_explosiveExecution
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "juggled" as s_juggled
+    [*] --&gt; s_idle
+    s_chase --&gt; s_attackCharge : 0. Cond_Chase_Attack
+    s_chase --&gt; s_idle : 1. Cond_Chase_Idle
+    s_hitstun --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_hitstun --&gt; s_idle : 1. EnemyHitConfig_HitStunCondition, EnemyHi...
+    s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_idle --&gt; s_chase : 1. Cond_Idle_Chase
+</pre></div>
+<h3>CinderShepherdDef</h3>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackLunge" as s_attackLunge
+    state "attackRecover" as s_attackRecover
+    state "attackStrike" as s_attackStrike
+    state "bowExecution" as s_bowExecution
+    state "chase" as s_chase
+    state "dashExecution" as s_dashExecution
+    state "dead" as s_dead
+    state "explosiveExecution" as s_explosiveExecution
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "juggled" as s_juggled
+    state "relocate" as s_relocate
+    state "summon" as s_summon
+    [*] --&gt; s_idle
+    s_chase --&gt; s_attackCharge : 0. Cond_Chase_Attack
+    s_chase --&gt; s_idle : 1. Cond_Chase_Idle
+    s_hitstun --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_hitstun --&gt; s_idle : 1. EnemyHitConfig_HitStunCondition, EnemyHi...
+    s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_idle --&gt; s_relocate : 1. Cond_Idle_Chase
+</pre></div>
+<h3>DemonKingDef</h3>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackCharge2" as s_attackCharge2
+    state "attackRecover" as s_attackRecover
+    state "attackRecover2" as s_attackRecover2
+    state "attackSlam" as s_attackSlam
+    state "attackSlam2" as s_attackSlam2
+    state "castBolt" as s_castBolt
+    state "chase" as s_chase
+    state "chaseEnraged" as s_chaseEnraged
+    state "dead" as s_dead
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "igniteArena" as s_igniteArena
+    state "relocate" as s_relocate
+    [*] --&gt; s_idle
+    s_chase --&gt; s_igniteArena : 0. Cond_HalfHealth
+    s_chase --&gt; s_attackCharge : 1. Cond_Chase_Attack
+    s_chase --&gt; s_castBolt : 2. Cond_Chase_Bolt
+    s_chaseEnraged --&gt; s_attackCharge2 : 0. Cond_Enraged_Attack
+    s_chaseEnraged --&gt; s_relocate : 1. Cond_Enraged_Relocate
+    s_idle --&gt; s_chase : 0. Cond_Idle_Chase
+</pre></div>
+<h3>EmberWispDef</h3>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackLunge" as s_attackLunge
+    state "attackRecover" as s_attackRecover
+    state "attackStrike" as s_attackStrike
+    state "bowExecution" as s_bowExecution
+    state "dashExecution" as s_dashExecution
+    state "dead" as s_dead
+    state "explosiveExecution" as s_explosiveExecution
+    state "floatChase" as s_floatChase
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "juggled" as s_juggled
+    [*] --&gt; s_idle
+    s_floatChase --&gt; s_attackCharge : 0. Cond_Chase_Attack
+    s_floatChase --&gt; s_idle : 1. Cond_Chase_Idle
+    s_hitstun --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_hitstun --&gt; s_idle : 1. EnemyHitConfig_HitStunCondition, EnemyHi...
+    s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_idle --&gt; s_floatChase : 1. Cond_Idle_Chase
+</pre></div>
+<h3>KragDef</h3>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackCharge2" as s_attackCharge2
+    state "attackLunge" as s_attackLunge
+    state "attackRecover" as s_attackRecover
+    state "attackStrike" as s_attackStrike
+    state "bowExecution" as s_bowExecution
+    state "chase" as s_chase
+    state "chaseEnraged" as s_chaseEnraged
+    state "dashExecution" as s_dashExecution
+    state "dead" as s_dead
+    state "explosiveExecution" as s_explosiveExecution
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "juggled" as s_juggled
+    state "slamCharge" as s_slamCharge
+    state "slamCharge2" as s_slamCharge2
+    state "slamStrike" as s_slamStrike
+    state "slamStrike2" as s_slamStrike2
+    [*] --&gt; s_idle
+    s_chase --&gt; s_chaseEnraged : 0. Cond_HalfHealth
+    s_chase --&gt; s_slamCharge : 1. Cond_Chase_Slam
+    s_chase --&gt; s_attackCharge : 2. Cond_Chase_Attack
+    s_chase --&gt; s_idle : 3. Cond_Chase_Idle
+    s_chaseEnraged --&gt; s_slamCharge2 : 0. Cond_ChaseEnr_Slam
+    s_chaseEnraged --&gt; s_attackCharge2 : 1. Cond_ChaseEnr_Attack
+    s_hitstun --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_hitstun --&gt; s_idle : 1. EnemyHitConfig_HitStunCondition, EnemyHi...
+    s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_idle --&gt; s_chase : 1. Cond_Idle_Chase
+</pre></div>
+<h3>PyreArcherDef</h3>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackLunge" as s_attackLunge
+    state "attackRecover" as s_attackRecover
+    state "attackStrike" as s_attackStrike
+    state "bowExecution" as s_bowExecution
+    state "chase" as s_chase
+    state "dashExecution" as s_dashExecution
+    state "dead" as s_dead
+    state "explosiveExecution" as s_explosiveExecution
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "juggled" as s_juggled
+    state "shoot" as s_shoot
+    [*] --&gt; s_idle
+    s_chase --&gt; s_shoot : 0. Cond_Chase_Attack
+    s_chase --&gt; s_idle : 1. Cond_Chase_Idle
+    s_hitstun --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_hitstun --&gt; s_idle : 1. EnemyHitConfig_HitStunCondition, EnemyHi...
+    s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_idle --&gt; s_chase : 1. Cond_Idle_Chase
+</pre></div>
+<h3>PyreRegentDef</h3>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "attackCharge" as s_attackCharge
+    state "attackCharge2" as s_attackCharge2
+    state "attackLunge" as s_attackLunge
+    state "attackLunge2" as s_attackLunge2
+    state "attackRecover" as s_attackRecover
+    state "attackRecover2" as s_attackRecover2
+    state "attackStrike" as s_attackStrike
+    state "attackStrike2" as s_attackStrike2
+    state "bowExecution" as s_bowExecution
+    state "chase" as s_chase
+    state "chaseEnraged" as s_chaseEnraged
+    state "dashExecution" as s_dashExecution
+    state "dead" as s_dead
+    state "explosiveExecution" as s_explosiveExecution
+    state "hitstun" as s_hitstun
+    state "idle" as s_idle
+    state "igniteArena" as s_igniteArena
+    state "juggled" as s_juggled
+    [*] --&gt; s_idle
+    s_chase --&gt; s_igniteArena : 0. Cond_HalfHealth
+    s_chase --&gt; s_attackCharge : 1. Cond_Chase_Attack
+    s_chase --&gt; s_idle : 2. Cond_Chase_Idle
+    s_chaseEnraged --&gt; s_attackCharge2 : 0. Cond_ChaseEnr_Attack
+    s_hitstun --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_hitstun --&gt; s_idle : 1. EnemyHitConfig_HitStunCondition, EnemyHi...
+    s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
+    s_idle --&gt; s_chase : 1. Cond_Idle_Chase
+</pre></div>
+
+<h2>A campaign, and the session that activates it</h2>
+<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/modding-tiers.md</code></p>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class ModSet {
+        &lt;&lt;static&gt;&gt;
+        +string ModsFolderName$
+        +string ManifestFileName$
+        +string VanillaId$
+        +List~string~ DiscoverLog$
+        +string RootOverride$
+        +string ModsRoot$
+        +IReadOnlyList~ModEntry~ Discovered$
+        +ModEntry Active$
+        +string ActiveId$
+        +Discover() void$
+        +Find(string) ModEntry$
+        +Activate(string) bool$
+        +Deactivate() void$
+        +Reset() void$
+        +ActiveSource(string) ModSource$
+    }
+    class ModEntry {
+        +string Id
+        +string Root
+        +ModManifest Manifest
+        +string DisplayName
+    }
+    class ModSource {
+        &lt;&lt;struct&gt;&gt;
+        +ModEntry Mod
+        +string Root
+        +bool IsNone
+        +string Id
+        +Asset(string) string
+        +Tag(string) string
+    }
+    class ModManifest {
+        +string name
+        +string author
+        +string version
+        +string description
+        +string gameVersion
+        +List~string~ problems
+        +Parse(string[]) ModManifest$
+    }
+    class CampaignSession {
+        &lt;&lt;static&gt;&gt;
+        +Activate(string) bool$
+        +Deactivate() void$
+        +ReloadTiers() void$
+        +DisplayNameFor(SaveSlot) string$
+        +IsMissing(SaveSlot) bool$
+    }
+    class SaveSlot {
+        +string campaignId
+    }
+    ModEntry *-- ModManifest : Manifest
+    ModSet "1" --&gt; "*" ModEntry : Discovered
+    ModSet --&gt; ModEntry : Active
+    ModSet ..&gt; ModEntry : Find()
+    ModSet ..&gt; ModSource : ActiveSource()
+    ModSource *-- ModEntry : Mod
+    SaveSlot ..&gt; ModEntry : campaignId by id
+    note for ModManifest "gameVersion is parsed, recorded and READ BY NOTHING"
+    note for ModSet "Exactly one campaign is active, or none - no load order, no precedence"
+</pre></div>
+<h3>The tiers, and the order they reload in</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class CampaignSession {
+        &lt;&lt;static&gt;&gt;
+        +Activate(string) bool$
+        +Deactivate() void$
+        +ReloadTiers() void$
+        +DisplayNameFor(SaveSlot) string$
+        +IsMissing(SaveSlot) bool$
+    }
+    class EnemyOverrides {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Reset() void$
+        +Load() void$
+        +IsModded(EnemyDefinition) bool$
+        +Has(string) bool$
+        +Apply(Graph,string) void$
+        +ApplySections(Graph,string,Dictionary~string,Dictionary~string,string~~) void$
+    }
+    class WeaponOverrides {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Reset() void$
+        +Load() void$
+        +Has(string) bool$
+        +Resolve(WeaponDefinition) WeaponDefinition$
+        +ApplySections(WeaponDefinition,string,Dictionary~string,Dictionary~string,string~~) void$
+    }
+    class PlayerSkinOverrides {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Reset() void$
+        +Load() void$
+        +BuildClipSet(SpriteClipSet) SpriteClipSet$
+        +LogIfModded() void$
+    }
+    class ProgressionOverrides {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Reset() void$
+        +Load() void$
+        +Resolve(EconomyDefinition) EconomyDefinition$
+        +Resolve(MetaUpgradeCatalog) MetaUpgradeCatalog$
+        +Resolve(RunModifierDefinition[]) IReadOnlyList~RunModifierDefinition~$
+        +Resolve(MoveDefinition[]) MoveDef[]$
+        +Resolve(AbilityDefinition[]) PlayerAbilityDef[]$
+    }
+    class DialogueOverrides {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Reset() void$
+        +Load(string) void$
+        +For(string) DialogueGroup[]$
+    }
+    class DialogueAssets {
+        &lt;&lt;static&gt;&gt;
+        +KeyToFileStem(string) string$
+        +Reset() void$
+        +Load(string) void$
+        +Pose(string,PoseCatalog) Sprite$
+        +Clip(string,VoiceBank) AudioClip$
+        +HasModdedPose(string) bool$
+    }
+    class CampaignPlan {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Resolve(RunPlan) RunPlan$
+        +Reset() void$
+    }
+    class ModImageLoader {
+        &lt;&lt;static&gt;&gt;
+        +Load(string,string,string) Sprite$
+        +LoadTexture(string,string,string) Texture2D$
+        +Slice(string,Nullable~Rect~,Vector2,float,string,string) Sprite$
+        +Reset() void$
+        +Reset(string) void$
+    }
+    class DeclaredRooms {
+        &lt;&lt;static&gt;&gt;
+        +string FolderName$
+        +List~string~ LoadLog$
+        +Find(string) RoomTemplate$
+        +Names() IEnumerable~string~$
+        +Load() void$
+        +Reset() void$
+    }
+    note for CampaignPlan "TWO clone levels: the plan clone keeps its BiomeDefinition refs SHARED"
+    note for DeclaredRooms "Rooms is Campaign/Rooms - a subfolder, not a seventh domain"
+</pre></div>
+<h3>The clone seams</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class CloneCache {
+        &lt;&lt;static&gt;&gt;
+        +Resolve(WeaponDefinition) WeaponDefinition$
+        +IsClone(WeaponDefinition) bool$
+        +Clear() void$
+    }
+    class EnemyDefinitionClone {
+        &lt;&lt;static&gt;&gt;
+        +Create(EnemyDefinition) Graph$
+        +Destroy(Graph) void$
+    }
+    class Graph {
+        +EnemyDefinition Definition
+        +List~Object~ Owned
+        +Dictionary~string,EnemyStateConfig~ StatesById
+    }
+    class CampaignPlan {
+        &lt;&lt;static&gt;&gt;
+        +Resolve(RunPlan) RunPlan$
+        +Reset() void$
+    }
+    class WeaponDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string WeaponName
+        +string Description
+        +Sprite Icon
+        +int BaseDamage
+        +float BaseKnockback
+        +float BaseHitstun
+        +float BaseHitstop
+        +bool ArmorPiercing
+        +List~CombatStatusDefinition~ StatusesToApply
+        +bool lockedUntilUnlocked
+        +int unlockCost
+    }
+    class EnemyDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +int MaxHealth
+        +float ExecutionThreshold
+        +float ExecutionDecaySeconds
+        +float ExecutionDecayRate
+        +bool CanBeJuggled
+        +List~ExecutionDefinition~ Executions
+    }
+    class RunPlan {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string hubScene
+        +string biomeHostScene
+        +string restHostScene
+        +BiomeNode[] nodes
+        +string entryNodeId
+        +GradeRubric gradeRubric
+    }
+    class BiomeNode {
+        +string nodeId
+        +BiomeDefinition biome
+        +RestDefinition restAfter
+        +string[] nextNodeIds
+        +string bypassNextId
+    }
+    class BiomeDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+    }
+    BiomeNode --&gt; BiomeDefinition : biome
+    CampaignPlan ..&gt; RunPlan : Resolve()
+    CloneCache ..&gt; WeaponDefinition : Resolve()
+    EnemyDefinitionClone ..&gt; Graph : Create()
+    Graph --&gt; EnemyDefinition : Definition
+    RunPlan "1" *-- "*" BiomeNode : nodes
+    note for CampaignPlan "TWO clone levels: the plan clone keeps its BiomeDefinition refs SHARED"
+    note for CloneCache "One Instantiate, and the clone keeps the shipped asset's NAME"
+    note for EnemyDefinition "plus 2 serialized field(s) inherited from StateMachineDefinition, not drawn here"
+    note for EnemyDefinitionClone "Instantiate copies REFERENCES as references - every edge is relinked"
+</pre></div>
+
+<h2>PlayerDef</h2>
+<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/player-states.md</code></p>
+<div class="diagram"><pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    state "bowAim" as s_bowAim
+    state "dash" as s_dash
+    state "dashAttack" as s_dashAttack
+    state "dead" as s_dead
+    state "fall" as s_fall
+    state "idle" as s_idle
+    state "jump" as s_jump
+    state "meleeAtk" as s_meleeAtk
+    state "run" as s_run
+    state "wallSlide" as s_wallSlide
+    [*] --&gt; s_fall
+    s_bowAim --&gt; s_fall : 0. Dy_IsAttackFinished, Dy_IsNotGrounded
+    s_bowAim --&gt; s_idle : 1. Dy_IsAttackFinished, Dy_IsGrounded
+    s_bowAim --&gt; s_meleeAtk : 2. CODE
+    s_dash --&gt; s_dashAttack : 0. CODE (p20)
+    s_dash --&gt; s_fall : 1. CODE (p10)
+    s_dash --&gt; s_jump : 2. CODE (p5)
+    s_dash --&gt; s_run : 3. CODE (p2)
+    s_dash --&gt; s_idle : 4. CODE (p1)
+    s_dashAttack --&gt; s_fall : 0. CODE (p10)
+    s_dashAttack --&gt; s_run : 1. CODE (p9)
+    s_dashAttack --&gt; s_idle : 2. CODE (p8)
+    s_dead --&gt; s_idle : 0. CODE
+    s_fall --&gt; s_idle : 0. Dy_IsGrounded, Dy_IsNotMoving
+    s_fall --&gt; s_run : 1. Dy_IsGrounded, Dy_IsMoving
+    s_fall --&gt; s_jump : 2. Dy_CanGroundJump
+    s_fall --&gt; s_wallSlide : 3. Dy_CanWallSlide
+    s_fall --&gt; s_dash : 4. Dy_IsDashInputBuffered, Dy_IsDashReady
+    s_fall --&gt; s_meleeAtk : 5. Dy_IsMeleeInputBuffered, Dy_IsNotGrounde...
+    s_fall --&gt; s_bowAim : 6. Dy_IsRangeInputBuffered, Dy_IsNotGrounded
+    s_idle --&gt; s_run : 0. Dy_IsMoving
+    s_idle --&gt; s_fall : 1. Dy_IsFalling, Dy_IsNotGrounded
+    s_idle --&gt; s_jump : 2. Dy_CanGroundJump
+    s_idle --&gt; s_meleeAtk : 3. Dy_IsMeleeInputBuffered
+    s_idle --&gt; s_bowAim : 4. Dy_IsRangeInputBuffered
+    s_idle --&gt; s_dash : 5. Dy_IsDashInputBuffered, Dy_IsDashReady
+    s_jump --&gt; s_wallSlide : 0. CODE (p11)
+    s_jump --&gt; s_fall : 1. CODE (p10)
+    s_jump --&gt; s_meleeAtk : 2. CODE (p8)
+    s_jump --&gt; s_bowAim : 3. CODE (p8)
+    s_jump --&gt; s_dash : 4. CODE (p7)
+    s_meleeAtk --&gt; s_dash : 0. CODE (p12)
+    s_meleeAtk --&gt; s_bowAim : 1. CODE (p11)
+    s_meleeAtk --&gt; s_fall : 2. CODE (p10)
+    s_meleeAtk --&gt; s_run : 3. CODE (p9)
+    s_meleeAtk --&gt; s_idle : 4. CODE (p8)
+    s_meleeAtk --&gt; s_jump : 5. Dy_CanGroundJump
+    s_run --&gt; s_fall : 0. Dy_IsFalling, Dy_IsNotGrounded
+    s_run --&gt; s_idle : 1. Dy_IsNotMoving, Dy_IsGrounded
+    s_run --&gt; s_jump : 2. Dy_CanGroundJump
+    s_run --&gt; s_meleeAtk : 3. Dy_IsMeleeInputBuffered
+    s_run --&gt; s_dash : 4. Dy_IsDashInputBuffered, Dy_IsDashReady
+    s_run --&gt; s_bowAim : 5. Dy_IsRangeInputBuffered
+    s_wallSlide --&gt; s_jump : 0. CODE (p11)
+    s_wallSlide --&gt; s_idle : 1. CODE (p10)
+    s_wallSlide --&gt; s_run : 2. CODE (p9)
+    s_wallSlide --&gt; s_meleeAtk : 3. CODE (p8)
+    s_wallSlide --&gt; s_dash : 4. CODE (p7)
+    s_wallSlide --&gt; s_fall : 5. CODE (p5)
+    classDef deadAuthored stroke-width:3px,stroke-dasharray:6 4
+    class s_meleeAtk deadAuthored
+</pre></div>
+
+<h2>The spine</h2>
+<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/run-spine.md</code></p>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class RunDirector {
+        &lt;&lt;static&gt;&gt;
+        +RunPhase Phase$
+        +string CurrentNodeId$
+        +BiomeNode CurrentNode$
+        +RunPlan CurrentPlan$
+    }
+    class CampaignPlan {
+        &lt;&lt;static&gt;&gt;
+        +Resolve(RunPlan) RunPlan$
+    }
+    class RunPlan {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string hubScene
+        +string biomeHostScene
+        +string restHostScene
+        +BiomeNode[] nodes
+        +string entryNodeId
+        +GradeRubric gradeRubric
+        +int NodeCount
+        +Node(string) BiomeNode
+        +TitleFor(string) string
+        +DepthOf(string) int
+        +InvalidateCaches() void
+        +Load() RunPlan$
+    }
+    class BiomeNode {
+        +string nodeId
+        +BiomeDefinition biome
+        +RestDefinition restAfter
+        +string[] nextNodeIds
+        +string bypassNextId
+        +Exits() List~RunEdge~
+    }
+    class RunEdge {
+        &lt;&lt;struct&gt;&gt;
+        +string targetNodeId
+        +bool viaRest
+    }
+    class RunPhase {
+        &lt;&lt;enumeration&gt;&gt;
+        +None = 0
+        +Hub = 1
+        +Biome = 2
+        +Rest = 3
+        +Clear = 4
+    }
+    class RunSave {
+        +string nodeId
+        +string[] path
+        +string pendingNextId
+    }
+    BiomeNode ..&gt; BiomeNode : bypassNextId by id
+    BiomeNode ..&gt; BiomeNode : nextNodeIds by id
+    BiomeNode ..&gt; RunEdge : Exits()
+    CampaignPlan ..&gt; RunPlan : Resolve()
+    RunDirector --&gt; BiomeNode : CurrentNode
+    RunDirector --&gt; RunPlan : CurrentPlan
+    RunDirector ..&gt; BiomeNode : CurrentNodeId by id
+    RunDirector ..&gt; RunPhase : Phase
+    RunPlan "1" *-- "*" BiomeNode : nodes
+    RunPlan ..&gt; BiomeNode : Node()
+    RunPlan ..&gt; BiomeNode : entryNodeId by id
+    RunSave ..&gt; BiomeNode : nodeId by id
+    RunSave ..&gt; BiomeNode : path by id
+    RunSave ..&gt; BiomeNode : pendingNextId by id
+    note for BiomeNode "Exits() order is AUTHORED order: every nextNodeIds entry, then the bypass"
+    note for RunDirector "Plan is CampaignPlan.Resolve(RunPlan.Load()) - never the shipped asset directly"
+    note for RunEdge "No serialized existence - a shape over two authored fields"
+</pre></div>
+<h3>What one node carries</h3>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class BiomeNode {
+        +string nodeId
+        +BiomeDefinition biome
+        +RestDefinition restAfter
+        +string[] nextNodeIds
+        +string bypassNextId
+    }
+    class BiomeDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string biomeId
+        +string displayName
+        +string chapter
+        +string objective
+        +RoomTemplate[] roomPool
+        +GenRules genRules
+        +GameObject socketCap
+        +EnemySpawnTable spawnTable
+        +float statScalePerStage
+        +AudioClip musicTrack
+        +BossDefinition boss
+        +GameObject branchTreasure
+        +GameObject standInLayout
+    }
+    class GenRules {
+        +int minRooms
+        +int maxRooms
+        +float verticalJogChance
+        +bool calmRoomBeforeBoss
+        +LayoutTopology topology
+        +LatticeTier latticeTier
+        +float branchChance
+        +int maxBranches
+        +int branchRunMax
+        +int branches
+        +int pathRoomsMin
+        +int pathRoomsMax
+        +int bandHeight
+    }
+    class LayoutTopology {
+        &lt;&lt;enumeration&gt;&gt;
+        +Chain = 0
+        +Lattice = 1
+        +Branching = 2
+    }
+    class LatticeTier {
+        &lt;&lt;enumeration&gt;&gt;
+        +Arc = 0
+        +Stack = 1
+        +Web = 2
+    }
+    class RestDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +GameObject layoutPrefab
+        +float healMissingFraction
+        +bool forgeEnabled
+        +bool rewardsEnabled
+    }
+    class BossDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +GameObject bossPrefab
+        +string displayName
+        +DialogueSet dialogue
+        +float entranceDelay
+        +EnemySpawnTable addsTable
+        +GameObject rewardPrefab
+        +AudioClip musicTrack
+    }
+    class GradeRubric {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +float parTimeSeconds
+        +int timeBonusMax
+        +int pointsPerKill
+        +int pointsPerExecution
+        +int pointsPerJuggle
+        +int pointsPerComboPoint
+        +int pointsPerSecret
+        +int scoreS
+        +int scoreA
+        +int scoreB
+        +int scoreC
+    }
+    class EnemySpawnTable {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +Entry[] entries
+    }
+    class RoomTemplate {
+        &lt;&lt;MonoBehaviour&gt;&gt;
+        +Vector2Int sizeInCells
+        +List~RoomSocket~ sockets
+        +RoomTags tags
+        +int difficulty
+    }
+    class RoomSocket {
+        +SocketSide side
+        +int cell
+    }
+    class SocketSide {
+        &lt;&lt;enumeration&gt;&gt;
+        +Left = 0
+        +Right = 1
+        +Up = 2
+        +Down = 3
+    }
+    class RoomTags {
+        &lt;&lt;flags enum&gt;&gt;
+        +None = 0
+        +Entry = 1
+        +Exit = 2
+        +Combat = 4
+        +Traversal = 8
+        +Treasure = 16
+        +Secret = 32
+        +Boss = 64
+        +BossCorridor = 128
+        +SlipAway = 256
+        +FanBase = 512
+        +FanStorey = 1024
+    }
+    class RunContentCatalog {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string ResourcePath$
+        +Entry[] biomes
+        +Entry[] rests
+        +Entry[] rubrics
+        +Entry[] bosses
+        +Entry[] spawnTables
+        +Entry[] rooms
+        +Entry[] musicClips
+        +Entry[] prefabs
+        +Entry[] tiles
+    }
+    class Entry {
+        +string key
+        +Object asset
+    }
+    BiomeDefinition "1" --&gt; "*" RoomTemplate : roomPool
+    BiomeDefinition *-- GenRules : genRules
+    BiomeDefinition --&gt; BossDefinition : boss
+    BiomeDefinition --&gt; EnemySpawnTable : spawnTable
+    BiomeDefinition ..&gt; RunContentCatalog : biomeId by id
+    BiomeNode --&gt; BiomeDefinition : biome
+    BiomeNode --&gt; RestDefinition : restAfter
+    BiomeNode ..&gt; BiomeNode : bypassNextId by id
+    BiomeNode ..&gt; BiomeNode : nextNodeIds by id
+    BossDefinition --&gt; EnemySpawnTable : addsTable
+    GenRules ..&gt; LatticeTier : latticeTier
+    GenRules ..&gt; LayoutTopology : topology
+    RoomSocket ..&gt; SocketSide : side
+    RoomTemplate "1" *-- "*" RoomSocket : sockets
+    RoomTemplate ..&gt; RoomTags : tags
+    RunContentCatalog "1" *-- "*" Entry : biomes
+    RunContentCatalog "1" *-- "*" Entry : bosses
+    RunContentCatalog "1" *-- "*" Entry : musicClips
+    RunContentCatalog "1" *-- "*" Entry : prefabs
+    RunContentCatalog "1" *-- "*" Entry : rests
+    RunContentCatalog "1" *-- "*" Entry : rooms
+    RunContentCatalog "1" *-- "*" Entry : rubrics
+    RunContentCatalog "1" *-- "*" Entry : spawnTables
+    RunContentCatalog "1" *-- "*" Entry : tiles
+    note for BiomeNode "Exits() order is AUTHORED order: every nextNodeIds entry, then the bypass"
+    note for GenRules "The ASSET is what ships - C initializers here are not the shipped values"
+    note for RunContentCatalog "A campaign reaches the SAME assets by NAME through here"
+</pre></div>
+<h3>The shipped web, as authored</h3>
+<div class="diagram"><pre class="mermaid">
+flowchart LR
+    nstart["start / The Emberfall Clearing"]
+    nt2_a["t2-a / The Cinderway"]
+    nt2_b["t2-b / The Ashen Vaults"]
+    nt2_c["t2-c / The Sunken Mire"]
+    nt3_a["t3-a / Emberfall Depths"]
+    nt3_b["t3-b / The Splintered Spire"]
+    nt3_c["t3-c / The Hollow Deep"]
+    nt4_a["t4-a / The Pyre Crown"]
+    nt4_b["t4-b / Galewatch"]
+    nfinale["finale / The Demon King"]
+    nstart --&gt;|via rest| nt2_a
+    nstart --&gt;|via rest| nt2_b
+    nstart --&gt;|via rest| nt2_c
+    nt2_a --&gt;|via rest| nt3_a
+    nt2_a --&gt;|via rest| nt3_b
+    nt2_b --&gt;|via rest| nt3_b
+    nt2_b --&gt;|via rest| nt3_c
+    nt2_b -.-&gt;|bypass, no rest| nt3_a
+    nt2_c --&gt;|via rest| nt3_c
+    nt2_c --&gt;|via rest| nt3_a
+    nt3_a --&gt;|via rest| nt3_b
+    nt3_a --&gt;|via rest| nt4_a
+    nt3_a -.-&gt;|bypass, no rest| nt4_b
+    nt3_b --&gt;|via rest| nt3_c
+    nt3_b --&gt;|via rest| nt4_a
+    nt3_b --&gt;|via rest| nt4_b
+    nt3_c --&gt;|via rest| nt4_b
+    nt4_a --&gt;|via rest| nt4_b
+    nt4_a --&gt;|via rest| nfinale
+    nt4_b --&gt;|via rest| nfinale
+</pre></div>
+
+<h2>The shape</h2>
+<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/save-data.md</code></p>
+<div class="diagram"><pre class="mermaid">
+classDiagram
+    class SaveSystem {
+        &lt;&lt;static&gt;&gt;
+        +int MaxSlots$
+        +int CurrentVersion$
+        +int ActiveSlot$
+        +string SaveDirectory$
+        +Load(int) SaveSlot$
+        +LoadAll() SaveSlot[]$
+        +NextFreeSlot(SaveSlot[]) int$
+        +Save(SaveSlot) void$
+        +Delete(int) void$
+        +CreateNew(int) SaveSlot$
+        +HasAnySave() bool$
+        +MostRecentSlot() int$
+        +MostRecentSlot(SaveSlot[]) int$
+    }
+    class SaveSlot {
+        +int slot
+        +bool used
+        +int version
+        +float playtimeSeconds
+        +long lastPlayedUnix
+        +string campaignId
+        +string campaignName
+        +MetaProgress meta
+        +bool hasRun
+        +RunSave run
+    }
+    class MetaProgress {
+        +int totalRuns
+        +int runsCleared
+        +int enemiesKilled
+        +int bestStageReached
+        +int currency
+        +string[] unlockIds
+        +string[] abilityIds
+        +string[] moveIds
+        +string[] upgradeIds
+        +int[] upgradeLevels
+        +string[] dialogueIds
+        +int[] dialogueSeen
+        +GetUpgradeLevel(string) int
+        +SetUpgradeLevel(string,int) void
+        +HasUnlock(string) bool
+        +AddUnlock(string) void
+        +HasAbility(string) bool
+        +AddAbility(string) void
+        +HasMove(string) bool
+        +AddMove(string) void
+        +GetDialogueSeen(string) int
+        +IncrementDialogueSeen(string) void
+    }
+    class RunSave {
+        +long seed
+        +string nodeId
+        +string[] path
+        +bool atRest
+        +int health
+        +int maxHealth
+        +float biomeTimeSeconds
+        +int kills
+        +int maxCombo
+        +int executions
+        +int airJuggles
+        +int secretsFound
+        +int secretsTotal
+        +int runCurrency
+        +int bossesDefeated
+        +bool bossDefeatedHere
+        +bool restChargeSpent
+        +string[] weaponIds
+        +int[] weaponLevels
+        +string[] modifierIds
+        +int[] modifierStacks
+        +string[] modifierTargets
+        +string webFingerprint
+        +string pendingNextId
+    }
+    class BiomeNode {
+        +string nodeId
+    }
+    class RunModifierDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string id
+    }
+    class AbilityDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+        +string id
+    }
+    class WeaponDefinition {
+        &lt;&lt;ScriptableObject&gt;&gt;
+    }
+    class MoveKey {
+        &lt;&lt;static&gt;&gt;
+    }
+    class ModEntry {
+        +string Id
+    }
+    MetaProgress ..&gt; AbilityDefinition : abilityIds by id
+    MetaProgress ..&gt; MoveKey : moveIds by id
+    MetaProgress ..&gt; WeaponDefinition : unlockIds by id
+    RunSave ..&gt; BiomeNode : nodeId by id
+    RunSave ..&gt; RunModifierDefinition : modifierIds by id
+    SaveSlot *-- MetaProgress : meta
+    SaveSlot *-- RunSave : run
+    SaveSlot ..&gt; ModEntry : campaignId by id
+    SaveSystem ..&gt; SaveSlot : CreateNew()
+    SaveSystem ..&gt; SaveSlot : Load()
+    SaveSystem ..&gt; SaveSlot : LoadAll()
+    note for MetaProgress "unlockIds, abilityIds and moveIds are THREE id namespaces, on purpose"
+    note for RunSave "modifierTargets is read PER INDEX, not joined to ids/stacks"
+    note for SaveSlot "campaignName is a SNAPSHOT so the row reads honestly after uninstall"
+    note for SaveSystem "NEVER bump CurrentVersion - Load treats older as an EMPTY slot"
+</pre></div>
+
+</main>
+
+<script src="mermaid.min.js"></script>
+<script>
+  // securityLevel 'strict' keeps mermaid from honouring click-handlers or raw
+  // HTML in a diagram body. Nothing here authors those, but the page is fed by a
+  // generator that reads type and asset names, so the safe default is the right
+  // one to pin rather than to inherit.
+  (window.__esbuild_esm_mermaid_nm ? window.__esbuild_esm_mermaid_nm.mermaid : window.mermaid)
+    .initialize({ startOnLoad: true, securityLevel: 'strict' });
+</script>
+</body>
+</html>
