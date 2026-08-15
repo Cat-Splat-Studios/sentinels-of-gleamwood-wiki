@@ -19,7 +19,10 @@
 ### `StateMachine<TContext>` — `MonoBehaviour`
 
 The component that owns states and transitions for one entity. It has **no abstract members**: a
-concrete machine builds its context in `Awake` and calls `Initialize(context)`.
+concrete machine builds its context in `Awake`. `Initialize(context)` is the public wiring path but
+has **no game call sites** — both shipped machines assign the protected `context` field directly
+(`PlayerStateMachine.cs:96`, `EnemyStateMachine.cs:62`). Tests call it to stand a machine up
+without a prefab, so it is not dead code — it is just not how the game gets there.
 
 **Properties** — `CurrentState`, `PreviousState`, `Context`.
 
@@ -127,7 +130,7 @@ reading an authored graph: an edge that "has no conditions" may have all of them
 
 > **`context.Animator` exists on both — and is a different type on each.** On `EnemyContext` it is a
 > `UnityEngine.Animator`; on `PlayerContext` it is a `Gleamwood.Player.Animation.PlayerAnimation`
-> (`PlayerContext.cs:121`), which is also what its `AnimationDriver` returns. Same member name, same
+> (`PlayerContext.cs:151`), which is also what its `AnimationDriver` returns. Same member name, same
 > apparent shape, no compile error until you use it — so code and docs copied from the enemy side
 > read as if they apply to the player when they do not.
 
@@ -212,7 +215,8 @@ editor. Styled by `StateMachineInspector.uss`.
 
 **Code generation only: State Creator + Condition Creator.** The Config Creator, State Config Editor
 and Assembler tabs were removed in the 2026-07-20 consolidation — building a machine is the Content
-Workbench's States tab now. Generated states land under
-`Assets/_Game/<Feature>/Code/Definitions/States/` and stub `Enter()` only.
+Workbench's States tab now. Generated code lands under the feature's Code root: the config as
+`Assets/_Game/<Feature>/Code/Definitions/States/{Name}Config.cs` and the state — the file you edit —
+as `Assets/_Game/<Feature>/Code/States/{Name}State.cs`, which stubs `Enter()` only.
 
 Exact menu paths are on [`framework.html` §05](framework.html).

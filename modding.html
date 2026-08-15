@@ -72,7 +72,7 @@
 ; BaseDamage = <span class="a">1</span>
 <span class="c">; after</span>
 BaseDamage = <span class="a">25</span></code></pre></li>
-    <li><b>Run the game.</b> Start a run and swing. The sword now deals 25.</li>
+    <li><b>Run the game.</b> Start a <b>new save</b> and pick your campaign — the <code>name</code> you set in <code>mod.ini</code> — when it asks which campaign to play. A slot is bound to its campaign at the moment it is created and never again, so loading an existing save will not see your file at all. Then start a run and swing. The sword now deals 25.</li>
     <li><b>Check it loaded.</b> Open the player log (see §04) and find the <code>GLEAMWOOD WEAPON MOD REPORT</code> block — it says what loaded and, if you fat-fingered something, exactly which line and why.</li>
   </ol>
   <div class="note"><b>Made a typo?</b> A misspelled field or a value that is not a number is written to the log and then <b>ignored</b> — the weapon keeps its shipped value. One bad line can never break the game, and the report names it.</div>
@@ -132,18 +132,18 @@ RESULT: OK — 1 declared, 1 retuned.
     <tr><td><code>Documentation/TestModpack/</code></td><td><b>A deliberately garish verification pack.</b> Every <i>enemy</i> tier (retune, variant, <code>[Graph:]</code>, art) and every <i>weapon</i> tier (retune, declare, sell in the shop) at once, weighted 500-to-1 to dominate the rolls, for proving that stack survived a change. It covers those two folders only — it is not a whole campaign. Not fun to play; built to be obvious in a screenshot.</td></tr>
   </table>
   </div>
-  <p class="dim">In the Unity project these are regenerated from menus (<span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span>, <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>) so they never drift from the code that reads them.</p>
+  <p class="dim">In the Unity project the TestModpack is regenerated whole from <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Test Modpack</span>, and the ExampleMod's <i>player skin</i> from <span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Example Skin</span> — those cannot drift from the code that reads them. The rest of the ExampleMod is <b>hand-authored</b>: nothing regenerates its <code>Weapons/</code>, <code>Enemies/</code>, <code>Progression/</code> or <code>Campaign/</code> files, and what stops them rotting is the suite reading the shipped bytes (<code>ModCommentStyleTests</code> scans every strict-tier line, <code>LatticeGeneratorTests</code> builds its rooms, <code>PlayerSkinTests</code> loads its sprites). <span class="kbd">Gleamwood ▸ Dev ▸ Weapons ▸ Generate Mod Templates</span> writes something else again — the per-weapon previews in <code>Documentation/WeaponTemplates</code>, the same files a build ships inside <code>Mods/_Templates/example-campaign/</code>.</p>
 
   <h3>The editor and a build load mods differently</h3>
-  <p class="lead">This is worth knowing before you trust a test: <b>a build always loads mods; the editor only does when you switch the domain on</b>, so authoring is never quietly beaten by a stray folder. The build branch is the one players hit, and it is the one a test pack exists to exercise.</p>
+  <p class="lead">This is worth knowing before you trust a test: <b>a build always loads mods; the editor loads them whenever a campaign is active</b>, and the <span class="kbd">Simulate Mods</span> toggles only force a domain on when <i>no</i> campaign is bound. Picking a campaign is already an explicit choice, so it needs no second opt-in — and without that, the editor would silently disagree with a build, the slot naming a campaign while the game played vanilla. The build branch is the one players hit, and it is the one a test pack exists to exercise.</p>
   <div class="scrollx">
   <table>
-    <tr><th>Domain</th><th>Editor</th><th>Build</th></tr>
+    <tr><th>Domain</th><th>Editor, with no campaign bound</th><th>Build</th></tr>
     <tr><td><code>Enemies/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Enemies</span></td><td rowspan="6">Always on</td></tr>
     <tr><td><code>Weapons/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Weapons</span></td></tr>
     <tr><td><code>Player/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span></td></tr>
     <tr><td><code>Dialogue/</code></td><td><span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span></td></tr>
-    <tr><td><code>Progression/</code></td><td>No menu toggle — active whenever a campaign is</td></tr>
+    <tr><td><code>Progression/</code></td><td>No menu toggle — binding a campaign is the only switch</td></tr>
     <tr><td><code>Campaign/</code></td><td>No menu toggle — it <i>is</i> the campaign</td></tr>
   </table>
   </div>
@@ -250,7 +250,7 @@ boss        = <span class="a">Boss_Krag</span></code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Key</th><th>Applies to</th><th>What it takes</th></tr>
-    <tr><td><code>topology</code></td><td>all</td><td><code>Chain</code> (a spine left to right with dead-end spurs) · <code>Lattice</code> (a rolled grid of columns and bands, which can carry <b>loops</b>) · <code>Branching</code> (a trunk, a vertical fan column at its end, and one eastbound path leaving each storey — <b>3 or 4 ways out of the level</b>, one behind the boss and the rest slip-aways).</td></tr>
+    <tr><td><code>topology</code></td><td>all</td><td><code>Chain</code> (a spine left to right with dead-end spurs) · <code>Lattice</code> (a rolled grid of columns and bands, which can carry <b>loops</b>) · <code>Branching</code> (a trunk, a vertical fan column at its end, and one eastbound path leaving each storey — <b>as many ways out of the level as <code>branches</code> asks for</b>, one behind the boss and the rest slip-aways. Shipped biomes ask for 4, except Galewatch and the Hollow Deep at 2).</td></tr>
     <tr><td><code>latticeTier</code></td><td>Lattice</td><td><code>Arc</code> (one loop) · <code>Stack</code> (a loop with a shaft standing on it) · <code>Web</code> (an arc off the arc — two nested loops). The generator comes DOWN this list until a shape your rooms can build fits, and names the room that would have bought the one above. Asking for more than you have costs a log line, never the level.</td></tr>
     <tr><td><code>branches</code></td><td>Branching</td><td>How many PATHS the level offers, including the boss road. Path 0 always carries the boss corridor, arena and exit; the rest end in <code>SlipAway</code> rooms. <code>1</code> is legal and means a forced-boss level with no way to skip the fight.</td></tr>
     <tr><td><code>pathRoomsMin</code> · <code>pathRoomsMax</code></td><td>Branching</td><td>How many rooms ONE path owns. The boss road spends part of that budget on its corridor and arena. Defaults are <b>4–6, and they are measured</b> — swept over 200 seeds of the shipped pool, that is the largest budget that keeps every level inside 28–41 rooms <i>and</i> a minimap more readable than the chain it replaces. 5–8 gives 34–46 rooms and a worst case of 0.62&nbsp;px/cell against the chain's 0.55: bigger levels, drawn as a smear.</td></tr>
@@ -360,7 +360,7 @@ perBoss      = <span class="a">60</span></code></pre>
   </div>
   <div class="note"><b>Only melee moves can be imbued, and leave out anything that already does the thing.</b> An imbue writes into a <code>MeleeAttackConfig</code>, so a bow target could never fire — a mask that reaches outside the melee set is refused by name. The second half is your design rather than a rail: <code>ground:up</code> always launches, so imbuing <code>IsLauncher</code> onto it is a reward the player cannot see. That is why the game's own launcher lists five moves and not seven.</div>
 
-  <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result. There is a hard ceiling of <b>10</b>, and it is a <i>refusal</i> rather than a clamp: an entry asking for more is dropped by name, whole, and the modifier stops existing. The highest any shipped modifier declares is 5, so the ceiling leaves room to double the most generous one and still catches the order-of-magnitude typo, which is the actual hazard.</div>
+  <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result. There is a hard ceiling of <b>10</b>, and it is a <i>refusal</i> rather than a clamp: an entry asking for more is dropped by name, whole, and the modifier stops existing. The highest any shipped modifier declares is 3 (the combo cancel; the other nine are 1 or 2), so the ceiling leaves room to more than triple the most generous one and still catches the order-of-magnitude typo, which is the actual hazard.</div>
 
   <h3>What a run EARNS</h3>
   <p>Setting every price and no income only rebalances half the loop — halve what the Shopkeeper charges without touching these and the game is simply twice as generous. <code>[Economy]</code> is the other half. It takes <b>no id</b>: there is exactly one economy per campaign, so it is a section rather than a family, and it clones the shipped one the same way everything else here does.</p>

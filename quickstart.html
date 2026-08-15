@@ -150,10 +150,11 @@
 
 <section id="preflight">
   <h2><span class="num">05</span>Pre-flight — before you commit</h2>
-  <p class="lead">Four checks, in this order. Each one catches a class of breakage the next cannot see — the validator catches wiring, the suite catches behaviour, playing catches feel, and the doc pass catches the lie your change just made true.</p>
+  <p class="lead">Five checks, in this order. Each one catches a class of breakage the next cannot see — the validator catches wiring, the suite catches behaviour, playing catches feel, and the doc pass catches the lie your change just made true. The odd one out is the restore after the suite: that is damage the gate itself does, and the gate has to put it back.</p>
   <ol class="steps">
     <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> — 0 errors. (Rooms: also <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>.)</li>
-    <li><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> — all green — the run writes the count and any failures to <code>Logs/playmode_test_results.txt</code>.</li>
+    <li><code>Tools/run-tests.sh</code> — all green; the run writes the count and any failures to <code>Logs/playmode_test_results.txt</code>. <b>Use the script rather than <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>:</b> the menu item calls the Test Runner API directly and never saves your open scenes, and with any scene dirty, entering play mode raises a silent "Scene(s) Have Been Modified" modal — the runner wedges, no results file is ever written, and you sit waiting on a run that will never finish. The script does <code>save_all</code> first, and that is the whole difference. Running it by hand means saving every open scene yourself.</li>
+    <li><code>git checkout -- DebugSettings/DebugSettings.json</code> — the suite strips ~126 <code>Camera.*</code> lines out of that file, and it is <b>tracked</b>. Restore it before you stage, or <code>git add -A</code> carries the mutilation into the commit and the F1 panel re-applies it over the scene at boot for everyone. → <a href="tuning.html#saving">Tuning §05</a></li>
     <li>Play it. New content only counts once it's shown up in an actual run.</li>
     <li>Touched a system a wiki page documents? Update that page in the same commit — see <a href="maintaining.html">Maintaining</a>.</li>
   </ol>

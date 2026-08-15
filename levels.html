@@ -43,7 +43,7 @@
   <div class="grid c3">
     <div class="card accent-ember">
       <h4>1 · Room prefabs</h4>
-      <p>Tilemap-painted prefabs with a <code>RoomTemplate</code> on the root and door <b>sockets</b> on the edges. Live in <code>Assets/_Game/Biomes/Emberfall/</code> as <code>Room_Ember_*</code>.</p>
+      <p>Tilemap-painted prefabs with a <code>RoomTemplate</code> on the root and door <b>sockets</b> on the edges. Live in <code>Assets/_Game/Biomes/Emberfall/</code> as <code>Room_Ember_*</code>, plus the three Branching pieces in <code>Assets/_Game/Biomes/Fan/</code> — <code>Room_Fan_Base</code> (FanBase), <code>Room_Fan_Rise</code> (FanStorey) and <code>Room_Slip_Ember</code> (<code>Exit | SlipAway</code>). Every shipped biome is Branching and pulls those in as <code>Room_Fan_*, Room_Slip_Ember</code>; without a FanBase in the pool the validator hard-errors, so they are not optional extras.</p>
     </div>
     <div class="card accent-gold">
       <h4>2 · Biome pools</h4>
@@ -143,7 +143,7 @@
 
   <h3>The recipe</h3>
   <ol class="steps">
-    <li><b>Duplicate</b> an existing <code>Room_Ember_*</code> prefab in <code>Assets/_Game/Biomes/Emberfall/</code> — or build fresh: root GameObject + <code>RoomTemplate</code>, child <code>Grid</code> with <code>Floors</code> + <code>Walls</code> tilemaps, each with a <code>TilemapCollider2D</code>.</li>
+    <li><b>Duplicate</b> an existing <code>Room_Ember_*</code> prefab in <code>Assets/_Game/Biomes/Emberfall/</code> (or a <code>Room_Fan_*</code> / <code>Room_Slip_Ember</code> one in <code>Assets/_Game/Biomes/Fan/</code> if you are adding a fan storey or a slip-away) — or build fresh: root GameObject + <code>RoomTemplate</code>, child <code>Grid</code> with <code>Floors</code> + <code>Walls</code> tilemaps, each with a <code>TilemapCollider2D</code>, and <b>each on layer <code>Level</code></b> (a <code>Platforms</code> map goes on <code>OneWay</code> — §02). A tilemap made through Unity's menus lands on <code>Default</code>, and the layer is the only thing the mover's <code>collisionMask</code> reads, so the room is <b>air</b> to the player — while <i>both gates still pass it</i>: the audit files every non-<code>OneWay</code> collidable map as solid whatever its layer, and the validator's layer pass only checks the platform layer. Duplicating inherits the right layers; building fresh does not.</li>
     <li><b>Paint greybox-first</b> with <code>Assets/_Game/Biomes/Greybox/Tile_GreyFloor</code> / <code>Tile_GreyWall</code> (full-cell <code>ColliderType.Grid</code> — the collider is exactly what you see). Painted content <b>must begin at cell (0,0)</b> and the tilemap grid must not be offset from the room root — both are validator errors. Art tilesets come later on a separate collider-less layer over the same greybox collision; never collide on art sprite shapes.</li>
     <li>The footprint calculates itself from the paint; <code>sizeInCells</code> self-stamps in OnValidate. Nothing to type.</li>
     <li><b>Add sockets</b> on the <code>RoomTemplate</code>: side + cell (L/R cell = floor row of the 3-tall aperture; U/D cell = leftmost column of the 3-wide one). Leave the doorway open — no tiles. Check the cyan gizmo lines up with the hole, and keep <code>cell + 3</code> inside bounds.</li>
@@ -201,7 +201,7 @@
     <tr><td><b>behind an ability</b> <span class="dim">(note)</span></td><td><i>"Left@1 -&gt; Up@2 needs wall jump"</i>. Working as intended — the room is still offered; the layout just will not route the main path through that door until the player can take it.</td></tr>
   </table>
   </div>
-  <div class="note"><b>"Reads wrong" is one sentence covering three different sweeps</b>, so the coordinates you actually get may not look like the wording above — <code>RoomAudit</code> wraps every warning <code>RoomReachability</code> produced in the headroom-flavoured message, and only these three produce them:
+  <div class="note"><b>"Reads wrong" is three different sweeps, and each gets its own sentence.</b> <code>RoomAudit</code> splits the flood's warnings by kind — on <code>SealedPrefix</code> and <code>LipMarker</code> — and emits one message per kind, worded with the fix that actually applies to it: a headroom stretch (<i>"raise the platform above them by one"</i>), an overhang lip (<i>"raising a platform does NOT fix this — clear the cell ABOVE the opening"</i>), or floor no door can reach (<i>"this is not a headroom problem"</i>). Labelling all three as headroom is what it used to do, and it sent an author with a sealed chamber hunting for a headroom problem that was not there. The three sweeps are:
   <ul>
     <li><code>ReportLowClearance</code> — <i>"(3,8)-(5,8)"</i>: a run of floor the 2-cell-tall body cannot walk along. Grouped into runs, so one low ledge is one message rather than one per column.</li>
     <li><code>ReportOverhangLips</code> — <i>"(14,5) heading right — (15,5) is open but (15,6) is not"</i>: somewhere you can walk to and try, where the head ends inside a shelf and you stop dead in front of a whole cell of visible air. Reported from the cell you are STANDING on and the direction you tried, because the blocked cell on its own is not findable.</li>

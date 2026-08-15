@@ -206,11 +206,11 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <div class="scrollx">
   <table>
     <tr><th>INI section</th><th>Keys (defaults)</th></tr>
-    <tr><td><code>[Display]</code></td><td><code>windowMode</code> (0 = exclusive fullscreen, 1 = borderless, 2 = windowed), <code>vsync</code>, <code>frameCap</code> (index into 30/60/120/144/unlimited; applies only with VSync off), <code>brightness</code>, <code>resW</code>, <code>resH</code></td></tr>
+    <tr><td><code>[Display]</code></td><td><code>windowMode</code> (0 = exclusive fullscreen, 1 = borderless, 2 = windowed), <code>vsync</code>, <code>frameCap</code> (index into 30/60/120/144/unlimited; applies only with VSync off), <code>resW</code>, <code>resH</code> — plus <code>brightness</code>, which is stored and <b>not yet consumed</b>: nothing reads it, and its menu row is <b>dimmed</b> exactly like the <code>[Accessibility]</code> placeholders below</td></tr>
     <tr><td><code>[Audio]</code></td><td><code>masterVol</code> 100, <code>musicVol</code> 80, <code>sfxVol</code> 90, <code>uiVol</code> 90, plus four <code>*Muted</code> flags</td></tr>
-    <tr><td><code>[Controls]</code></td><td><code>vibration</code></td></tr>
+    <tr><td><code>[Controls]</code></td><td><code>vibration</code> — stored and <b>not yet consumed</b>; dimmed row, same treatment</td></tr>
     <tr><td><code>[Accessibility]</code></td><td><code>screenShake</code> and <code>reduceFlashing</code> are <b>live</b> — read in <code>ShakeComponent.Shake</code> and by the HUD's damage flash respectively. <code>aimMode</code>, <code>colourblind</code>, <code>textSize</code> are stored and not yet consumed; their menu rows are <b>dimmed</b> rather than deleted, so the key keeps parsing and a greyed row says "not yet" instead of "never"</td></tr>
-    <tr><td><code>[Game]</code></td><td><code>damageNumbers</code>, <code>tutorials</code></td></tr>
+    <tr><td><code>[Game]</code></td><td><code>damageNumbers</code>, <code>tutorials</code> — both stored and <b>not yet consumed</b>; dimmed rows. With <code>brightness</code>, <code>vibration</code> and the three <code>[Accessibility]</code> ones that makes <b>seven</b> keys the INI parses and nothing reads</td></tr>
     <tr><td><code>[Controllers]</code></td><td>Per-controller glyph-brand overrides written by <code>ControllerOverrides</code> (e.g. <code>XInput-1 = Nintendo</code>) — desktop/INI-only, since it enumerates the section</td></tr>
     <tr><td><code>Misc</code></td><td>Fallback section for any key not in the <code>Sections</code> map</td></tr>
   </table>

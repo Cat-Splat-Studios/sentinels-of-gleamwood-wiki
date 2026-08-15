@@ -303,7 +303,7 @@
   <table>
     <tr><th>Modifier</th><th>id</th><th>Effect</th><th>Stacks</th><th>Per stack</th><th>Read at</th></tr>
     <tr><td><b>Steady Hands</b></td><td><code>steady-hands</code></td><td><code>PerfectWindow</code></td><td>2</td><td>×1.5</td><td><code>RangedWeaponDefinition.IsPerfectRelease</code></td></tr>
-    <tr><td><b>Featherfall</b></td><td><code>featherfall</code></td><td><code>JumpHeight</code></td><td>2</td><td>×1.15</td><td rowspan="5"><code>PlayerStateMachine.Awake</code>, stamped onto the per-scene <code>PlayerContext</code> clone beside Vigor's max-HP bonus</td></tr>
+    <tr><td><b>Featherfall</b></td><td><code>featherfall</code></td><td><code>JumpHeight</code></td><td>2</td><td>×1.15</td><td rowspan="5"><code>PlayerStateMachine.StampMovementModifiers</code> — from <code>Awake</code> onto the per-scene <code>PlayerContext</code> clone beside Vigor's max-HP bonus, <b>and again from <code>RunModifierOffers.Take</code></b> the instant a grant lands, so a boon taken at a rest applies without waiting for the next scene load. It always recomputes from the pristine <code>PlayerSettings</code> asset, which is what stops these multiplicative scalars compounding on a second call.</td></tr>
     <tr><td><b>Fleetfoot</b></td><td><code>fleetfoot</code></td><td><code>MoveSpeed</code></td><td>2</td><td>×1.12</td></tr>
     <tr><td><b>Quickstart</b></td><td><code>quickstart</code></td><td><code>RunAccel</code></td><td>2</td><td>×1.35</td></tr>
     <tr><td><b>Long Stride</b></td><td><code>long-stride</code></td><td><code>DashDistance</code></td><td>2</td><td>×1.4</td></tr>
