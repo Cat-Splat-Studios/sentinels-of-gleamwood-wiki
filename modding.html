@@ -342,6 +342,11 @@ imbue.flag    = IsLauncher
 imbue.default = aerial:forward
 imbue.legal   = aerial:forward | aerial:down
 
+<span class="c">; withhold a modifier until the player can actually USE it</span>
+[<span class="a">RunModifier:combo-cancels</span>]
+requires.upgrade = MeleeCancel
+requires.move    = ground:up | ground:down | ground:forward
+
 <span class="c">; what a run EARNS — one section, no id</span>
 [<span class="a">Economy</span>]
 currencyName = <span class="a">Gleam</span>
@@ -374,6 +379,19 @@ perBoss      = <span class="a">60</span></code></pre>
   </table>
   </div>
   <div class="note"><b>Only melee moves can be imbued, and leave out anything that already does the thing.</b> An imbue writes into a <code>MeleeAttackConfig</code>, so a bow target could never fire — a mask that reaches outside the melee set is refused by name. The second half is your design rather than a rail: <code>ground:up</code> always launches, so imbuing <code>IsLauncher</code> onto it is a reward the player cannot see. That is why the game's own launcher lists five moves and not seven.</div>
+
+  <h3>A modifier can be WITHHELD until the player can use it</h3>
+  <p>A boon that raises a budget the player has not bought the verb for is a reward beat spent on nothing — the run hands over Chain Break to a profile that cannot cancel at all, and the player learns only that rewards are sometimes fake. So any modifier, shipped or your own, can name what a profile must already own before a run will <b>offer</b> it. Three keys, the same dotted shape as an imbue's.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Key</th><th>What it is</th></tr>
+    <tr><td><code>requires.ability</code></td><td>Ability ids — <code>dash</code>, <code>wall-jump</code> — separated by <code>|</code> or <code>,</code>. Any ONE of them satisfies it. A name the game does not have is refused with a "did you mean", and the entry is dropped.</td></tr>
+    <tr><td><code>requires.upgrade</code></td><td>A kit-upgrade <b>effect</b>, never an upgrade's id: <code>MaxHp</code> · <code>DamagePercent</code> · <code>WeaponStartLevel</code> · <code>MeleeCancel</code> · <code>BowCancel</code>. This is the important half — you may have declared your own <code>[NewUpgrade:]</code> granting the same verb, and naming an id would withhold the boon from every player who bought <i>yours</i>. The same reason the game sums budgets by effect rather than by id.</td></tr>
+    <tr><td><code>requires.move</code></td><td>Moves, spelled exactly the way <code>imbue.legal</code> spells them — move keys or <code>MoveSet</code> names, mixed freely, raw numbers refused. Any ONE of them satisfies it.</td></tr>
+  </table>
+  </div>
+  <p>The three kinds are <b>ANDed</b>; the items inside one are <b>ORed</b>. The example above therefore reads "the cancel verb, <i>and</i> any one of those three ground attacks" — which is what the shipped <code>combo-cancels</code> asks for, because the cancel needs both a verb to spend and a directional attack to spend it on.</p>
+  <div class="note"><b>It gates the OFFER and nothing else.</b> A run already holding a modifier keeps it, whatever the profile owns — resuming a suspended run must never confiscate something the player earned, and a campaign that grants one through its own content still resolves. And a line the loader cannot read <b>drops the modifier</b> rather than leaving it ungated: everywhere else in this file a refused line falls back to a real working value, but a requirement's fall-back is "ask nothing", which would ship exactly the problem the line was written to prevent. A requirement naming something every profile already starts with is reported as dead weight and otherwise ignored.</div>
 
   <div class="note warn"><b><code>maxStacks</code> is a safety cap, not a balance knob.</b> Several modifiers raise a budget that is the only thing bounding a loop — the combo cancel is the clearest, because a large enough budget is an attack state the player never leaves. Raise them a little at a time and play the result. There is a hard ceiling of <b>10</b>, and it is a <i>refusal</i> rather than a clamp: an entry asking for more is dropped by name, whole, and the modifier stops existing. The highest any shipped modifier declares is 3 (the combo cancel; the other nine are 1 or 2), so the ceiling leaves room to more than triple the most generous one and still catches the order-of-magnitude typo, which is the actual hazard.</div>
 
