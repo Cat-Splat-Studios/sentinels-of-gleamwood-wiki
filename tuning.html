@@ -90,7 +90,7 @@
 <section id="panel">
   <h2><span class="num">03</span>The F1 panel today — every control on it</h2>
   <p class="lead">Only the <b>Camera</b> tab persists. Every other control on the panel is session-only by design, so a slider you drag here is a question, never an edit — and <code>TunableParityTests</code> is what keeps it that way.</p>
-  <p>Press <span class="kbd">F1</span> in play mode (title: <b>Debug Settings</b>; the toggle key is stamped on the Player prefab's <code>PlayerDebugUI</code>). Movement, Dash, Jump, Wall Slide and Hitboxes come entirely from <code>[Tunable]</code> declarations on <code>PlayerContext</code> (<code>Assets/_Game/Player/Code/PlayerContext.cs</code>), <code>KinematicMover2D</code> (<code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>) and <code>CombatHitboxViewer</code> (<code>Assets/_Game/Combat/Code/CombatHitboxViewer.cs</code>). Camera, Troubleshoot, Run (dev) and Debug Info are hand-built tabs because they bind scene components and lambdas.</p>
+  <p>Press <span class="kbd">F1</span> in play mode (title: <b>Debug Settings</b>; the toggle key is stamped on the Player prefab's <code>PlayerDebugUI</code>). Movement, Dash, Jump, Wall Slide and Hitboxes come entirely from <code>[Tunable]</code> declarations on <code>PlayerContext</code> (<code>Assets/_Game/Player/Code/PlayerContext.cs</code>), <code>KinematicMover2D</code> (<code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>) and <code>CombatHitboxViewer</code> (<code>Assets/_Game/Combat/Code/CombatHitboxViewer.cs</code>) — the three explicit <code>AddTabsFrom</code> targets. <b>Impact</b> comes from <code>[Tunable]</code> too, but through the other door (§04): <code>CombatTimeManager</code>, <code>ShakeComponent</code> and <code>PlayerHurtReact</code> each call <code>TunableRegistry.Register(this)</code> in <code>Awake</code> (and <code>Unregister</code> in <code>OnDestroy</code>) and declare on the same <code>"Impact"</code> tab string, so one tab merges three hosts. Camera, Troubleshoot, Run (dev) and Debug Info are hand-built tabs because they bind scene components and lambdas.</p>
   <div class="scrollx">
   <table>
     <tr><th>Tab · Section</th><th>Control</th><th>Range</th><th>Authored default</th><th>Notes</th></tr>
@@ -120,6 +120,7 @@
     <tr><td>Bow lane + arrows</td><td>on</td></tr>
     <tr><td>Only while active</td><td>off</td></tr>
     <tr><td>Flash the last scan</td><td>on</td></tr>
+    <tr><td><b>Impact</b></td><td colspan="3">twenty <code>[Tunable]</code>s across three registry hosts — <code>CombatTimeManager</code> (<i>Hitstop</i>: Duration ×, Depth override · <i>Perfect release</i>: Freeze ×, Shake Duration, Shake Amplitude · <i>Enemy hit flash</i>: Duration ×, Override colour, Colour R/G/B), <code>ShakeComponent</code> (<i>Shake</i>: Duration ×, Amplitude ×, Amplitude floor) and <code>PlayerHurtReact</code> (<i>Player hurt</i>: Flash Duration, Flash Pulses, Shake Amplitude, Shake Duration, Flash Colour R/G/B)</td><td>All <code>Save = false</code>. The one live user of <code>TunableRegistry</code> (§04): each host registers in <code>Awake</code>, because the panel snapshots the registry once in <code>PlayerDebugUI.Start</code> and never rebuilds. The scene's <code>CombatTimeManager</code> registers only on the instance that survives its singleton check. <code>ImpactTuningTests</code> pins the tab.</td></tr>
     <tr><td><b>Camera</b></td><td colspan="3">hand-built — 22 controls (19 always, plus 3 Pixel Perfect), e.g. <code>Camera.OffsetX</code></td><td><b>The only persisting tab</b> (<code>saveValue = true</code>), and therefore the only live shadowing surface — see the warn box below. Only appears when a <code>CameraFollow</code> exists on <code>Camera.main</code>. The three Pixel Perfect sliders appear only when that camera <i>also</i> carries a <code>PixelPerfectCamera</code> — which is why a missing one is a warning rather than a dead panel. (Until 2026-08-13 they were drawn regardless and dereferenced the null, and <code>LoadValues()</code> invokes every setter at startup, so the whole panel died rather than losing three rows.)</td></tr>
     <tr><td><b>Troubleshoot</b></td><td colspan="3">hand-built, read-only</td><td>Editor / development builds only. InfoDisplay rows under <i>This run</i> (seed, phase, node, route, stats), <i>Loadout</i> (weapons, moveset, abilities, run modifiers), <i>Profile &amp; build</i> (save slot, campaign, build, runtime) and <i>Combat overlay</i>. Read-only by construction — every row is a string getter with no setter, so nothing here can change what it reports.</td></tr>
     <tr><td><b>Run (dev)</b></td><td colspan="3">hand-built cheats</td><td>Editor / development builds only. Gleam balance, ability and move ownership, run modifiers, imbue targets, execution explain rows. Every row is <code>saveValue = false</code> — this is save data and run state, not a panel preference.</td></tr>
@@ -139,7 +140,8 @@
   <h3>Door 1 — <code>AddTabsFrom</code> (the wired path)</h3>
   <p><code>PlayerDebugUI.ConfigureTabs()</code> (<code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code>) is the override point. Today it does, in essence:</p>
 <pre><code>AddTabsFrom(playerContext, playerContext.Mover, hitboxViewer);
-<span class="c">// ^ Movement / Dash / Jump / Wall Slide / Hitboxes — all from [Tunable], three targets</span>
+<span class="c">// ^ Movement / Dash / Jump / Wall Slide / Hitboxes — all from [Tunable], three targets;</span>
+<span class="c">//   PLUS everything in TunableRegistry.Targets — today the three Impact hosts (door 2, below)</span>
 
 <span class="k">if</span> (cameraFollow != <span class="k">null</span>) AddTab(ConfigureCameraTab()); <span class="c">// hand-built: binds scene components + lambdas</span>
 
@@ -155,7 +157,7 @@ AddTab(ConfigureDebugInfoTab());</code></pre>
 <span class="k">void</span> OnDisable() { RuntimeDebugUI.TunableRegistry.Unregister(<span class="k">this</span>); }
 <span class="c">// Register in Awake/OnEnable — the panel SNAPSHOTS the registry when its Start() configures tabs.</span>
 <span class="c">// Register late and your tab simply doesn't appear this session.</span></code></pre>
-  <div class="note"><b>Status today:</b> zero game-code registrants — grep for <code>TunableRegistry.Register</code> and you find only the framework and comments. It is a ready-but-unused extension point; the first mechanic that wants live sliders gets them for two lines.</div>
+  <div class="note"><b>Status today:</b> three game-code registrants, all on one tab. <code>CombatTimeManager</code> (<code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code>), <code>ShakeComponent</code> (<code>Assets/_Game/Systems/Mechanics/ShakeComponent.cs</code>) and <code>PlayerHurtReact</code> (<code>Assets/_Game/Player/Code/PlayerHurtReact.cs</code>) each <code>Register(this)</code> in <code>Awake</code> and together declare twenty <code>[Tunable]</code>s on <code>"Impact"</code> — hitstop, the perfect-release freeze and shake, enemy hit flash, camera shake, the player's hurt flash and shake (§03). Until 2026-08-15 the grep for <code>TunableRegistry.Register</code> outside <code>_Framework</code> returned nothing; <code>ImpactTuningTests</code> now asserts each host reaches <code>TunableRegistry.Targets</code> and that every declaration becomes a control. Two lessons the first users paid for and the code comments spell out: register in <code>Awake</code>, not <code>OnEnable</code>, because <code>DebugUI.Start</code> snapshots the registry once and never rebuilds; and unregister in <code>OnDestroy</code>, not <code>OnDisable</code>, because the registry is static and outlives the scene.</div>
   <h3>Recipe: a whole new tab for a new system</h3>
   <ol class="steps">
     <li>Declare <code>[Tunable("MyMechanic", min, max, ...)]</code> on float/int/bool fields or read-write properties of any class. A new tab name creates the tab — no registration of tab names anywhere.</li>
@@ -194,7 +196,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <p>To change the <em>authored</em> defaults, edit the asset — the Workbench's Player category (<span class="kbd">Gleamwood ▸ Content Workbench</span>) is the curated front door, complete with derived-gravity effective labels so you see the jump math while you type.</p>
   <figure class="shot">
     <img src="images/workbench-player.png" alt="Content Workbench, Player category, editing PlayerSettings.asset with derived-gravity effective labels">
-    <figcaption><b>Real capture.</b> The Workbench Player category edits <code>PlayerSettings.asset</code> — the authored source the F1 panel's session clone shadows; the effective labels show the gravity derived from MaxJumpHeight / TimeToJumpApex.</figcaption>
+    <figcaption><b>Real capture, one tab short.</b> The Workbench Player category edits <code>PlayerSettings.asset</code> — the authored source the F1 panel's session clone shadows; the effective labels show the gravity derived from MaxJumpHeight / TimeToJumpApex. The strip in this shot has five sub-tabs; the sixth, <b>Attacks</b>, and the per-state feel rows routed onto Jump &amp; Air and Dash &amp; Wall shipped later the same day (<code>PlayerCategory.FeelSubTabs</code> is the live list — see <a href="workbench.html#player">Workbench §09</a>). Re-capture needs a human at the editor.</figcaption>
   </figure>
   <div class="note"><b>The mover is different:</b> <code>KinematicMover2D</code> tunables bind to the scene/prefab component itself — no clone. In a build nothing persists except via the DebugUI JSON; in the editor, play-mode changes revert on exiting play as usual.</div>
   <p class="dim">Diff noise you can ignore: the asset's <code>[ReadOnly]</code> runtime fields (e.g. <code>LastTimeGrounded</code>) leak in from editor play sessions. <code>ResetProperties()</code> zeroes them at Awake — harmless, just noisy in git.</p>
@@ -207,7 +209,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <div class="scrollx">
   <table>
     <tr><th>INI section</th><th>Keys (defaults)</th></tr>
-    <tr><td><code>[Display]</code></td><td><code>windowMode</code> (0 = exclusive fullscreen, 1 = borderless, 2 = windowed), <code>vsync</code>, <code>frameCap</code> (index into 30/60/120/144/unlimited; applies only with VSync off), <code>resW</code>, <code>resH</code> — plus <code>brightness</code>, which is stored and <b>not yet consumed</b>: nothing reads it, and its menu row is <b>dimmed</b> exactly like the <code>[Accessibility]</code> placeholders below</td></tr>
+    <tr><td><code>[Display]</code></td><td><code>windowMode</code> (0 = exclusive fullscreen, 1 = borderless, 2 = windowed), <code>vsync</code>, <code>frameCap</code> (index into 30/60/120/144/unlimited; applies only with VSync off), <code>resW</code>, <code>resH</code> — plus <code>brightness</code>, which is stored and <b>not yet consumed</b>: nothing reads it, and its menu row is <b>dimmed</b> exactly like the <code>[Accessibility]</code> placeholders below. <b>On a Steam Deck the stored <code>resW</code>/<code>resH</code> and <code>windowMode</code> are IGNORED, never erased:</b> the Deck runs the Windows player through Proton and the resolution is chosen before launch, so <code>DisplayPlatform.Policy</code> (<code>Assets/_Game/Systems/Settings/DisplayPlatform.cs</code>, detection via <code>SteamUtils.IsSteamRunningOnSteamDeck</code>) answers <code>ApplySavedResolution</code>/<code>ApplySavedWindowMode</code> false, <code>GameSettings.ApplyResolution</code>/<code>ApplyWindowMode</code> return before touching <code>Screen</code>, and the settings menu draws both rows <b>dimmed</b>, reading "Set in Steam", rather than deleting them. The keys stay in the file because the same profile has to keep working on a desktop. Pinned from both sides by <code>DeckDisplayPolicyTests</code>; unproven on hardware — <code>Documentation/OUTSTANDING.md</code>, the row <i>"The Steam Deck display fix is in, but unproven on hardware"</i></td></tr>
     <tr><td><code>[Audio]</code></td><td><code>masterVol</code> 100, <code>musicVol</code> 80, <code>sfxVol</code> 90, <code>uiVol</code> 90, plus four <code>*Muted</code> flags</td></tr>
     <tr><td><code>[Controls]</code></td><td><code>vibration</code> — stored and <b>not yet consumed</b>; dimmed row, same treatment</td></tr>
     <tr><td><code>[Accessibility]</code></td><td><code>screenShake</code> and <code>reduceFlashing</code> are <b>live</b> — read in <code>ShakeComponent.Shake</code> and by the HUD's damage flash respectively. <code>aimMode</code>, <code>colourblind</code>, <code>textSize</code> are stored and not yet consumed; their menu rows are <b>dimmed</b> rather than deleted, so the key keeps parsing and a greyed row says "not yet" instead of "never"</td></tr>
@@ -217,7 +219,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   </table>
   </div>
   <ul>
-    <li><b>Apply-as-they-store:</b> the typed accessors do the side effect in the setter — <code>MasterVolume</code> drives <code>AudioListener.volume</code>; music/SFX/UI volumes drive the <code>GameAudioMixer</code> exposed params (percent→dB via <code>Log10(p/100)*20</code>, mute = −80 dB floor); <code>WindowMode</code>/<code>SetResolution</code>/<code>VSync</code>/<code>FrameCapIndex</code> apply to Screen/QualitySettings. Details on the audio side: <a href="audio.html">Audio</a>.</li>
+    <li><b>Apply-as-they-store:</b> the typed accessors do the side effect in the setter — <code>MasterVolume</code> drives <code>AudioListener.volume</code>; music/SFX/UI volumes drive the <code>GameAudioMixer</code> exposed params (percent→dB via <code>Log10(p/100)*20</code>, mute = −80 dB floor); <code>WindowMode</code>/<code>SetResolution</code>/<code>VSync</code>/<code>FrameCapIndex</code> apply to Screen/QualitySettings — except that the first two consult <code>DisplayPlatform.Policy</code> first and do nothing on a host that already fixed the display (the Deck row above); VSync and the frame cap apply everywhere. Details on the audio side: <a href="audio.html">Audio</a>.</li>
     <li><b>Boot order:</b> <code>GameBootstrap.InitCore</code> (BeforeSceneLoad) runs <code>GameSettings.Initialize</code> first — seeds every default via <code>ConfigStore.Seed</code>, applies display + volumes, logs <code>[Config] &lt;path&gt;</code>. Then <code>GameAudio.ApplySavedVolumesAfterBoot</code> re-applies volumes one frame in, because a mixer <code>SetFloat</code> during early boot can be silently reset by the snapshot init. Replicate that pattern if you add mixer params.</li>
     <li><b>Hand edits welcome:</b> the file is designed for it — its own header says values are re-read on launch and invalid ones fall back to defaults. It is rewritten by the game whenever a setting changes in-menu.</li>
   </ul>
@@ -301,7 +303,8 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <tr><th>Key</th><th>Meaning</th></tr>
     <tr><td><code>healMissingFraction</code></td><td>Fraction of the player's <b>missing</b> health restored at the RestSite (0–1).</td></tr>
     <tr><td><code>forgeEnabled</code></td><td>Whether this rest offers one free weapon upgrade via the layout's ForgeSites.</td></tr>
-    <tr><td><code>layoutPrefab</code></td><td>The hand-authored rest layout (needs <code>EntryPoint</code>, <code>RestSite</code>, <code>RestExit</code>).</td></tr>
+    <tr><td><code>rewardsEnabled</code></td><td>Whether this rest offers one per-run modifier from the layout's RunModifierSites — the walk-to-pick boon (<code>RestHostController</code> hides the sites when it is off, exactly as the forge does). Read by all three <code>[Rest:]</code> readers from one const table, <code>RestKeys</code> in <code>Assets/_Game/Systems/Run/RestDefinition.cs</code>: the key existed on the asset and was read at runtime before any reader accepted it, so the boon toggle was inspector-only until <code>BiomeKeyParityTests</code> pinned the vocabulary.</td></tr>
+    <tr><td><code>layoutPrefab</code></td><td>The hand-authored rest layout (needs <code>EntryPoint</code>, <code>RestSite</code>, <code>RestExit</code>). Editor-only in practice — a campaign has no prefab catalog to resolve a name against, and <code>CampaignPlan.ApplyRest</code> refuses it by name rather than as an unknown key.</td></tr>
   </table>
   </div>
   <h4><code>[Node:&lt;nodeId&gt;]</code> and <code>[Plan]</code></h4>
@@ -364,25 +367,25 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   </ul>
   <div class="scrollx">
   <table>
-    <tr><th>biomeId</th><th><code>verticalJogChance</code></th><th><code>boss</code></th></tr>
-    <tr><td>emberfall</td><td>0.45</td><td>Boss_Krag</td></tr>
-    <tr><td>emberfall-depths</td><td>0.45</td><td>Boss_Krag</td></tr>
-    <tr><td>cinderway</td><td>0.5</td><td>Boss_CinderShepherd</td></tr>
-    <tr><td>ashen-vaults</td><td>0.55</td><td>Boss_Krag</td></tr>
-    <tr><td>pyre-crown</td><td>0.6</td><td>Boss_PyreRegent</td></tr>
-    <tr><td>demon-king</td><td>0.4</td><td>Boss_DemonKing</td></tr>
-    <tr><td>mire</td><td>0.3</td><td rowspan="4"><i>key omitted entirely</i> — see below</td></tr>
-    <tr><td>spire</td><td>0.7</td></tr>
-    <tr><td>hollow</td><td>0.45</td></tr>
-    <tr><td>gale</td><td>0.5</td></tr>
+    <tr><th>biomeId</th><th><code>verticalJogChance</code></th><th><code>boss</code> in the INI</th><th><code>boss</code> on the asset</th></tr>
+    <tr><td>emberfall</td><td>0.45</td><td>Boss_Krag</td><td>Boss_Krag</td></tr>
+    <tr><td>emberfall-depths</td><td>0.45</td><td>Boss_Stopgap_EmberfallDepths</td><td>Boss_Stopgap_EmberfallDepths (ImpScout)</td></tr>
+    <tr><td>cinderway</td><td>0.5</td><td>Boss_CinderShepherd</td><td>Boss_CinderShepherd</td></tr>
+    <tr><td>ashen-vaults</td><td>0.55</td><td>Boss_Stopgap_AshenVaults</td><td>Boss_Stopgap_AshenVaults (VaultAcolyte)</td></tr>
+    <tr><td>pyre-crown</td><td>0.6</td><td>Boss_PyreRegent</td><td>Boss_PyreRegent</td></tr>
+    <tr><td>demon-king</td><td>0.4</td><td>Boss_DemonKing</td><td>Boss_DemonKing</td></tr>
+    <tr><td>mire</td><td>0.3</td><td rowspan="4"><i>key omitted</i> — see below</td><td>Boss_Stopgap_Mire (EmberWisp)</td></tr>
+    <tr><td>spire</td><td>0.7</td><td>Boss_Stopgap_Spire (PyreArcher)</td></tr>
+    <tr><td>hollow</td><td>0.45</td><td>Boss_Stopgap_Hollow (CinderHound)</td></tr>
+    <tr><td>gale</td><td>0.5</td><td>Boss_Stopgap_Gale (SootBomber)</td></tr>
   </table>
   </div>
   <ul>
     <li><b>pyre-crown swaps its arena</b> — it is the one biome with an explicit <code>roomPool</code> rather than a glob: the Emberfall rooms minus their BossArena, plus <code>Room_Crown_BossArena</code>.</li>
-    <li><b>4 bosses:</b> Boss_Krag, Boss_CinderShepherd, Boss_PyreRegent, and Boss_DemonKing — the run's terminal fight, and the longest entrance of the four (<code>entranceDelay = 1.4</code>) because he is the one the whole run was walking toward and the level music has already faded to silence by the time he speaks.</li>
-    <li><b>Four biomes carry no boss</b> (mire, spire, hollow, gale) and they <b>omit the key</b> rather than writing <code>boss = -</code>. Deliberate: a biome without a boss still generates, still places its arena, and still spawns that arena's adds, so the full run is walkable end to end while boss design is open. Each logs one <i>"has a Boss arena but no BossDefinition"</i> warning at import. Give one a <code>boss = Boss_X</code> line the day its fight exists; nothing else has to change.</li>
-    <li><b>8 enemy blocks:</b> Krag 40 HP no-juggle · CinderShepherd 60 · PyreRegent 80 · VaultAcolyte 22 · CinderHound 18 (juggle) · SootBomber 6 (juggle) · PyreArcher 5 (juggle) · EmberWisp 3.</li>
-    <li><b>1 rest:</b> Rest_EmberTrail — <code>healMissingFraction = 0.4</code>, <code>forgeEnabled = true</code>.</li>
+    <li><b>10 bosses, since 2026-08-15 — every biome holds a distinct one.</b> Four bespoke: Boss_Krag, Boss_CinderShepherd, Boss_PyreRegent, and Boss_DemonKing — the run's terminal fight, and the longest entrance of the ten (<code>entranceDelay = 1.4</code>) because he is the one the whole run was walking toward and the level music has already faded to silence by the time he speaks. Six <b>stopgaps</b>, <code>Boss_Stopgap_&lt;Biome&gt;</code>, each promoting a mob that biome's own spawn table fields (in parentheses above) under a placeholder "Warden of …" <code>displayName</code>; built by <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Create Stopgap Biome Bosses</span> (<code>Assets/_Game/Editor/Run/StopgapBiomeBossBuilder.cs</code>), which refuses to touch a boss field it did not write. They are placeholders and their names say so — the fights are the work in <code>Documentation/OUTSTANDING.md</code>, the row <i>"Six bosses are promoted mobs, and they do not fight like bosses"</i>. Only the four bespoke bosses have a <code>[Boss:]</code> section in the INI.</li>
+    <li><b>Four biomes still omit the <code>boss</code> key</b> (mire, spire, hollow, gale) — but they are not boss-less: each carries its stopgap on the <b>asset</b>, wired by the builder above rather than from this file. The omission is deliberate and the INI says so in a comment: <code>displayName</code> is the field that stops a promoted mob's health bar reading <code>IMPSCOUTDEF</code>, and <code>ContentIniImporter.ApplyBoss</code> has no case for it, so the INI cannot yet express the whole of one of these. An omitted key leaves the asset untouched on import (unlike <code>boss = -</code>, which clears it), so the check-sync verdict stays clean. Mirror them as <code>boss =</code> lines the day the importer learns <code>displayName</code>, or the day a bespoke fight replaces one — a <code>boss = Boss_X</code> line wins over nothing else and breaks nothing.</li>
+    <li><b>8 enemy blocks:</b> Krag 40 HP no-juggle · CinderShepherd 60 · PyreRegent 80 · VaultAcolyte 22 · CinderHound 18 (juggle) · SootBomber 6 (juggle) · PyreArcher 5 (juggle) · EmberWisp 3. (No block per stopgap boss — they reuse these definitions unchanged, which is why the Mire's boss is an EmberWisp with 3 HP before depth scaling.)</li>
+    <li><b>1 rest:</b> Rest_EmberTrail — <code>healMissingFraction = 0.4</code>, <code>forgeEnabled = true</code>, <code>rewardsEnabled = true</code>.</li>
   </ul>
   <h3>The import loop</h3>
   <ol class="steps">
@@ -410,10 +413,10 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     </div>
     <div class="card accent-cyan">
       <h4>Mod-friendly by construction</h4>
-      <p>One-way import + the validator-as-build-gate means text edits can never silently break a build — a typo errors and leaves wiring untouched. Pair that with a human-editable <code>config.ini</code> and the ready-but-unused <code>TunableRegistry</code>, and the tuning surface is already shaped for hands that aren't ours.</p>
+      <p>One-way import + the validator-as-build-gate means text edits can never silently break a build — a typo errors and leaves wiring untouched. Pair that with a human-editable <code>config.ini</code> and a <code>TunableRegistry</code> that the Impact tab has now used exactly as designed (§04), and the tuning surface is already shaped for hands that aren't ours.</p>
     </div>
   </div>
-  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
+  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. The order in which the open items on this page are meant to land — the <code>[Player]</code> section and per-state cloning, <code>displayName</code> in <code>[Boss:]</code>, campaign-declared biomes and bosses, the Deck hardware walk — is sequenced in <code>Documentation/DESIGNER-HANDOFF-PLAN.md</code>; the rows themselves live only in <code>Documentation/OUTSTANDING.md</code>. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
 </section>
 
 <div class="honest">
@@ -421,7 +424,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <ul>
     <li>The attribute + registry: <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code>, <code>Assets/_Framework/DebugUI/TunableTabs.cs</code> (signature, type support, tab merging, <code>TunableRegistry</code>).</li>
     <li>The panel + save semantics: <code>Assets/_Framework/DebugUI/DebugUI.cs</code>, <code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code> (tabs, the release gate, save keys, auto-save modes, file locations, startup order).</li>
-    <li>The tunable inventory: <code>Assets/_Game/Player/Code/PlayerContext.cs</code>, <code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>, <code>Assets/_Game/Combat/Code/CombatHitboxViewer.cs</code> (the Hitboxes tab, §3); authored defaults in <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> and — for the mover only — <code>Assets/Prefabs/Player.prefab</code>; the clone in <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code>.</li>
+    <li>The tunable inventory: <code>Assets/_Game/Player/Code/PlayerContext.cs</code>, <code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>, <code>Assets/_Game/Combat/Code/CombatHitboxViewer.cs</code> (the Hitboxes tab, §3), and the three Impact hosts <code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code>, <code>Assets/_Game/Systems/Mechanics/ShakeComponent.cs</code>, <code>Assets/_Game/Player/Code/PlayerHurtReact.cs</code> (§3/§4, pinned by <code>Assets/Tests/PlayMode/ImpactTuningTests.cs</code>); authored defaults in <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> and — for the mover only — <code>Assets/Prefabs/Player.prefab</code>; the clone in <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code>.</li>
     <li>The <code>Save</code> rule §2/§3/§5 turn on: <code>Assets/Tests/PlayMode/TunableParityTests.cs</code>, plus the live <code>DebugSettings/DebugSettings.json</code> (if a key there is not <code>Camera.*</code>, this page is wrong or the suite is red).</li>
     <li>Player settings: <code>Assets/_Game/Systems/Settings/GameSettings.cs</code>, <code>ConfigStore.cs</code>, <code>IniConfigBackend.cs</code>; menu rows in <code>Assets/_Game/UI/Code/Screens/SettingsMenuController.cs</code>; the <code>config.ini</code> path segments in <code>ProjectSettings/ProjectSettings.asset</code> (<code>companyName</code> / <code>productName</code>).</li>
     <li>The content INI: <code>Assets/_Game/Content/GameContent.ini</code> and <code>Assets/_Game/Editor/ContentIniImporter.cs</code> (sections, keys, grammar, create-vs-tune rules) — a new key means a new table row here.</li>
