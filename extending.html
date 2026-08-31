@@ -11,12 +11,14 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="guide.html">Build a Game</a>
   <a href="onboarding-programmer.html">For Programmers</a>
   <a href="onboarding-artist.html">For Artists</a>
   <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="executions.html">Executions</a>
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
@@ -334,7 +336,7 @@
   <div class="warn note"><b>Gotcha:</b> <code>PropertyName</code> must be a <b>property</b> on the context type, not a field. A field name compiles to nothing and the transition just never fires.</div>
 
   <h3>Executions &amp; statuses — the combat gate seam</h3>
-  <p><code>ExecutionDefinition</code> (menu <code>Combat/Execution Definition</code>) gates finishers on <code>RequiredDamageType</code>, <code>MustBeAirborne</code>/<code>MustBeGrounded</code>, and <code>RequiredStatus</code> + <code>MinStatusCount</code> + <code>ConsumeStatusOnTrigger</code>. The status pipeline: <code>WeaponDefinition.StatusesToApply</code> puts a <code>CombatStatusDefinition</code> (StatusName, <code>DecayTime = 5</code>, <code>MaxStacks = 10</code>) on the target on hit, and that stack count then gates <b>executions — and only executions</b>. <code>ExecutionDefinition.CheckConditions</code> is the one reader of <code>CombatStatusManager.GetStatusCount</code> in the game; none of the nine enemy transition conditions under <code>Enemies/Code/Definitions/Transitions/Conditions/</code> reads a status, <code>EnemyConditionCompiler</code>'s <code>[Graph:]</code> allowlist has no status head, and <code>EnemyContext</code> exposes no status <i>count</i> a <code>DynamicCondition</code> could bind (its <code>CombatStatus</code> property is the manager object, not a number). So "execute when the target has 3 Ignite" is pure assets — no code — while "change state when the target has 3 Ignite" is not yet authorable, and a status carries no payload of its own (no tick damage, no slow): see OUTSTANDING <i>"A status effect can only count"</i>. The <code>MaxStacks</code> field's own note still says "+ transitions"; the code does not.</p>
+  <p><code>ExecutionDefinition</code> (menu <code>Combat/Execution Definition</code>) gates finishers on <code>RequiredDamageType</code>, <code>MustBeAirborne</code>/<code>MustBeGrounded</code>, and <code>RequiredStatus</code> + <code>MinStatusCount</code> + <code>ConsumeStatusOnTrigger</code>. The status pipeline: <code>WeaponDefinition.StatusesToApply</code> puts a <code>CombatStatusDefinition</code> (StatusName, <code>DecayTime = 5</code>, <code>MaxStacks = 10</code>) on the target on hit, and that stack count then does three things: it gates <b>executions</b>, it ticks <code>DamagePerTick</code> damage every <code>TickInterval</code> seconds, and it removes <code>SlowAmount</code> of movement speed — the last two since 2026-08-18, both multiplied by the count, both on enemies and the player alike. <b>And a stack gates an FSM edge</b> through the <code>status</code> condition (<code>status Ignite &gt;= 2</code>), so "enrage while burning" is now authorable in the Workbench and in a mod’s <code>[Graph:]</code> text alike. The note on <code>MaxStacks</code> that has always said "+ transitions" is finally true. <code>ExecutionDefinition.CheckConditions</code> is the one reader of <code>CombatStatusManager.GetStatusCount</code> in the game; none of the nine enemy transition conditions under <code>Enemies/Code/Definitions/Transitions/Conditions/</code> reads a status, <code>EnemyConditionCompiler</code>'s <code>[Graph:]</code> allowlist has no status head, and <code>EnemyContext</code> exposes no status <i>count</i> a <code>DynamicCondition</code> could bind (its <code>CombatStatus</code> property is the manager object, not a number). So "execute when the target has 3 Ignite" is pure assets — no code — while "change state when the target has 3 Ignite" is not yet authorable, and a status carries a payload since 2026-08-18 (<code>DamagePerTick</code> + <code>TickInterval</code>, <code>SlowAmount</code>) and gates a TRANSITION through the <code>status</code> condition, so the <code>MaxStacks</code> note that has always said "+ transitions" is finally true. What a player can SEE of a status is still a name and a count — OUTSTANDING <i>"A status effect is unreadable"</i>.</p>
 </section>
 
 <section id="worked">

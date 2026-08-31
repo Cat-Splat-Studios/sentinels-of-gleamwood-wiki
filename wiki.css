@@ -77,6 +77,14 @@ figure.shot figcaption b { color: var(--text); }
 .shotgrid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); margin: 18px 0; }
 .shotgrid figure.shot { margin: 0; }
 
+/* A figure whose screenshot is not captured yet. Capture is a HUMAN-at-the-editor job — the
+   capture menu photographs the FOREGROUND WINDOW, so driven headlessly it overwrites every PNG
+   with a picture of a terminal. The pending block names exactly what the frame must show, so the
+   capture session needs no archaeology; the accumulating shot list lives in OUTSTANDING "Two wiki
+   screenshots need a human at the machine". */
+figure.shot.pending { border: 1px dashed var(--line); border-radius: 10px; background: rgba(139,145,160,.05); padding: 14px 16px; }
+figure.shot.pending figcaption { margin-top: 0; }
+
 .kbd { font-family: var(--mono); background: var(--bg2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 7px; font-size: .82em; color: var(--text); white-space: nowrap; }
 
 /* recipe steps */

@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build a Game — Gleamwood Wiki</title>
+<link rel="stylesheet" href="wiki.css">
+</head>
+<body>
+
+<nav class="wiki">
+  <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
+  <a href="quickstart.html">Quick Start</a>
+  <a class="on" href="guide.html">Build a Game</a>
+  <a href="onboarding-programmer.html">For Programmers</a>
+  <a href="onboarding-artist.html">For Artists</a>
+  <a href="onboarding-designer.html">For Designers</a>
+  <a href="workbench.html">Workbench</a>
+  <a href="combat.html">Combat &amp; Weapons</a>
+  <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="executions.html">Executions</a>
+  <a href="dialogue.html">Dialogue</a>
+  <a href="levels.html">Levels &amp; Rooms</a>
+  <a href="progression.html">Progression</a>
+  <a href="ui.html">UI &amp; HUD</a>
+  <a href="audio.html">Audio</a>
+  <a href="tuning.html">Tuning &amp; INI</a>
+  <a href="modding.html">Modding</a>
+  <a href="extending.html">Extending</a>
+  <a href="framework.html">Framework</a>
+  <a href="diagrams.html">Diagrams</a>
+  <a href="publishing.html">Publishing</a>
+  <a href="maintaining.html">Maintaining</a>
+</nav>
+
+<header class="page">
+  <h1>Build a <span class="flame">Game</span></h1>
+  <p class="tag">The designer's manual, as one continuous walk: from a fresh clone to a campaign folder another person can play. Every chapter is a <b>procedure</b> — the reference pages keep the facts, and the chapters link rather than restate them, so a fact never forks. Each ends with <b>what success prints</b> and a checklist. Figures marked <i>to capture</i> await the next human-at-the-editor screenshot session.</p>
+</header>
+
+<main>
+
+<div class="honest">
+  <h4>What keeps this page honest</h4>
+  <ul>
+    <li>Every chapter was drafted from fact packs verified against source, then <b>adversarially walked cold</b> by a second pass that tried to refute it — menu paths, file paths, verbatim console lines, anchors, counts, and the steps themselves. What the walk caught was fixed before this page first shipped.</li>
+    <li><code>Tools/check-wiki.py</code> checks the mechanical half on every doc commit: links, anchors, section numbering, nav, figures, provenance.</li>
+    <li>The chapters own <b>procedures</b> and link the reference pages for facts — a fact that changes breaks one page, not twelve. Where a step here disagrees with a reference page or with the game, the code is right and the doc is stale: fix the doc in the same commit.</li>
+    <li>Figures marked <i>to capture</i> are shot by a <b>human at the editor</b> — the capture tool photographs the foreground window, so driven headlessly it overwrites every PNG with a picture of a terminal. The accumulated shot list lives in OUTSTANDING "Two wiki screenshots need a human at the machine".</li>
+    <li>The gate this page must pass is a <b>stranger-designer walking it end to end</b>. Until someone who has never opened this project builds and shares a campaign with only these eleven chapters, this manual is on probation.</li>
+  </ul>
+</div>
+
+<section id="ch1-kit">
+  <h2><span class="num">01</span>The kit and the contracts</h2>
+  <p class="lead">You have cloned the repo and opened it in Unity. Before you make any content, this chapter hands you the contracts every asset in the project obeys — the two pixel grids, the one PPU, the pivot rule, the split-rig twin rule, the clip grammar, the audio style — and the generated placeholder kit that embodies all of them. Nothing here asks you to read code; where a reference page owns a fact, this chapter links it rather than restating it.</p>
+
+  <h3>Where you are standing</h3>
+  <ol class="steps">
+    <li>Open the project in <b>Unity 6000.5.2f1</b> and let the first import finish.</li>
+    <li>Open <code>Assets/_Scenes/0.Bootstrapper.unity</code>. It is build index 0 and the only scene that boots the whole game — services, splash, title. Playing any other scene directly leaves you without a save slot, which quietly disables things like dialogue rotation.</li>
+    <li>Press Play, pick a save slot at the title, and play for a minute. The art you see is the <b>shipped</b> art; beside it, generated but deliberately unwired, sits the <b>placeholder kit</b> under <code>Assets/_Sprites/Kit/</code> — flat silhouettes drawn in C#, and most of this chapter.</li>
+    <li>Stop play mode before touching anything else. This guide runs editor menu items, and those want an idle editor.</li>
+  </ol>
+
+  <h3>One PPU, two grids</h3>
+  <p>Every sprite imports at <b>64 pixels per unit</b>. That single number is what makes art, rooms, colliders and reachability agree: 64&nbsp;px is exactly one world unit, which is one tile of the greybox tilemap. What varies is the <b>cell</b> an asset is drawn in, and there are two of them:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Grid</th><th>Cell</th><th>World size</th><th>Layout</th><th>Used by</th></tr>
+    <tr><td><b>Kit grid</b></td><td>64 × 64 px</td><td>1 × 1 unit</td><td>Rows are clips, columns are frames, one sheet per creature</td><td>The generated kit — every enemy sheet and the kit hero rig</td></tr>
+    <tr><td><b>Hero art grid</b></td><td>128 × 96 px</td><td>2 × 1.5 units</td><td>One animation per PNG, frames left → right in a single row</td><td>Incoming hand-drawn player art, per <code>Documentation/PLAYER-ART-BRIEF.md</code></td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>Both grids are PPU 64, and that is exactly why they get conflated.</b> Read "128×96? PPU 64?" as one spec and you author kit-shaped art at the wrong size, or brief-shaped art into the kit contract. Ask of every sheet you touch: <em>which grid is this on?</em></div>
+  <p><b>The pivot rule is the same on both: bottom-centre, feet on the pivot.</b> The kit slices every frame at bottom-centre so poses of different heights share a floor; the hero brief has the character standing on the bottom edge of the cell. In mod text a pivot is written in <b>pixels</b> — <code>pivot = 2</code> means "my character's feet sit 2&nbsp;px above the bottom of a frame" — because a Unity fraction like the shipped 0.0127 is a number nobody can measure off their art.</p>
+  <div class="warn note"><b>Two player documents disagree on purpose.</b> <code>Documentation/PLAYER-ART-BRIEF.md</code> is the deliverable spec for the rig being moved to — one full-body drawing per animation, the waist split done by shader, the cape on its own <code>_Cape</code> layer. <code>Documentation/PLAYER-ASSETS.md</code> is a generated inventory of what the project contains <em>today</em> — hand-split <code>Upper_*</code> sheets, cape baked in. Each file opens by pointing at the other. Quote either as if it described the other and you ship a falsehood.</div>
+
+  <h3>The placeholder kit — the contracts, executable</h3>
+  <p>The kit is one flat-silhouette sheet per enemy plus a hero rig, regenerable at any time — the licence-clean art that makes stripping the machine-generated sheets a decision rather than a demolition. Its <b>shape is read off the shipped clip sets</b>: clip names, frame counts, fps, loop flags and authored durations are copied, so swapping it in retimes no fight. It lands in <code>Assets/_Sprites/Kit/</code> (stills in <code>Assets/_Sprites/Kit/Stills/</code>) and touches nothing outside that folder: prefabs keep playing whatever they were wired to.</p>
+  <ol class="steps">
+    <li>If the roster changed since the last generation — a new enemy prefab, a renamed definition — run <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Rebuild Catalog</span> first. The kit generates for the <code>EnemyCatalog</code>, and that catalog is regenerated by scanning, never hand-maintained: <b>a new enemy is invisible to the kit until the catalog is rebuilt</b>.</li>
+    <li>Run <span class="kbd">Gleamwood ▸ Dev ▸ Art ▸ Generate Placeholder Kit</span> — the animated half: enemy sheets, their clip sets, the hero rig.</li>
+    <li>Run <span class="kbd">Gleamwood ▸ Dev ▸ Art ▸ Generate Placeholder Kit Stills</span> — the single-sprite slots: fifteen dialogue portraits, the hero's HUD portrait, the weapon icons, the socket cap, the hub and rest fixtures.</li>
+    <li><span class="kbd">Gleamwood ▸ Dev ▸ Art ▸ Generate Placeholder Arrow</span> rounds out the placeholder surface: it writes <code>Assets/_Game/Combat/FX/Arrow.png</code>, the one projectile sprite. Replace that file with real art and delete nothing else.</li>
+  </ol>
+  <p>What a kit sheet obeys — and what any sheet you slice by hand should obey too:</p>
+  <ul>
+    <li><b>Rows are clips, columns are frames.</b> Hide clips and twins take no row — and Unity's texture origin is bottom-left, so the <em>first</em> clip is the <em>top</em> row.</li>
+    <li><b>Sprites are named <code>{slug}_{clipName}_{frame}</code></b>, where the slug is the definition name minus <code>Def</code>, lowercased — <code>hero_Idle_0</code>, or <code>cinderhound_cinderhound-run_0</code>: enemy clip names keep their shipped prefixes, so copy them from the clip set, never guess.</li>
+    <li><b>Import settings:</b> Sprite / Multiple, PPU 64, Point filter (pixel art: never bilinear), Uncompressed, no mipmaps. Field by field: <a href="onboarding-artist.html#importer">the artist page's importer table</a>.</li>
+    <li><b>Colours are deterministic from the name</b>, so a regeneration is a reviewable diff, never a reshuffle.</li>
+  </ul>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-kit-hero-sheet.png</code></b> — the Sprite Editor open on <code>Assets/_Sprites/Kit/hero.png</code>, zoomed so several rows and their slice rects are visible, with a sliced sprite named <code>hero_Idle_0</code> selected to show rows-are-clips, columns-are-frames and the naming scheme.</figcaption>
+  </figure>
+  <p class="dim">Two things the stills generator deliberately does NOT make: a background (nothing in the game references one) and a weapon-icon plate (<code>WeaponPedestal</code> fills those renderers at runtime). "Completing" the kit with either creates unwired assets that read as wired. Enemy silhouettes are derived from each definition's verbs and its collider, and the boss crown marks only bespoke bosses — the reference is <a href="onboarding-artist.html#enemies">the artist page's enemy section</a>.</p>
+
+  <h3>The split rig and the twin rule</h3>
+  <p>The player draws through two renderers — GameObjects literally named <code>Legs</code> and <code>UpperBody</code>, and a clip's <code>slot</code> matches those exact names — so firing a bow cannot reset the running stride. The mechanism lives on <a href="onboarding-artist.html#splitrig">the artist page's split-rig section</a>; what this chapter needs you to hold is the one rule it produced:</p>
+  <div class="rule note"><b>Both halves of a split pair are ONE drawing.</b> <code>Upper_Run</code> is not a torso drawn to match <code>Run</code> — it is <code>Run</code>'s frames again, in the upper slot. Two different drawings asked to meet at the waist measured an <b>11&nbsp;px</b> seam on the shipped archer; one drawing brought it to <b>2.7&nbsp;px</b>, the floor. The three pairs that must share frames: <code>Run</code>&nbsp;+&nbsp;<code>Upper_Run</code>, <code>RunBowCharge</code>&nbsp;+&nbsp;<code>Upper_RunBowCharge</code>, <code>RunBowShoot</code>&nbsp;+&nbsp;<code>Upper_RunBowShoot</code>.</div>
+  <p>The kit enforces this structurally: a twin is detected by <b>frame list</b>, never by name, and takes no row of its own — its clip points at the owner's <em>same</em> sprite objects, not copies. (Detection by list is why <code>Upper_Slash1</code>, which has no body clip behind it, correctly keeps its own torso row.) Two more hero contracts ride along with the rig:</p>
+  <ul>
+    <li><b>Hide clips must survive any regeneration.</b> A clip marked <code>hide</code> turns its renderer off instead of showing frames — the "nothing here right now" state. The hero has four (they hide the bow); no enemy has any, so a pipeline that drops them passes every enemy test and silently deletes the hero's.</li>
+    <li><b>Durations are copied, never derived.</b> Seven player clips are authored to end early; deriving frames÷fps ran the fall loop 36% long and the jump apex 21% — retiming the transitions gated on them rather than looking broken.</li>
+  </ul>
+
+  <h3>Clip naming, and the one clip grammar</h3>
+  <p>A character's animation vocabulary is a <b>Sprite Clip Set</b> — plain data, creatable at <span class="kbd">Assets ▸ Create ▸ Gleamwood ▸ Sprite Clip Set</span>, and buildable from text. Clip names are the wire: a state asks for a clip by name, and a name nothing asks for is a pose that silently never plays. The player's case warns about exactly that — a skin clip outside the vocabulary prints <i>"clip '…' was built from your art and the player never asks for it, so nothing will ever show it. Did you mean '…'?"</i> — but an enemy mod may legitimately invent names, so everywhere else the discipline is yours: copy names from the generated inventories below, never from memory.</p>
+  <p>One grammar declares clips as text, shared by three readers — a campaign's <a href="modding.html#player">player skin ini</a>, an enemy <a href="enemies.html#graph"><code>[Graph:]</code> block</a>, and the in-editor <span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span> — so learning it once covers all three:</p>
+<pre><code>clip NAME = SOURCE [fps N] [loop|once] [pivot P|X,Y] [slot NAME] [duration S]
+clip NAME = hides
+
+SOURCE is one of:
+  8-15         frames of the declared sheet   (also  0,3,5  and  7-0 reversed)
+  file.png     one image file
+  run_*.png    a glob over per-frame files, sorted case-insensitively</code></pre>
+  <p>Three behaviours worth knowing before you write a line of it:</p>
+  <ul>
+    <li><b>The sheet is optional.</b> A block may declare its clips entirely from separate image files — the shipped example skin does exactly that, globbing per-frame PNGs. But frame <em>numbers</em> without a sheet are refused: <i>"clip '…' uses frame numbers, but no sheet was declared. Add `sprite = &lt;file&gt;.png &lt;cols&gt;x&lt;rows&gt;` above, or name image files instead."</i></li>
+    <li><b>Clips loop by default</b>, and the builder nudges once per unwritten flag: <i>"'…' loops (the default). Write `once` if it is an attack, a death or anything that should play through and stop."</i> A death animation left looping is the trap that line exists for.</li>
+    <li><b>A <code>;</code> only opens a comment at the start of a line</b> in these ini files. Written after a value it stays in the value: <code>pivot = 2 ; note</code> is not a number, so the value is refused — the loader keeps the default and says so out loud: <i>"pivot = '2 ; note'. Write the PIXELS your character's feet sit above the bottom of a frame (`pivot = 2`)…"</i>. Heed that line rather than hunting a floating character; notes go on their own line. (Clip lines are the one exception — they ignore trailing words entirely.)</li>
+  </ul>
+  <p class="dim">In the Clip Set Builder window the source is frame indices only — it builds from a sheet you point it at, slicing to a grid first if asked — with the same keywords but <b>without the leading <code>clip&nbsp;</code></b>: its lines read <code>Name = frames …</code>, and typing the taught <code>clip Idle = 0-7</code> there is not refused — it silently makes a clip literally named "clip Idle", which nothing will ever ask to play. Its hide form is a trailing <code>hide</code> keyword, not <code>= hides</code>. Anything else it cannot read is refused with the list of what it can. The slot values that mean anything on the player are <code>Legs</code> and <code>UpperBody</code>; empty means the main renderer. A skin's art lands at the project's 64 PPU automatically — the scale is read back off the shipped player art, never off a key you could get wrong.</p>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-clipset-builder.png</code></b> — the Clip Set Builder window (<span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span>) with a kit sheet assigned and the default declaration text visible, showing the <code>Name = frames [fps N] …</code> grammar comment and the <code>Upper_Run … slot UpperBody</code> example line.</figcaption>
+  </figure>
+
+  <h3>Where the generated inventories live</h3>
+  <div class="scrollx">
+  <table>
+    <tr><th>Inventory</th><th>Regenerate with</th><th>What it is</th></tr>
+    <tr><td><code>Documentation/PLAYER-ASSETS.md</code></td><td><span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Asset List</span></td><td>Every clip the player rig declares — slots, frames, fps, durations, twins — read from the live asset. Its own guard line: <i>"This file is GENERATED. Do not edit it — your edit will be overwritten and, worse, believed."</i> No timestamp, deliberately: a clock in a generated file makes every regeneration a diff.</td></tr>
+    <tr><td><code>Documentation/PlayerSkinTemplate/</code></td><td><span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Skin Template</span></td><td><code>PlayerSkin.ini</code> + README — the player's clip vocabulary with each clip's slot, the same files a build ships. The only way a modder knows the names without opening Unity.</td></tr>
+    <tr><td><code>Documentation/ExampleMod/</code></td><td><span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Example Skin</span></td><td>A real, droppable example skin — the shipped frames recoloured icy monochrome, locomotion clips only, so the untouched combat clips demonstrate <code>clips = extend</code>. The worked example behind <a href="modding.html#example">the modding page's example pack</a>.</td></tr>
+    <tr><td><code>Documentation/PROVENANCE.md</code></td><td>hand-edited; checked by <code>Tools/check-provenance.py</code></td><td>The ledger of where every media file under <code>Assets/</code> came from. <b>Any PNG or WAV you add fails <code>check-wiki.py</code> until it has a row</b> — and a stale row covering nothing fails it too.</td></tr>
+  </table>
+  </div>
+  <p class="dim">Testing a skin in the editor: it only loads with a campaign active or <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Player</span> toggled on, and only in play mode — with neither you see vanilla and no error; builds always load. The walk-through is <a href="modding.html#player">the modding page</a>, and <a href="modding.html#report">its boot-report section</a> shows what loaded. Which document regenerates from what, project-wide: <a href="maintaining.html#matrix">the maintaining page's update matrix</a>.</p>
+
+  <h3>The audio style contract, in one paragraph</h3>
+  <p>Every sound is a <b>mono 44.1&nbsp;kHz WAV</b> in one of three families: combat sounds are arcade-flavoured layered impacts finished through a band-limit / rate-crunch / drive chain; the bow family is the deliberate natural exception, no tonal sweeps; UI sounds are clean blips with no crunch — and their <em>filenames are the wire</em> (<code>ui_move</code>, <code>ui_submit</code>…), so replacing one under its existing name is the whole job. Enemy sounds are sized S/M/L by class, never by invented numbers. The recipes, finish-chain parameters and per-family rules live in <a href="audio.html#style">the audio page's style contract</a>; the end-to-end add-a-clip procedure is <a href="audio.html#recipe">its recipe section</a>. A sound that skips its family's contract sticks out of the mix like a stock-asset thumb.</p>
+
+  <h3>What success prints</h3>
+  <p>Run the two kit generators back to back. The Console must end with these two lines — the counts vary with the roster; every word around them does not:</p>
+<pre><code>[Kit] <span class="a">N</span> sheet(s), <span class="a">N</span> clip(s) (<span class="a">N</span> the roster did not have), <span class="a">N</span> clip set(s) under Assets/_Sprites/Kit, plus the hero rig. This writes the kit and nothing else: no prefab, scene or asset outside Assets/_Sprites/Kit is touched, so re-running it is always safe.
+
+[Kit] stills: <span class="a">N</span> portrait(s) (fifteen dialogue + the hero's HUD one), <span class="a">N</span> weapon icon(s), <span class="a">1</span> socket cap, <span class="a">N</span> hub/rest fixture(s) under Assets/_Sprites/Kit/Stills. No background — nothing references one, so there is no slot to fill.</code></pre>
+  <p>If you instead see <i>"[Kit] No EnemyCatalog in Resources, so there is no roster to generate for."</i>, run <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Rebuild Catalog</span> — its own success line reads <i>"[Enemies] Catalog rebuilt: N enemies — …"</i> — then generate again. And <i>"[Kit] No hero clip set at Assets/_Game/Player/Data/Player.asset, so the hero half of the kit cannot be generated. Everything the strip needs for the ENEMIES is still written."</i> means the player rig moved: stop and ask before continuing.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li><code>Assets/_Sprites/Kit/</code> holds a <code>&lt;slug&gt;.png</code> + <code>&lt;slug&gt;.asset</code> pair for every catalogued enemy, plus <code>hero.png</code> / <code>hero.asset</code>.</li>
+    <li><code>Assets/_Sprites/Kit/Stills/</code> holds the portraits, weapon icons, socket cap and hub/rest fixtures — and <b>no background</b>: that absence is correct.</li>
+    <li>The Console shows both <code>[Kit]</code> lines above — the sheets line ending "re-running it is always safe", the stills line ending "there is no slot to fill".</li>
+    <li><span class="kbd">Gleamwood ▸ Dev ▸ Player ▸ Generate Asset List</span>, then <code>git diff Documentation/PLAYER-ASSETS.md</code> shows no change — a diff means the inventory was stale, and the regeneration is the fix: commit it.</li>
+    <li><code>Documentation/PlayerSkinTemplate/PlayerSkin.ini</code> exists and its upper-track clip lines carry <code>slot UpperBody</code>.</li>
+    <li>For the next asset you touch, you can say which grid it is on (64×64 kit or 128×96 hero) and where its pivot sits (bottom-centre, feet on the pivot).</li>
+    <li>Every media file you added under <code>Assets/</code> has a row in <code>Documentation/PROVENANCE.md</code> — <code>python Tools/check-provenance.py</code> exits clean.</li>
+  </ul>
+  <p class="dim">You now hold every contract content is authored against. Next: <b>02 · A biome from nothing</b> — the first thing you make with them is a place to stand.</p>
+</section>
+
+<section id="ch2-biome">
+  <h2><span class="num">02</span>A biome from nothing</h2>
+  <p class="lead">Chapter 01 left you with a project you can open, play, and trust. This chapter you make a place: a whole biome — identity, look, music, roster, rooms — authored in one text block, wired into the run web, and reached in play. You will not write C#, and you will not hand-create the asset either; the file does both.</p>
+
+  <h3>Where a biome lives</h3>
+  <p>A biome is one ScriptableObject — <a href="levels.html#biome">BiomeDefinition</a> — but you do not make it by hand. A <code>[Biome:&lt;id&gt;]</code> section in <code>Assets/_Game/Content/GameContent.ini</code> <b>creates</b> the asset on import, at <code>Assets/_Game/Biomes/Biome_&lt;id&gt;.asset</code>, and every later import re-applies your keys onto it. The full grammar and key tables live in <a href="tuning.html#gamecontent">Tuning §08</a> and <a href="levels.html#ini">Levels §10</a>; this chapter is the walk.</p>
+  <div class="rule note"><b>The INI is strictly one-way and editor-only.</b> It is the authoring source; the assets stay the runtime truth, and the game never reads INI at runtime. Only <b>Biome</b> and <b>Boss</b> sections create missing assets — <code>[Enemy:]</code> and <code>[Rest:]</code> deliberately <b>error</b> on one, because an enemy's FSM and a rest's layout are authored in Unity and conjuring an empty one would hide the real mistake.</div>
+
+  <h3>The walk</h3>
+  <ol class="steps">
+    <li><b>Write the biome block.</b> Open <code>Assets/_Game/Content/GameContent.ini</code> in any text editor and add this after the shipped <code>[Biome:]</code> blocks (order does not matter — creation is hoisted before any field applies, so even forward references resolve in one import):
+<pre><code><span class="t">[Biome:ashfall]</span>
+<span class="a">displayName</span> = The Ashfall
+<span class="a">objective</span> = Cross the grey rain to the far gate.
+<span class="a">topology</span> = Branching
+<span class="a">minRooms</span> = 3
+<span class="a">maxRooms</span> = 4
+<span class="a">calmRoomBeforeBoss</span> = true
+<span class="a">branches</span> = 4
+<span class="a">bandHeight</span> = 20
+<span class="a">pathRoomsMin</span> = 4
+<span class="a">pathRoomsMax</span> = 6
+<span class="a">statScalePerStage</span> = 0.25
+<span class="a">roomPool</span> = Room_Ember_*, Room_Fan_*, Room_Slip_Ember
+<span class="a">socketCap</span> = SocketCap_Emberfall
+<span class="a">spawnTable</span> = SpawnTable_Emberfall
+<span class="a">musicTrack</span> = Overworld Theme
+<span class="a">ambientLightColor</span> = #9fd8ff
+<span class="a">cameraClearColor</span> = #101820</code></pre>
+      <div class="warn note"><b>Type it — do not copy a shipped block wholesale.</b> Every shipped block also authors <code>verticalJogChance</code>, <code>branchChance</code>, <code>maxBranches</code> and <code>branchRunMax</code> — keys the Branching generator <b>never reads</b>: accepted, stored, inert. Author only the keys your topology reads (the Workbench's Structure group draws exactly that set).</div>
+      The id after the colon is the <b>biomeId</b>: kebab-case, and <b>save data</b> — suspended runs store it and the resume fingerprint hashes it, so never rename one once players have saves. (<code>GameContent.ini</code> says the same thing, in its own words, above its five newest biomes.) Leave <code>chapter</code> out, as every shipped biome does: the intro card then counts the run — CHAPTER I on your first level, II on your second — and a hard-coded numeral cannot be right on a branching web.</li>
+    <li><b>Rooms — borrow the shipped pool.</b> The <code>roomPool</code> line above reuses Emberfall's greybox rooms, exactly as ten shipped biomes do: drawing rooms is its own trade with its own contract (<a href="levels.html#recipe">Levels §03</a>, <a href="levels.html#reachability">§04</a>). What a Branching pool must contain — Entry, Exit, middles, a <b>FanBase</b> (Left+Right+Up sockets, an <i>error</i> without one) and a <b>SlipAway</b> (a warning) — is enforced by the validator, and the borrowed pool passes all of it. <code>socketCap</code> seals every unused door aperture; a pool without one is an error. Before you ever edit that line: pool entries resolve into a <b>name-sorted</b> set whose order feeds the seeded generator, so renaming a room or widening a glob silently changes layouts for old seeds. <span class="kbd">Gleamwood ▸ Audit Room Reachability</span> runs the same room auditor standalone whenever you want the sweep alone.</li>
+    <li><b>Roster.</b> <code>spawnTable</code> names the table rolled at every spawn marker in your layout (<a href="levels.html#spawntables">Levels §08</a>). Borrowing <code>SpawnTable_Emberfall</code> works today; to own your cast, create one — <span class="kbd">Assets ▸ Create ▸ Gleamwood ▸ Enemy Spawn Table</span>, named <code>SpawnTable_Ashfall</code> beside the shipped ones in <code>Assets/_Game/Biomes/Emberfall/</code> — fill its entries in the Inspector (an enemy prefab with <a href="enemies.html#prefab">EnemyStateMachine on the root</a>, a weight, how deep into the run and the level it may appear), then write <code>spawnTable = SpawnTable_Ashfall</code>. <code>statScalePerStage</code> is the run-depth scaling on top: spawned enemies get <code>1 + stageIndex × this</code> applied to their health, context-side, never the shared asset.</li>
+    <li><b>Music.</b> <code>musicTrack</code> names any AudioClip in the project (<a href="audio.html#slots">Audio §05</a> maps the slots). Know the silence rule: <b>a biome with no track plays NOTHING</b> — the validator says so as a warning, not an error, because a silent biome ships. Skip the key and the first entry in play prints one honest line: <code>[Music] Biome 'Biome_ashfall' has no musicTrack — playing nothing. A biome with no music is silent on purpose; it does not borrow another biome's.</code>
+      <div class="warn note">Two tooltips still claim the opposite — the asset's <code>musicTrack</code> tooltip and a line on the Workbench Levels form say an empty track falls back to the MusicSet's LevelTrack. The code wins: empty is silence. (The fallback survives only for scenes entered <i>outside</i> a run, where no biome has spoken.)</div></li>
+    <li><b>The look.</b> Six fields dress a biome: <code>wallTile</code>, <code>floorTile</code>, <code>platformTile</code>, <code>backgroundPrefab</code>, <code>ambientLightColor</code>, <code>cameraClearColor</code> (<a href="levels.html#biome">the field reference</a>). The three tiles paint as a <b>collider-less overlay</b> over the room's collision maps — the greybox keeps every collider, so a pretty tile can never change the shape of the world. Every field is optional: skip one and the greybox stays. The block above takes the smallest visible dressing — two colours. Alpha carries meaning in the colour grammar: <code>#RRGGBB</code> is <b>opaque</b> (<code>#000000</code> IS black), while omitting the key or writing <code>-</code> means "leave the scene alone". A designer who wants black must write the colour; one who wants nothing must write nothing.</li>
+    <li><b>The node — join the web, or nothing ever visits.</b> A biome no <code>[Node:]</code> references imports clean and validates clean, and runs simply never go there — the only surface that says so is the Workbench's Registration row. Add a node and give an existing one a door to it:
+<pre><code><span class="c">; NEW - after [Node:t3-c]. Not terminal, so it needs a rest between it and what comes next.</span>
+<span class="t">[Node:t3-d]</span>
+<span class="a">biome</span> = ashfall
+<span class="a">rest</span> = Rest_EmberTrail
+<span class="a">next</span> = t4-b
+
+<span class="c">; EDITED - [Node:t2-c] gains a third door</span>
+<span class="a">next</span> = t3-c, t3-a, t3-d</code></pre>
+      The grammar is exactly four keys — <code>biome</code> (by biomeId), <code>rest</code>, <code>next</code>, <code>bypass</code> — with <code>-</code> meaning none/terminal (<a href="levels.html#web">Levels §07</a> owns the web's rules). Three constraints shape where a node can go: the web must stay <b>acyclic</b> (runs must end); a fork can be at most <b>three</b> ways wide today (the shipped rest layout pools exactly three PathDoors and the validator refuses a wider fork — why this walk forks <code>t2-c</code>, not <code>start</code>); and a <code>bypass</code> needs its biome's <code>calmRoomBeforeBoss</code> on — the junction door has no room to live in otherwise. Keep node ids <b>neutral</b> (<code>t3-d</code>, not <code>ashfall-node</code>): node ids are save data too, and a neutral id lets the biome be re-themed forever without tempting a rename.
+      <div class="warn note"><b>Changing the web invalidates suspended runs.</b> The web's shape is fingerprinted into every suspended run, and a mismatch refuses to resume — the profile (Gleam, unlocks, playtime) is untouched. Finish or abandon any in-flight run before you import.</div></li>
+    <li><b>Import.</b> Save the file and run <span class="kbd">Gleamwood ▸ Import Content INI</span>. Watch the Console, in order: a one-line divergence report naming the units about to be overwritten (your edited sections — the import doing its job), then the creation line for your biome, the section tally, and the validator, which runs automatically after every import. The failure semantics are safe by design: a malformed number errors and <b>keeps the shipped value</b>, an unresolvable asset name errors and <b>leaves the field unchanged</b>, an unknown key warns and changes nothing — a typo costs one line, never your wiring.</li>
+    <li><b>Check it in the Workbench.</b> Open <span class="kbd">Gleamwood ▸ Content Workbench</span> (<a href="workbench.html#opening">how</a>), pick the <a href="workbench.html#levels">Levels tab</a>, select <code>Biome_ashfall</code>. The Registration row must read <b>referenced by the run plan</b> — before step 6 it read <i>not in any RunPlan node - runs never visit it</i> — and the INI row must read <b>in sync</b>. Identity, Music, the six Look rows, Structure (only the dials your topology reads) and the content links are retunable here from now on; rooms, pool, <code>socketCap</code> and <code>standInLayout</code> deliberately stay in the raw inspector and the INI.
+      <figure class="shot pending">
+        <figcaption><b>Figure (to capture): <code>images/guide-biome-workbench-levels.png</code></b> — Content Workbench, Levels tab, with a biome selected after an import: the Registration row reading <i>referenced by the run plan</i> and the INI row reading <i>in sync</i>, with the Look section beneath them. Those two green rows are what your own biome must show before a run can reach it.</figcaption>
+      </figure></li>
+    <li><b>Play into it.</b> Start a run from the hub portal and clear Emberfall to one of its <b>exit rooms</b>. <b>The fork is inside the level, not at the rest</b> — Emberfall is <code>Branching</code>, so it grows one way out per branch and labels each with where it leads. Walk to the one reading <b>→ The Sunken Mire</b> (that is <code>t2-c</code>); the rest that follows then shows no doors at all, which is correct rather than broken — your choice is already made, so it stands its pooled path doors down and simply carries you through. Those pooled doors are the <em>fallback</em>: they appear only when the level could not present the whole fork itself, which is why a fork is capped at the three the rest layout can pool. Clear the Mire the same way, taking its <b>→ The Ashfall</b> exit. The intro card says CHAPTER III over your <code>displayName</code> and <code>objective</code>, your track is playing, and the familiar greybox sits under your ambient light and clear colour. That is your biome: generated, populated, reachable.
+      <figure class="shot pending">
+        <figcaption><b>Figure (to capture): <code>images/guide-biome-path-door.png</code></b> — in play, in one of the Sunken Mire's exit rooms: the player standing at the <code>BiomeExit</code> labeled "→ The Ashfall" with the interact prompt visible.</figcaption>
+      </figure></li>
+  </ol>
+
+  <div class="note"><b>The boss slot is honestly empty.</b> This walk leaves <code>boss</code> unset — a legal, validated state: the biome generates and the arena runs stand-in adds only, but its gate then opens with no fight, no reward and no victory line. Treat it as a hole to fill, not a resting state. Wiring a real fight is its own walk (<a href="enemies.html#bosses">Enemies §08</a>), once you can author the enemy to promote.</div>
+
+  <div class="note"><b>Three habits that keep this healthy.</b> Commit the <code>.ini</code> <b>and</b> the touched <code>.asset</code> files together — the import is the edit; the assets are its output. Run <span class="kbd">Gleamwood ▸ Check Content INI Sync</span> whenever you suspect the sides disagree (the INI's footer names a "Sync GameContent.ini" item that does not exist — this is the real one). And after adding a biome, testing <i>campaigns</i> in the editor needs <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Rebuild Content Catalog</span> — campaigns and builds resolve names through that catalog, and only builds rebuild it automatically. A campaign does this whole chapter from text with the same vocabulary — <code>[NewBiome:]</code> with <code>basedOn</code>, its own rooms, music and web: <a href="modding.html#campaign">Modding §07</a>.</div>
+
+  <h3>What success prints</h3>
+  <p>After step 7, the Console finishes on these four lines — the expected warnings, described next, interleave between the Import OK line and the final <code>[Validate]</code> line (the section tally tracks the file — 36 with this walk's two additions):</p>
+<pre><code>[ContentIni] Created biome 'ashfall' at Assets/_Game/Biomes/Biome_ashfall.asset.
+[ContentIni] Imported 36 section(s): 0 error(s), 0 warning(s).
+[ContentIni] Import OK — running the validator…
+[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code></pre>
+  <p>Warnings are advisory and some are expected. Yours, until a boss lands: <code>[Validate] Biome 'Biome_ashfall' has a Boss arena but no BossDefinition — the arena runs stand-in adds only (M4 4A).</code> The shipped file carries its own too — six undressed biomes warn SILENCE on every validate. Read the warnings for <i>your</i> biome's name; errors are always yours to fix.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li><code>Assets/_Game/Biomes/Biome_ashfall.asset</code> exists on disk, created by the import — you never used a Create menu.</li>
+    <li>The Console printed the four lines above, with zero errors.</li>
+    <li>The Workbench Levels tab shows your biome: <b>referenced by the run plan</b>, INI row <b>in sync</b>.</li>
+    <li><span class="kbd">Gleamwood ▸ Check Content INI Sync</span> ends: <code>GameContent.ini and the assets agree — import would change nothing.</code></li>
+    <li>In play, one of the Sunken Mire's exit rooms offers a door labeled <b>→ The Ashfall</b> (the rest after it has no doors — that is the choice already spent, not a fault).</li>
+    <li>Standing inside it: your intro card, your music (or deliberate silence plus the one <code>[Music]</code> line), your light over the borrowed greybox.</li>
+    <li><code>GameContent.ini</code> and every touched <code>.asset</code> are committed together.</li>
+  </ul>
+
+  <p>Your biome exists, but its cast is still borrowed — every creature in it is a shipped one. Next: <b>03 — An enemy from nothing in the Workbench</b>, where you author a creature of your own and put it in this biome's spawn table.</p>
+</section>
+
+<section id="ch3-enemy">
+  <h2><span class="num">03</span>An enemy from nothing in the Workbench</h2>
+  <p class="lead">Chapter 02 left you a biome whose rooms roll their enemies out of a borrowed spawn table. This chapter ends the borrowing: one definition asset, one clip set, one prefab, and a creature of your own is chasing, telegraphing and dying in your runs — with zero code, because an enemy's whole brain is data here (<a href="enemies.html#model">the authoring model</a>).</p>
+
+  <h3>The four pieces</h3>
+  <div class="grid c2">
+    <div class="card accent-ember"><h4>The definition — the brain</h4><p>One <code>EnemyDefinition</code> asset; its FSM states live <i>inside</i> it as sub-assets. Built and wired on the Workbench's <a href="workbench.html#states">States tab</a>.</p></div>
+    <div class="card accent-gold"><h4>The clip set — the timer</h4><p>A <code>SpriteClipSet</code> cut from your sheet. <b>The clip IS the timer</b>: a phase lasts exactly as long as its clip, no animation events anywhere (<a href="enemies.html#attacks">attack phases</a>).</p></div>
+    <div class="card accent-cyan"><h4>The prefab — the body</h4><p>Renderer, animator, physics, the state machine. The component contract is <a href="enemies.html#prefab">the prefab side</a> — you will not need the legacy Animator you see on shipped prefabs.</p></div>
+    <div class="card accent-green"><h4>The spawn table — the fielding</h4><p>An enemy nothing fields never spawns. Your biome's table (<a href="levels.html">Levels &amp; Rooms</a>) is where the creature enters actual runs.</p></div>
+  </div>
+  <p>The reference for all of it is the nine-step <a href="enemies.html#recipe">zero-code enemy recipe</a>; this chapter walks the same road in the order that avoids the traps, and tells you what the tools print when you are done.</p>
+
+  <h3>Clips first — because the clip is the timer</h3>
+  <ol class="steps">
+    <li><b>Cut your sheet</b> to the kit contract from chapter 01 (grid, PPU 64, naming). You need, at minimum: an idle, a run, one clip per attack phase (charge, lunge, strike, recover), and a death. A hit clip and a juggle clip are worth authoring too — nine of the ten shipped enemies lack them, and the reference explains what that looks like in play (<a href="enemies.html#prefab">the clipless-hitstun warning</a>).</li>
+    <li><b>Build the clip set</b>: <span class="kbd">Gleamwood ▸ Dev ▸ Animation ▸ Clip Set Builder</span>. Point it at the sheet, write one line per clip in the range grammar the window documents, press Build. It writes a single <code>SpriteClipSet</code> asset — no <code>.anim</code> files, no controller.</li>
+    <li><b>Write the clip names down.</b> They are the keys every state will address, character for character. A wrong name is caught loudly at runtime — see the error quoted below — but the cheap fix is not making it.</li>
+  </ol>
+
+  <h3>The definition and its states</h3>
+  <ol class="steps">
+    <li><b>Create the asset</b>: <span class="kbd">Create ▸ Enemies ▸ Enemy Definition</span> in your content folder. Name it <code>&lt;Name&gt;Def</code> — the asset name is how the INI, the catalog and the mod tier will all address it.</li>
+    <li><b>Open it in the Workbench</b>: right-click the asset ▸ <span class="kbd">Open in Content Workbench</span> (or <span class="kbd">Gleamwood ▸ Content Workbench</span> ▸ Enemies — <a href="workbench.html#opening">opening</a>). The Overview greets you with a red <i>“no prefab references this definition”</i>. Correct, for now.</li>
+    <li><b>Create the states on the States tab</b>, one <b>+ Create State</b> each, in this order so the first is right: <code>idle</code> (Idle), <code>chase</code> (Chase), <code>attackCharge</code>, <code>attackLunge</code>, <code>attackStrike</code>, <code>attackRecover</code> (all Attack Phase), <code>hitstun</code> (Hit), <code>juggled</code> (Juggled), <code>dead</code> (Death). The form does the dangerous parts for you — its own words: <i>“Creates the config as a sub-asset of this definition, names it, sets State Name, and adds it to the list. The first state created also becomes the Initial State.”</i> Do not create states any other way; <a href="workbench.html#states">the States tab reference</a> explains what a blank or duplicate <code>StateName</code> does.</li>
+    <li><b>Keep those exact ids.</b> The runtime looks several of them up by hardcoded string — <a href="enemies.html#fsm">rename at your peril</a>.</li>
+    <li><b>Give every state its clip</b>: on each state row, type the clip-set clip name into Animator State. In this no-<code>.anim</code> workflow that field must be filled — the "empty = the clip's name" fallback it describes reads the legacy Animation Clip slot, and the Clip Set Builder made no <code>.anim</code> assets for it to name, so empty here means <i>no clip</i>. A clip-timed state left blank does not hold — it warns once and skips: <code>[AttackPhase] 'attackCharge' has no animation to time against; advancing immediately. Give the state a clip name that exists in the enemy's clip set, or accept that it lasts one frame.</code></li>
+  </ol>
+  <div class="warn note"><b><code>dead</code> is the one state the platform refuses to run without.</b> Skip it and the enemy is not spawned at all; the console explains itself: <i>“Enemy 'YourDef' has 1 structural problem(s) and was NOT spawned:”</i> followed by <i>“no 'dead' state — this enemy could never die (EnemyStateMachine.TakeHit looks it up by name)”</i>. <code>hitstun</code> is different — missing, it only warns: <i>“no 'hitstun' state — this enemy has no reaction to being hit at all. Damage still applies; it just never flinches. Add one, or accept an enemy that reads as unhittable.”</i> Warnings never stop a spawn; refusals do. Read the boundary once in <a href="enemies.html#prefab">the graph-judge boxes</a> and you will trust both kinds.</div>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-enemy-states.png</code></b> — Content Workbench, Enemies category, an enemy definition on the <b>States</b> sub-tab: its state roster with <code>idle (initial)</code> marked, and the <b>+ Create State</b> row beneath it — the row every state on your own enemy is added from.</figcaption>
+  </figure>
+
+  <h3>Edges — detection, engagement, leash</h3>
+  <ol class="steps">
+    <li><b>Wire the three distance edges</b> on the States tab, each a Transition row with a To State: <code>idle → chase</code> (Distance LessThan ~8, detection), <code>chase → attackCharge</code> (LessThan ≈ your strike range, ~1.5), <code>chase → idle</code> (GreaterThan ~10, the leash). Those numbers are the shipped ImpScout pattern — the whole wiring diagram, plus the catalog of every condition type, is <a href="enemies.html#fsm">States, StateIds and transitions</a>.</li>
+    <li><b>Add the conditions the right way.</b> The States tab's own hint — <i>“create them with Assets ▸ Create ▸ Enemies ▸ Transitions, then drop them in”</i> — is the wrong route: that Create submenu holds two of the eleven condition types and makes loose files instead of sub-assets. Select the state sub-asset in the Project window (the foldout arrow on the definition), expand the transition in the Inspector, and press <b>Add Condition</b> — the reference's warn box in <a href="enemies.html#fsm">§02</a> is the why.</li>
+    <li><b>Wire the reaction edges</b>: <code>idle → juggled</code> and <code>hitstun → juggled</code> using the three shared assets in <code>Assets/_Game/Enemies/Data/EnemyDefinitions/SharedRules/</code> — not the player's own <code>SharedRules</code> folder, which a Project-window search also finds — <code>Dy_JuggleCondition</code> + <code>Dy_NotDeadCheck</code> + <code>Dy_NotExecuted</code>, added to the transition's <b>Shared Rules</b> list. The route is the same as Add Condition: select the state sub-asset in the Project window, expand the transition in the Inspector, and press <b>Add Rule</b> for each — the Workbench States tab only draws this list once it is non-empty, so a freshly added transition has nowhere there to drop the first one. Then <code>hitstun → idle</code> with <code>HitStunCondition</code> + <code>AnimationEndCondition</code>.</li>
+    <li><b>Chain the attack on the Attacks tab</b>: each phase's <b>Next Phase</b> dropdown, <code>attackCharge → attackLunge → attackStrike → attackRecover</code>, and the last one back to <code>chase</code>. Attack phases carry no Transitions at all — they chain by <code>NextStateName</code> and end when their clip does (<a href="enemies.html#attacks">the phase contract</a>).</li>
+    <li><b>Wire executions</b> from the reusable ten in <code>Assets/_Game/Enemies/Data/ExecutionDefinitions/</code> into the definition's <code>Executions</code> list — select the definition asset itself and use the Inspector's Executions header, because the Workbench has no editor for this list. And mind the order, which is behaviour, not presentation: first match wins (<a href="enemies.html#executions">executions</a>).</li>
+  </ol>
+
+  <h3>The body — a prefab with no Animator</h3>
+  <ol class="steps">
+    <li><b>Build the prefab</b> with the root component set from <a href="enemies.html#prefab">the prefab side</a> — renderer, <code>SpriteAnimator</code>, physics, <code>EnemyStateMachine</code>, <code>CombatStatusManager</code>, <code>EnemyKillReporter</code>, <code>EnemyRangePreview</code>. Keep <code>EnemyKillReporter</code> even though nothing visibly uses it: it is how a kill reaches the Results screen.</li>
+    <li><b>Do not copy the disabled <code>Animator</code></b> you will see on every shipped prefab. It is a migration leftover; since 2026-08-18 a new enemy needs only the <code>SpriteAnimator</code>, and the timed states say so loudly if anything cannot be timed (the reference's boxes tell the whole story).</li>
+    <li><b>On the <code>SpriteAnimator</code></b>, assign your clip set and a <code>defaultClip</code> (the idle). A state that names a clip the set lacks fails loud, not frozen: <code>[SpriteAnimator] 'YourEnemy' has no clip 'attakCharge'. Known: idle, run, attackCharge, … Treating it as finished so the state machine keeps moving.</code></li>
+    <li><b>On the <code>EnemyStateMachine</code></b>, assign the definition and a <code>hurtSound</code>. Flying creature: Rigidbody2D <code>gravityScale</code> 0, and use Float Chase instead of Chase.</li>
+    <li><b>Save the prefab into <code>Assets/_Game/Enemies/Prefabs/</code></b> — that folder is not tidiness, it <em>is</em> the lookup: the Workbench finds a definition's body by scanning that one folder and nowhere else. Saved there, the first check flips to <i>“[ok] prefab: YourEnemy”</i>. Saved anywhere else it is invisible to the Workbench for ever, and the failure is quiet and wide — the Overview stays red on <i>“no prefab references this definition”</i>, the spawn-table check, the Presentation tab's hurt-sound row and <b>Select Prefab</b> never appear, Animator State never upgrades from raw text, and chapter 04's whole <b>Boss Staging</b> section is unreachable, because a definition with no prefab can never be classified as a boss. Meanwhile <span class="kbd">Rebuild Catalog</span> scans everything and lists your enemy happily: two success readouts contradicting each other, with nothing to say which one is lying.</li>
+    <li><b>Tune the rings where they live</b>: <b>Select Prefab</b> on the Overview jumps to the asset in the Project window, then <b>double-click it into Prefab Mode</b> (or drag an instance into a scene) and drag the detection, leash and attack-trigger handles in the Scene view. The rings are gizmos drawn around a prefab that is <em>open or instanced</em> — an asset merely selected in the Project window paints nothing, so an empty Scene view here is the wrong selection, not a broken tuner. <b>The handles write to the shared definition asset</b> — retuning one instance retunes every one of that creature in the game, on purpose, with Undo (<a href="enemies.html#prefab">range rings</a>).</li>
+  </ol>
+
+  <h3>Field it, then tell the platform</h3>
+  <ol class="steps">
+    <li><b>Add the prefab to your biome's spawn table</b> — the one chapter 02 pointed your biome at, or a fresh <span class="kbd">Create ▸ Gleamwood ▸ Enemy Spawn Table</span> if you borrowed a shipped table (never edit a shipped asset for your content). Entry fields are in <a href="enemies.html#recipe">the recipe</a>, step 7. Until this is done the Overview says so in red, and it means it: <i>“not in any spawn table - it will never spawn in a run”</i>.
+      <div class="warn note"><b>If you made a FRESH table, go back and point your biome at it</b> — Levels tab, your biome, the <code>spawnTable</code> field (chapter 02, step 4). Nothing here will tell you that you skipped it: the Overview check above goes green on membership in <em>any</em> spawn table, so a creature sitting in a table your biome never reads shows two green checks and never appears in a run. That is the shape this guide warns about everywhere else — a flag that is set is not a seam that is read — and it is easy to walk straight past, because the red text turns green the moment you add the entry.</div></li>
+    <li><b>Rebuild the enemy catalog</b>: <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Rebuild Catalog</span>. The catalog is scanned, never hand-maintained, and it is what mods' <code>basedOn</code> and the art kit resolve through — until you run this, your enemy exists in your runs but is invisible to every downstream tool.</li>
+    <li><b>Optionally regenerate the mod templates</b> (<span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Generate Mod Templates</span>) to see exactly the tuning file modders will receive for your creature.</li>
+    <li><b>Retune numbers from text when you want to</b>: an <code>[Enemy:&lt;Name&gt;Def]</code> section in <code>Assets/_Game/Content/GameContent.ini</code>, then <span class="kbd">Gleamwood ▸ Import Content INI</span>. The INI tunes enemies; it never authors their FSMs — <a href="tuning.html#homes">where every number lives</a>.</li>
+    <li><b>Validate and play</b>: <span class="kbd">Gleamwood ▸ Validate Run Content</span>, then a run into your biome. Watch for the wind-up before the strike — a telegraph that happens is the proof the timing chain holds. If the Overview shows a box headed <i>“This graph has parts that do nothing:”</i>, every line in it is authored content that is dead weight, not an error — fix it or accept it knowingly.</li>
+  </ol>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-enemy-overview.png</code></b> — Content Workbench, an enemy’s <b>Overview</b> tab with both registration checks green — <code>[ok] prefab</code> and <code>in a spawn table</code> — and Vitals beneath them. That pair is what your own enemy must show before it will ever appear in a run.</figcaption>
+  </figure>
+
+  <h3>What success prints</h3>
+  <p>After <span class="kbd">Gleamwood ▸ Validate Run Content</span>, the console's last validation line is exactly:</p>
+<pre><code>[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code></pre>
+  <p>After <span class="kbd">Gleamwood ▸ Dev ▸ Enemies ▸ Rebuild Catalog</span>, one line names the roster, yours in it (the count is the shipped ten plus each of yours; the names sort ordinally, so yours lands wherever its name falls):</p>
+<pre><code>[Enemies] Catalog rebuilt: 11 enemies — CinderHoundDef, CinderShepherdDef, DemonKingDef, …</code></pre>
+  <p>And the Workbench Overview shows two green checks — <i>[ok] prefab: YourEnemy</i> and <i>[ok] in a spawn table</i> — with no graph-warning box between them and Vitals.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li>The definition asset exists, its foldout in the Project window lists all nine sub-asset states, and <code>idle</code> is the Initial State.</li>
+    <li><code>dead</code> and <code>hitstun</code> exist under exactly those ids — no refusal wrapper, no unhittable-enemy warning in the console.</li>
+    <li>Every state names a clip that exists in the clip set — entering play mode prints no <code>[SpriteAnimator] … has no clip …</code> errors and no <code>… has no animation to time against …</code> warnings.</li>
+    <li>The prefab sits in <code>Assets/_Game/Enemies/Prefabs/</code>, and its root carries the full component set from <a href="enemies.html#prefab">the reference</a> — including <code>EnemyKillReporter</code>, and with no legacy <code>Animator</code> added.</li>
+    <li>The Workbench Overview shows both checks green, and any <i>“This graph has parts that do nothing:”</i> lines have been fixed or knowingly accepted.</li>
+    <li>In a run: the creature detects you, chases, telegraphs before striking, flinches when hit (visibly only if you authored a hit clip — without one the damage still lands while the previous clip keeps playing; see the clipless-hitstun warning), can be launched, dies, and the kill shows on the Results screen.</li>
+    <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> printed the OK line, and the rebuilt catalog line names your definition.</li>
+    <li>Your edits are saved — the Workbench writes assets, so <a href="workbench.html#saving">save the project</a> before you close anything.</li>
+  </ul>
+
+  <p>Your creature fights in the crowd now. Chapter 04 — <i>A boss: staging, phases, beats</i> — takes the same kind of definition and stages it: a <code>BossDefinition</code>, an arena, a phase switch at half health, and the exchange that gives the fight its voice (<a href="enemies.html#bosses">bosses</a> is the reference underneath it).</p>
+</section>
+
+<section id="ch4-boss">
+  <h2><span class="num">04</span>A boss: staging, phases, beats</h2>
+  <p class="lead">Chapter 03 left you with a creature: a definition the graph judge passes, a prefab, a spawn table fielding it. A boss is that same creature — same FSM, same prefab, same toolbox verbs, stats scaled by run depth on the spawned instance — plus <b>one asset that stages the encounter</b>. Nothing here is code either: the staging is a <code>BossDefinition</code>, the phase change is a transition you author, the mid-fight line is a component. The reference for every field named here is <a href="enemies.html#bosses">Enemies &amp; Bosses §08</a>; this chapter is the walk.</p>
+
+  <h3>First, decide which kind of boss you are making</h3>
+  <p>The platform recognises two, and the split is mechanical: a definition is a <b>bespoke boss</b> when a <code>BossDefinition</code> stages it <em>and no spawn table fields its prefab</em>. Staged but still in a table is a <b>promoted mob</b> — a trash enemy that also holds an arena. The Workbench uses this rule to sort <b>Bosses</b> from <b>Enemies</b>, and the placeholder art kit uses the <em>same</em> rule to decide who gets a crown drawn on their silhouette — a fight the player should recognise without reading the health bar. So chapter 03's spawn table is now a decision:</p>
+  <ul>
+    <li><b>Bespoke</b> — remove the prefab from every spawn table (or author a creature that never joins one). It files under Bosses, gets the crown, and may carry boss-grade health and armour on its <code>EnemyDefinition</code>, because nothing else spawns from it.</li>
+    <li><b>Promoted mob</b> — leave the table alone. It stays under Enemies with its spawn-table check live, and it keeps mob stats: there is no per-boss stat lever on <code>BossDefinition</code>, deliberately. Do not "fix" that on the shared definition — every field on it, <code>CanBeJuggled</code> included, is read by <b>every instance of that creature in the game</b>.</li>
+  </ul>
+
+  <h3>Stage it</h3>
+  <ol class="steps">
+    <li><b>Write the exchange first.</b> <span class="kbd">Create ▸ Gleamwood ▸ Dialogue Set</span> — the Create menu is the only door: the Workbench's Dialogue tab lists and edits sets but cannot create one. Author an <code>Intro</code> group and a <code>Victory</code> group — shape, rotation and which beats fire are <a href="dialogue.html#shape">Dialogue §01</a>–<a href="dialogue.html#wired">§03</a>. First, because the validator treats a boss with no dialogue set as an <b>error</b>, not a nag: the exchange is the story spine.</li>
+    <li><b>Create the staging asset.</b> <span class="kbd">Create ▸ Gleamwood ▸ Boss Definition</span>, in <code>Assets/_Game/Biomes</code> beside the shipped ones (nine live there; the tenth, Krag's, sits in the <code>Emberfall/</code> subfolder) — the folder the INI importer also creates into, so a <code>[Boss:]</code> section mirrored later finds your asset instead of making a second one.</li>
+    <li><b>Point <code>bossPrefab</code> at your prefab.</b> It must carry <code>EnemyStateMachine</code> on its <b>root</b> — the validator checks exactly that.</li>
+    <li><b>Author <code>displayName</code>. Always.</b> Blank does not fail — it falls back to the enemy definition's <em>asset name</em>, and the boss bar upper-cases whatever it gets, so a blank field reads <code>ASHLINGDEF</code> across the bottom of the screen. The four bespoke bosses all shipped that way once (<code>KRAGDEF</code>).</li>
+    <li><b>Assign the <code>dialogue</code> set from step 1</b>, then the pacing and payout fields — <code>entranceDelay</code>, <code>addsTable</code>, <code>rewardPrefab</code>, <code>musicTrack</code>. Field-by-field docs and shipped values: <a href="enemies.html#bosses">the reference</a>; two of these have teeth and get their own warnings below.</li>
+    <li><b>Point the biome at it.</b> Workbench <b>Levels</b> category ▸ your biome ▸ <i>Content Links</i> ▸ <b>Boss</b>. Empty = stand-in arena mode: adds only, no boss, no exchange.</li>
+    <li><b>Reopen your enemy in the Workbench</b> (<span class="kbd">Gleamwood ▸ Content Workbench</span>). The Overview now shows a <i>staged by …</i> check and a <b>Boss Staging</b> section: entrance delay, the Boss Music row with a Play button, the dialogue set with an <b>Edit exchange →</b> jump, adds table, reward. A bespoke boss has moved to <b>Bosses</b>; a promoted mob stays under Enemies on purpose.</li>
+    <li><b>If your biome had a stopgap boss</b> (asset prefix <code>Boss_Stopgap_</code> — six biomes ship one): delete <code>Boss_Stopgap_&lt;Biome&gt;.asset</code>, its <code>Dlg_Stopgap_</code> set and its <code>.dlg</code> in <code>Assets/_Game/Content/Dialogue/</code>. <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Create Stopgap Biome Bosses</span> only writes into a boss field that is empty or still holds the shared boss the stopgap displaced (Krag); a field holding your boss — or its own stopgap — is left alone. So a re-run cannot resurrect the placeholder or clobber your fight, <em>provided the biome already points at your boss when you delete the stopgap</em> — a field emptied by deleting first is fair game again, which is why step 6 comes before this one.</li>
+  </ol>
+  <div class="warn note"><b>The adds table can spawn copies of your boss.</b> Deferred markers roll, in priority order: marker override → your <code>addsTable</code> → the biome's table. A promoted mob is identical to its trash version, so a table that can field the boss's own species gives the player two identical creatures and one health bar. Pick an <code>addsTable</code> that cannot roll your boss — the stopgap builder warns about exactly this: <i>"the arena will roll the biome's own table, which can spawn copies of the boss."</i></div>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-boss-staging.png</code></b> — Content Workbench, Bosses category, a staged boss’s <b>Overview</b> tab: the green <i>staged by …</i> check above the <b>Boss Staging</b> section — Entrance Delay, Boss Music, Dialogue Set with its <b>Edit exchange</b> button, Adds Table, Reward.</figcaption>
+  </figure>
+
+  <h3>Phases — the half-health flip</h3>
+  <p>A phase change is not a system; it is a transition, exactly like chapter 03's edges. The shipped pattern: a <code>HealthCondition</code> at LessThan 0.5 takes the boss out of its loop and <b>through</b> a flip state into an enraged variant — <code>chase → igniteArena → chaseEnraged</code>, never a direct edge. Routed through a state, the flip gets a readable beat; routed around one, the boss silently gets faster. Give the phase-2 chain <b>its own clips</b> too: <code>NextStateName</code> is a single string, so one attack chain cannot serve both phases, and reusing phase 1's animations makes the fight change only in numbers nobody can see.</p>
+  <p>Four toolbox verbs carry the shipped phase vocabulary — each a state type from chapter 03, with what it needs and the cap that guards it (fields: <a href="enemies.html#attacks">Enemies §03</a>, <a href="enemies.html#prefab">§06</a>):</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Verb</th><th>What it does</th><th>What it needs from you</th><th>The guard</th></tr>
+    <tr><td><code>Hazard Phase</code></td><td>Toggles every <code>Hazard</code> whose object name contains <code>HazardId</code> — the arena-ignite beat.</td><td>Dormant (inactive) hazards in the <b>arena room prefab</b>, named to contain the id. The danger is level data; the state is the switch.</td><td>Re-entry when already lit costs one frame — health-triggered edges are safe to re-fire.</td></tr>
+    <tr><td><code>Ground Hazard</code></td><td><b>Spawns</b> pools or shockwaves instead of toggling — the danger belongs to the fight, so any room works.</td><td>A hazard prefab (<code>Hazard</code> + <code>SpawnedHazard</code>: Speed 0 = pool, Speed + HugGround = wave that dies at the ledge).</td><td>Count capped at 16 <em>in the state</em>.</td></tr>
+    <tr><td><code>Summon</code></td><td>Calls a wave from a spawn table; a null table is a pure armoured taunt.</td><td>A table that — again — cannot roll the boss's own species. <code>MinStateSeconds</code> holds the state open unarmoured: that hold IS the punish window.</td><td>Set <code>MaxTotalSummons</code>: every summon pays Gleam on death, so an uncapped summoner is an unbounded farm.</td></tr>
+    <tr><td><code>Relocate</code></td><td>Teleports to the <code>RelocatePoint</code> whose <code>Id</code> matches the config's <code>PointId</code> and sits farthest from the <b>player</b> (a random match instead, with <code>PickFarthestFromPlayer</code> off).</td><td>Points in the arena room prefab — both shipped arenas carry three named <code>Perch</code>.</td><td>Never picks the point it is standing on.</td></tr>
+  </table>
+  </div>
+  <div class="warn note"><b>The one boss-only graph warning, and it has shipped for real.</b> A state whose <code>NextStateName</code> is <code>dead</code> makes the creature kill itself when the state finishes — legal on a mob, fatal on a boss, and a stopgap boss shipped doing exactly that. Once your definition is staged, the graph judge adds this to the Overview's warning box and the console: <i>"state '&lt;id&gt;' falls through to 'dead' unconditionally, and this enemy is staged as a BOSS — so it kills itself the moment that state finishes, ending the fight on its own opener. NextStateName is gated by nothing; if death is meant to be conditional it belongs on a transition. (On a mob this is legal and sometimes the point: the Soot Bomber detonates.)"</i> Like every warning it stops nothing — read the box.</div>
+  <p class="dim">Want a worked example? Open <code>DemonKingDef</code> in the Workbench: it combines all of the above — <code>igniteArena</code> into <code>chaseEnraged</code>, a second attack chain, a relocate — and its arena shows the dormant-hazard and perch wiring done properly.</p>
+
+  <h3>Beats — who speaks, and when</h3>
+  <p>Two beats are free: <code>BossArenaSequence</code> plays the set's <code>Intro</code> group during the entrance and its <code>Victory</code> group after the gate opens — wired in step 1, nothing more owed. Every other beat — <code>Phase Two</code>, <code>Defeat</code>, <code>Banter</code> — fires only from a <b><code>DialogueBeat</code></b> component, and nothing in the editor warns you it is missing (<a href="dialogue.html#wired">Dialogue §03</a> has the table). For the classic mid-fight taunt:</p>
+  <ol class="steps">
+    <li>Add <code>DialogueBeat</code> to the boss prefab's root (beside <code>EnemyStateMachine</code> — it finds the machine through its parents).</li>
+    <li><code>set</code> = your dialogue set; add a group to the set whose beat name is exactly <code>Phase Two</code> — with the space; the trigger is matched as a string.</li>
+    <li><code>trigger</code> = <code>Phase Two</code>, <code>when</code> = <code>OnHealthBelow</code>, <code>healthFraction</code> = the same 0.5 your flip transition uses — the taunt and the ignite land as one beat.</li>
+    <li>Leave <code>once</code> on and <code>freezeTime</code> off: mid-fight lines play with the world running, like the intro exchange does.</li>
+  </ol>
+  <p>Three behaviours to know before you test it. The health trigger is <b>edge-triggered on the downward crossing</b>, and the first frame after the component wakes only takes a reading — so a boss spawned already wounded does not fire, <em>by design</em> (a campaign's wounded boss must not open with its phase-two taunt). Damage it across the line rather than spawning it below the line, or you will file a bug against a working component. The beat also <b>counts as fired when the moment happened and the set had a line</b> — not when a window opened — so a scene without a dialogue controller swallows it silently; test in a real run, or check the content half in <a href="dialogue.html#preview">the preview window</a>. And no shipped boss carries a <code>DialogueBeat</code> yet — the component shipped 2026-08-18, so yours will be the first; a fact about content, not the road.</p>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-boss-beat.png</code></b> — Inspector of the boss prefab root showing the DialogueBeat component configured: Set assigned, Trigger "Phase Two", When = OnHealthBelow, Health Fraction 0.5, Once ticked, Freeze Time unticked.</figcaption>
+  </figure>
+
+  <h3>The bar and the music</h3>
+  <p>You author neither — you feed both. The boss health bar rises at <b>fight-on</b>, not at spawn: the boss stands dormant through the entrance and the whole exchange, and a bar over a creature that cannot yet be hit reads as a bug. It displays your <code>displayName</code>, upper-cased. The music is one field: <code>musicTrack</code> crossfades in at the same fight-on moment; empty means the biome's level track continues, which the validator points out — <i>"has no musicTrack - the fight keeps the biome's music, and goes silent with it if that biome has none."</i> The whole arc — 0.8&nbsp;s hush when the corridor door seals, crossfade at fight-on, 1.0&nbsp;s victory wind-down so the last line lands in quiet — is <a href="audio.html#bossbeats">Audio §04</a>, and the Workbench's Boss Music row has a Play button so you can audition without a run.</p>
+
+  <h3>The arena is the other half</h3>
+  <p>Everything above stages <em>who</em> you fight; the room decides <em>where</em>, and the generator inserts the corridor and arena before every biome exit on its own. Your obligations to the room are the ones your kit created: exactly one spawn marker with <code>isBossPoint</code> (zero and two are both validator errors), <code>RelocatePoint</code>s matching any Relocate's <code>PointId</code>, dormant hazards named for any Hazard Phase's <code>HazardId</code>. Room anatomy and tags are <a href="levels.html#anatomy">Levels §02</a>; the corridor ships pre-wired as <code>Room_Ember_BossCorridor</code>, and the arena finds its own entrance door.</p>
+
+  <h3>What success prints</h3>
+  <p>Two readouts, one per surface. On your enemy's Workbench Overview, the staging check reads (with your asset's name):</p>
+  <pre><code>staged by Boss_&lt;YourBoss&gt; (bosses do not use spawn tables)</code></pre>
+  <p>— or, for a promoted mob, <code>staged by Boss_&lt;YourBoss&gt; (and still fielded by a spawn table - a promoted mob)</code>. And <span class="kbd">Gleamwood ▸ Validate Run Content</span> must end its console output with:</p>
+  <pre><code>[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code></pre>
+  <p>Anything less — a missing <code>bossPrefab</code>, no <code>EnemyStateMachine</code> on its root, a missing dialogue set, a wrong count of <code>isBossPoint</code> markers — is a named <code>[Validate]</code> error above that line, naming the asset to open.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li>A <code>Boss_&lt;YourBoss&gt;.asset</code> exists in <code>Assets/_Game/Biomes</code> with <code>bossPrefab</code>, <code>displayName</code> and <code>dialogue</code> all set.</li>
+    <li>Your biome's <b>Boss</b> field (Workbench ▸ Levels ▸ Content Links) points at it, and any <code>Boss_Stopgap_</code>/<code>Dlg_Stopgap_</code> assets it displaced are deleted.</li>
+    <li>The Workbench files your definition where you intended — Bosses (bespoke, no table fields it) or Enemies with the promoted-mob note — and its Overview shows the Boss Staging section.</li>
+    <li>The Overview's warning box does not name a state that falls through to <code>dead</code>.</li>
+    <li>The graph flips at half health <em>through</em> a flip state, and the phase-2 chain has its own clips.</li>
+    <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> prints the OK line quoted above.</li>
+    <li>In a real run: hush at the corridor door, the Intro exchange, the bar rising with <b>your</b> name at fight-on, the Phase&nbsp;Two line on the downward half-health crossing, the Victory line after the gate opens.</li>
+  </ul>
+  <p>Next: <b>Chapter 05 — A weapon: melee, bow, moves</b>, where the thing being authored stops being the opposition and starts being the player's own hands.</p>
+</section>
+
+<section id="ch5-weapon">
+<h2><span class="num">05</span>A weapon: melee, bow, moves</h2>
+<p class="lead">Chapter 04 left a boss waiting in its arena. This chapter builds the player's half of that fight: one melee weapon end to end — swing chain, directional moves and their <code>MoveKey</code> addresses, dash attack, hit reactions — then the bow's own knobs, and the three registrations that make any of it reachable in a run. Everything here is an asset, a Workbench form, or a list you add one entry to; you will read no C#.</p>
+
+<h3 id="ch5-anatomy">One asset is the whole weapon</h3>
+<p>A weapon is a single ScriptableObject — a <code>MeleeWeaponDefinition</code> or a <code>RangedWeaponDefinition</code>. The shared half carries identity, the base stats every hit starts from, and the statuses every hit applies; each type adds its own moveset. The field-by-field contract lives in <a href="combat.html#anatomy">Combat &amp; Weapons, weapon anatomy</a> — this chapter is the walk through it.</p>
+<div class="warn note"><b>Name the asset its final name before you author anything.</b> The file name IS the save id: a suspended run stores weapon names and <code>WeaponCatalog.Resolve</code> turns them back into definitions on resume, so renaming a weapon that has ever shipped breaks player saves.</div>
+
+<h3 id="ch5-melee">Build the blade</h3>
+<ol class="steps">
+  <li><b>Create the asset.</b> <span class="kbd">Assets ▸ Create ▸ Combat ▸ Weapon ▸ Melee Weapon</span>, saved in <code>Assets/_Game/Player/Resources/Weapons/</code> beside the shipped three (DefaultSword, DaggerUnseen, SolarGreatsword). This menu is the only door — the Workbench's Melee and Ranged pages deliberately have no <b>+ New</b> button (the <a href="workbench.html#new">New verb</a> is for form-drawn categories).</li>
+  <li><b>Open it in the Workbench.</b> Right-click the asset ▸ <code>Open in Content Workbench</code>, or <span class="kbd">Gleamwood ▸ Content Workbench</span>, <a href="workbench.html#melee">Melee tab</a>. Five sub-tabs — <b>Overview | Swings | Aerials | Ground | Dash Attack</b> — and a weapon authored from only the first two has no moveset at all, which is not a style choice: the suite refuses it. The floor is the box under <a href="#ch5-directions">Directions</a>, and it is worth reading before you author a single entry.</li>
+  <li><b>Overview: identity and base numbers.</b> Name and icon feed the HUD and the pedestal; <b>Description</b> shows in exactly one place — the shopkeeper's <b>Weapons</b> tab, and only if the weapon is locked (see <a href="#ch5-register">registration</a>). <code>BaseDamage</code> multiplies through every swing; Combo Flow holds the string's recovery and input-buffer timings.
+    <div class="warn note"><b>Both identity fields are required whether or not anything reads them.</b> The suite sweeps every weapon asset in the project and refuses a blank <b>Display Name</b>, a blank <b>Description</b>, <em>and</em> a Display Name that is the file name repeated — <code>IronBlade.asset</code> named "IronBlade" is what a skipped field looks like, not a name somebody chose. The field tooltip's "Empty = asset name" is describing the runtime fallback, not permission. So write a real name, and write the Description even on a weapon you never sell.</div></li>
+  <li><b>Swings: the combo chain.</b> Each <code>ComboAttacks</code> entry is one swing: duration, damage multiplier, hitbox, hit window, impact, sounds, animation state. The form does the arithmetic ("= deals 24 damage (before run upgrades)"), and almost every 0 means "use the default" — the full field/fallback table is <a href="combat.html#swings">the swing chain</a>.</li>
+  <li><b>Aerials and Ground: the directional moves.</b> One entry per held direction, each a full swing config of its own — the next section is entirely about these, because the two lists follow different rules on purpose.</li>
+  <li><b>Dash Attack: one strike per weapon.</b> A 15-field config — damage, hitbox, impact, <code>IsLauncher</code>, <code>Reaction</code> — deliberately <em>not</em> a full swing config: Duration, ComboWindow and the hit window are absent because the dash path never reads them (<a href="combat.html#dash">the dash attack</a>).</li>
+</ol>
+<div class="warn note"><b>ComboWindow is absolute time from the swing's START — the same timer as Duration, not extra time after it.</b> Author it <em>larger</em> than Duration on any swing that must chain; smaller is an empty interval — that swing can never combo, and ends mid-animation.</div>
+<div class="warn note"><b>Ticking "Cancellable mid-string" anywhere changes the rule everywhere on that weapon.</b> Tick nothing and the final swing cancels as a legacy fallback; tick <em>any</em> swing and only ticked swings cancel — so tick the last one too, or the string dead-ends into recovery. Each shipped melee weapon flags its final swing and nothing else, and on an aerial variant the tick is mandatory for any cancel at all. How many cancels a string gets is chapter 06's business — the flag only decides <em>which</em> swing may spend one (<a href="combat.html#cancel">the cancel</a>).</div>
+
+<h3 id="ch5-directions">Directions, and the addresses they answer to</h3>
+<p>The two directional lists resolve differently, and the difference is the design:</p>
+<ul>
+  <li><b>Aerials fall back to Neutral.</b> A held direction with no entry (or one the player has not bought) plays the Neutral aerial, so a weapon with only a Neutral entry behaves as it did before directions existed. Author Combo Window <em>equal</em> to Duration up there — one attack per airtime.</li>
+  <li><b>Ground resolves exactly, with no Neutral entry at all.</b> Holding nothing plays the combo step — that <em>is</em> the neutral swing — and a held direction <b>branches</b> the string rather than replacing it, so author its Combo Window larger than Duration so the combo continues.</li>
+</ul>
+<div class="rule note"><b>The minimum a new weapon must author — these lists are not optional, whatever the form implies.</b> The Workbench draws an unauthored direction as an invitation ("+ Add move"), and the asset's own tooltips say an empty list is legal. That is true of the <em>runtime</em> and false of the project: three PlayMode sweeps read <b>every <code>MeleeWeaponDefinition</code> in the project</b>, so your brand-new weapon is judged exactly as the shipped three are. A weapon authored from Overview and Swings alone <b>fails the suite</b> — and chapter 10's checkpoint build refuses to exist over a red suite, so the bill arrives five chapters later with no hint of where it came from. What clears them:
+<ul>
+  <li><b>Aerials is never empty, and must hold a <code>Neutral</code></b> naming a clip that exists in <code>Player.asset</code> — it is the fallback every other direction leans on. Neutral alone is a complete, passing weapon.</li>
+  <li><b>Author a second aerial and you have signed up for all four</b>: Up, Down and Forward join Neutral, no partial sets.</li>
+  <li><b>Ground must hold all three</b> — Up, Down and Forward. Not one of them is optional, and an <em>empty</em> ground list fails too on any weapon with combo swings, because the launcher must exist and must be the ground Up.</li>
+  <li><b>Own Numbers on, every directional entry.</b> A costume's config is the data these checks read, so leaving the tick off fails as loudly as a missing entry.</li>
+  <li><b>The roles below are pinned, not suggested.</b> Ground: <b>Up</b> is the weapon's one launcher, knocking upward; <b>Down</b> is <code>Crumple</code> and stuns <i>longer</i> than Up; <b>Forward</b> out-reaches Up and carries a positive Lunge Force; Combo Window &gt; Duration on all three. Air: <b>Up</b> knocks upward but is <b>never</b> a launcher (that is chapter 06's Updraft boon to grant); <b>Down</b> is <code>Spike</code>, knocks downward, and needs a negative Hitbox Offset Y or its box sweeps the air in front of the player and never reaches the enemy underneath; <b>Forward</b> out-reaches the up-air. And no combo step is ever a launcher — the neutral string is what mashing buys.</li>
+</ul>
+None of this asks you to read a test: when one fails, <code>Logs/playmode_test_results.txt</code> names your asset's path and says in a sentence which of the rules above it broke.</div>
+<p>Every directional entry has two halves: the clip it plays, and <b>Own Numbers</b> (<code>OverrideConfig</code>). With Own Numbers off, the entry is a costume — the Workbench says so to your face: <i>"This direction is a costume: it swaps the animation and nothing else. Turn on Own Numbers to give it its own damage, reach, timing and reaction."</i> Every config field on a costume is decoration the game never reads. An entry with no clip is worse: <i>"No clip named, so this entry is skipped entirely and the direction falls back."</i></p>
+<figure class="shot pending">
+  <figcaption><b>Figure (to capture): <code>images/guide-weapon-own-numbers.png</code></b> — Content Workbench, Melee tab with the new weapon selected, Ground sub-tab, one direction entry with Own Numbers off, showing the "This direction is a costume" warning and the "Turn on Own Numbers" button.</figcaption>
+</figure>
+<p>Each directional move answers to a <code>MoveKey</code> — one spelling used everywhere a move is named: the save key the shop writes, the address a campaign's <code>.ini</code> retunes, and the target a run boon imbues (chapter 06):</p>
+<div class="scrollx">
+<table>
+  <tr><th>Plane</th><th>Addresses</th><th>The gap</th></tr>
+  <tr><td>Air</td><td><code>aerial:neutral</code> · <code>aerial:up</code> · <code>aerial:down</code> · <code>aerial:forward</code></td><td>Neutral exists here because it is the fallback everything above leans on.</td></tr>
+  <tr><td>Ground</td><td><code>ground:up</code> · <code>ground:down</code> · <code>ground:forward</code></td><td><code>ground:neutral</code> is not a key — the combo step IS the neutral, so there is no separate move to name, own or imbue.</td></tr>
+  <tr><td>Bow</td><td><code>bow:neutral</code> · <code>bow:up</code> · <code>bow:forward</code></td><td><code>bow:down</code> is not a key at all — a bow has no down-shot, so nothing can save, address or imbue one.</td></tr>
+</table>
+</div>
+<div class="rule note"><b>Authoring a move is not the same as the player owning it.</b> Most keys are permanent Gleam purchases at the shopkeeper's Ground / Air / Bow tabs; the baseline is <code>aerial:neutral</code>, <code>bow:neutral</code>, <code>bow:forward</code> — each a fallback that breaks the weapon if withheld — plus the dash strike, which is already behind the dash <em>ability</em> and so is not charged for twice. <code>ground:up</code>, the launcher, is <b>bought</b> — 20 Gleam, the cheapest row and the first one in the catalog, because it is meant to be the first purchase a profile ever makes. The Workbench always shows every authored move (you must be able to tune a move nobody has bought); only the attack state filters by ownership. Roster and prices: <a href="progression.html#moves">the directional moveset</a>.</div>
+<p>And note: a plain combo step never mints a <code>MoveKey</code>, so chapter 06's imbues can land on "the up-air" but never on "swing two".</p>
+
+<h3 id="ch5-reactions">Hit reactions: what a hit does beyond its numbers</h3>
+<p>Every swing, and the dash, authors a <code>Reaction</code> — the fighting-game half of the moveset:</p>
+<ul>
+  <li><b>Standard</b> — hitstun, or a launch if the swing's <code>IsLauncher</code> is on and the target is grounded. The default everywhere.</li>
+  <li><b>Spike</b> — drives an <em>airborne</em> target into the floor, ending the juggle, with a payoff on impact; on a grounded target it lands as a heavier hit instead of whiffing. Author it on the down-air.</li>
+  <li><b>Crumple</b> — no knockback, extended hitstun; pins them where they stand. The combo extender — author it on the ground down-attack.</li>
+</ul>
+<p><code>Reaction</code> and <code>IsLauncher</code> are the fields that move bodies; the knockback <em>numbers</em> mostly do not (see the dead-fields note below, and the arithmetic in <a href="combat.html#swings">the swing table</a>). Convention: the permanently-authored launcher is the ground up-attack and only it — the wiring tests refuse an up-air that authors <code>IsLauncher</code>, because launching from the air is a run boon's job, not the asset's.</p>
+
+<h3 id="ch5-bow">The bow: a charge, an arrow, a status</h3>
+<p>A bow is the same shared asset plus a <code>RangedWeaponDefinition</code>'s fields — <span class="kbd">Assets ▸ Create ▸ Combat ▸ Weapon ▸ Ranged Weapon</span>, authored on the <a href="workbench.html#ranged">Ranged page</a> (<b>Overview | Shot &amp; Timing | Presentation</b>). In the order the player feels it:</p>
+<ul>
+  <li><b>The charge.</b> <code>DrawTime</code> is the seconds to a full draw — releasing earlier cancels the shot. The <b>perfect window</b> is a band in seconds from the draw's start: release inside it for bonus damage (the HUD ring draws it; a chapter-06 boon widens it). The auto-release ceiling is the <em>player's</em> max charge, not the bow's — the form's own check turns red on a window it makes unreachable.</li>
+  <li><b>The arrow is the shot.</b> The projectile carries the damage, so its numbers live on the bow: <code>ProjectileSpeed</code>, lane radius and distance, and <code>Durability</code> — how many enemies one arrow pierces before it is spent. Every one treats 0 as "use the engine default" (<a href="combat.html#ranged">the bow reference</a>).</li>
+  <li><b>The bow's moveset.</b> <code>BowAttacks</code> holds directional entries exactly as melee does — but you author them in the asset's own Inspector, not on the Ranged page: unlike melee's Aerials and Ground sub-tabs, the Workbench has no aim-modes form for the bow yet. The shipped bow authors Neutral and Up (<a href="combat.html#bowmoves">the two aim modes</a>). There is no Forward entry to author — the running shot is baseline behaviour, not a per-weapon move.</li>
+  <li><b>The status.</b> <code>StatusesToApply</code> is applied by every hit. The shipped bow applies <b>StickyArrows</b> (<code>Assets/_Game/Enemies/Data/StatusDefinitions/StickyArrows.asset</code>): stacks to 10, each decaying after 5&nbsp;s — and three stacks arm the Explosion execution. Statuses are how a weapon unlocks executions: <a href="combat.html#statuses">statuses &amp; executions</a>.</li>
+</ul>
+<div class="warn note"><b>Two fields are dead, and the Workbench withholds them honestly.</b> <code>BaseKnockback</code> and <code>PerfectForceMultiplier</code> are authorable on the asset and in a mod's <code>.ini</code>, and enemies discard them — velocity is zeroed on every hit, so no weapon pushes anything at any magnitude (<a href="combat.html#dead">dead fields</a>).</div>
+
+<h3 id="ch5-register">Three registrations, then the pedestal</h3>
+<p>A finished weapon asset appears <em>nowhere</em> until it is registered. There are exactly three lists, and the Workbench checks two of them for you:</p>
+<ol class="steps">
+  <li><b>The catalog.</b> Add the weapon to the <code>weapons</code> array of <code>Assets/_Game/Systems/Run/Resources/WeaponCatalog.asset</code> — the list of everything a save may reference. Skip it and a suspended run holding your weapon cannot be restored.</li>
+  <li><b>A loot pool.</b> Add an entry — weapon plus weight — to <code>Loot_HubMelee.asset</code> (or <code>Loot_HubBow.asset</code>) in <code>Assets/_Game/Systems/Run/Weapons/</code>. Weight 0 = never offered; a new pool is <span class="kbd">Assets ▸ Create ▸ Gleamwood ▸ Loot Table</span>, kept single-type by convention. Skip this and no pedestal will ever offer it.</li>
+  <li><b>The shop — optional.</b> To sell the weapon, select the asset itself in the Project window and, in the plain Inspector, tick <code>lockedUntilUnlocked</code> and set <code>unlockCost</code> — the Workbench Overview names the lock in its Description tooltip but deliberately draws neither field, so hunting its form for them is a dead end. That is the whole job: the shopkeeper's <b>Weapons</b> tab builds a row (name, your Description, price) for every locked catalog weapon automatically. The lock gates the <em>offer</em> only — the weapon stays in the catalog and the pool, so a saved run already holding it still resolves (<a href="progression.html#unlocks">weapon unlocks</a>, <a href="progression.html#hub">the shopkeeper</a>).</li>
+  <li><b>Verify on the Overview sub-tab.</b> Its two registration lines audit steps 1 and 2 against the real assets; what they must say is quoted below.</li>
+</ol>
+<figure class="shot pending">
+  <figcaption><b>Figure (to capture): <code>images/guide-weapon-overview-checks.png</code></b> — Content Workbench, Melee tab with the new weapon selected, Overview sub-tab, both registration lines green: "[ok] registered in WeaponCatalog" and "[ok] offered by a loot table".</figcaption>
+</figure>
+<p><b>Then meet it in the game.</b> Enter the hub in play mode and walk to a weapon pedestal: it rolls its offer from its loot table at scene load, skipping what you already hold when the pool allows it (a pool with nothing else re-offers your held weapon rather than sit empty), and the interact press (keyboard <span class="kbd">V</span> / gamepad North) swaps the offer with your held weapon of the same type — the pedestal keeps what you gave up, so you can swap back, and starting a run carries the pick with you. While testing, raise your weapon's loot weight so it comes up first, and put the number back afterwards; an empty roll hides the pedestal. To land the directional moves, buy their keys at the shopkeeper's Ground / Air / Bow tabs first (or test on a slot that already owns them) — an unowned aerial plays Neutral and an unowned ground direction plays the plain combo step, which looks exactly like a mis-authored entry.</p>
+<figure class="shot pending">
+  <figcaption><b>Figure (to capture): <code>images/guide-weapon-pedestal.png</code></b> — the hub scene in play mode, player standing at a weapon pedestal showing the new weapon's icon and name, interact prompt visible.</figcaption>
+</figure>
+<div class="rule note"><b>Runtime never writes into your asset:</b> every equip runs on a per-run <code>WeaponInstance</code> and a campaign retune resolves to a cached clone — clone-then-override, which is why a forge level or a mod can never corrupt the definition you authored (<a href="combat.html#modding">weapon modding</a>).</div>
+
+<h3>What success prints</h3>
+<p>On your weapon's Workbench <b>Overview</b> sub-tab, the two registration lines read:</p>
+<pre><code>[ok] registered in WeaponCatalog
+[ok] offered by a loot table</code></pre>
+<p>The failure forms are just as literal — <code>[!!] NOT in WeaponCatalog - run resume can't restore it</code> and <code>[!!] not in any loot table - pedestals will never offer it</code> — each naming the registration step you skipped.</p>
+
+<h3>Before you move on</h3>
+<ul>
+  <li>The weapon asset sits in <code>Assets/_Game/Player/Resources/Weapons/</code> under its final, forever name.</li>
+  <li>Every combo swing authors Combo Window larger than Duration — and if any swing is ticked Cancellable mid-string, the final swing is ticked too.</li>
+  <li>Both directional lists clear the floor in <a href="#ch5-directions">Directions</a>: Aerials holds a <code>Neutral</code> (or the full four), Ground holds all three, the ground Up is the weapon's only launcher, and the down-air is a <code>Spike</code> with a negative Hitbox Offset Y.</li>
+  <li>Every directional entry names a clip, and each one's Own Numbers is <b>on</b> — an entry left as a costume is data the game never reads and the suite refuses.</li>
+  <li>The weapon's <b>Display Name</b> is a real name rather than the file name repeated, and its <b>Description</b> is written even if you never lock it.</li>
+  <li>The Workbench Overview shows both registration lines green: <code>[ok] registered in WeaponCatalog</code> and <code>[ok] offered by a loot table</code>.</li>
+  <li>A hub pedestal has offered the weapon, and you swapped it in, hit something with every move you authored, and swapped back.</li>
+  <li>If you locked it, its row — name, Description, price — appears in the shopkeeper's <b>Weapons</b> tab.</li>
+  <li>If you touched the bow, the Shot &amp; Timing page's perfect-window check is green.</li>
+</ul>
+<p>Your weapon now drops, sells, saves and swings. Chapter 06 — <b>Boons and kit upgrades</b> — is where a run starts bending it: cancels bought as a budget, imbues that land on the <code>MoveKey</code> addresses you just learned, and the permanent upgrades sold beside your locked blade.</p>
+</section>
+
+<section id="ch6-boons">
+  <h2><span class="num">06</span>Boons and kit upgrades</h2>
+  <p class="lead">Chapter 05 left you with a weapon the game can offer. This chapter builds the reasons to keep swinging it: the <b>permanent upgrades</b> Gleam buys at the hub shop, and the <b>per-run boons</b> a rest room offers. Both are Workbench forms — no code, as long as you reuse the effect vocabulary the game ships.</p>
+
+  <p>Know which of the <b>three progression tiers</b> you are authoring before you touch a form, because the tier decides where the thing lives and when the player loses it. <b>Kit upgrades</b> (and the two movement abilities) are <i>permanent</i>: bought with Gleam at the hub Shopkeeper, written to the save, and frozen for the duration of a run. The <b>forge</b> is run-scoped and purely <i>numeric</i>: it makes this run's weapon hit harder, and cannot make a move do anything new — nothing in this chapter touches it. <b>Run modifiers</b> — boons — are run-scoped and <i>mechanical</i>: "your up-air launches now" is not a number. A boon is picked up during a run and gone when the run ends. The tier table, the shipped fourteen boons and the five shipped upgrades all live on <a href="progression.html#runmods">Progression §04d</a> and <a href="progression.html#upgrades">§03</a> — this chapter is the procedure, that page is the contract.</p>
+
+  <h3 id="ch6-author-boon">Author a boon — a rule the run can offer</h3>
+  <ol class="steps">
+    <li>Open <span class="kbd">Gleamwood ▸ Content Workbench</span> and pick the <b>Run Upgrades</b> tab (violet) on the rail. Every entry you see is one asset in <code>Assets/_Game/Systems/Run/Resources/RunModifiers/</code> — click any shipped one (say <code>deep-rest</code>) to read a working example before making your own.</li>
+    <li>At the <b>foot of the rail</b>, type a display name into the text field — <i>Iron Lungs</i> — and press <b>New</b>. The name is lower-cased and hyphenated into the file and the <code>id</code> (<code>iron-lungs</code>), the display name is kept as you typed it, and the asset is created <b>and registered</b> in the ordered catalog the game loads, in one step. Watch the console: up to three lines land (quoted under <i>What success prints</i> below). Two handlers race here, and when the catalog rebuild runs first it registers your asset itself — the <code>Registered</code> line is then skipped as already done, and two lines are a complete success. The real tripwire: if you see <b>neither</b> a <code>Registered</code> line <b>nor</b> a <code>Catalog rebuilt</code> line whose total includes your asset, the game will never see your boon.</li>
+    <li>Fill <b>Identity</b>. The <code>id</code> is already seeded — <b>never rename it once anything ships</b>: it is a save key, written into every suspended run holding the boon. Write the <b>description</b> as what the <i>rule</i> becomes, not what the number is ("Your arrows pass through one more body"), because it is exactly what the reward pedestal shows the player.</li>
+    <li>Pick the <b>Effect</b>. This is the whole decision: the effect names the seam in the player controller that will read your boon, and several boons may share one effect — the seam <i>sums</i> everything held, so a second "+1 cancel" with its own name and flavour is a catalog entry and no code. The fourteen-member vocabulary, and which effect is a <b>count</b> (the stack is the magnitude) versus a <b>scale</b> (a multiplier, compounded per stack), is tabled on <a href="progression.html#runmods">Progression §04d</a>. For a scale effect, set <b>Scale Per Stack</b> to what one stack multiplies by — <b>never 1</b>, which multiplies by one and is refused as "the worst kind of reward". For a count effect, leave it alone; it is ignored.</li>
+    <li>Set <b>Max Stacks</b> — and read the warning box below first, because this field is not balance.</li>
+    <li>Leave <b>Requires</b> empty for most boons. Fill it only when the boon literally does nothing without a purchase — the shipped precedent is Long Stride, which scales a dash a fresh profile has not bought. Three fields: ability <b>ids</b> (<code>dash</code>, <code>wall-jump</code>), upgrade <b>effects</b> — name the <code>MetaEffect</code> (<code>MeleeCancel</code>), <b>never</b> an upgrade id like <code>chain-technique</code>, because a campaign may declare its own upgrade granting the same verb and the id would withhold your boon from everyone who bought that one — and a <b>move</b> mask. Listing several inside one field means <i>any one</i> satisfies it; filling two fields means <i>both</i> are needed. The gate holds the <b>offer</b> only: a suspended run resuming with your boon keeps it even if the profile no longer qualifies, and the Loadout screen's <b>NOT YET OFFERED</b> section explains the withholding to the player with no work from you. A requirement every profile already satisfies is dead weight — it prints a warning at load rather than costing you the boon.</li>
+    <li><b>Verify at load.</b> Enter play mode and start a run. A healthy catalog is <b>silent</b>. A broken entry is dropped and named in one console line the first time the catalog is read — the exact sentences are under <i>What success prints</i>. The Workbench form itself does not validate; the console at load is where refusals surface.</li>
+    <li><b>Verify in a run.</b> The player meets boons at a rest room's three walk-to-pick pedestals (<a href="progression.html#runmods">Progression §04d</a>, "How the player gets one") — offers are seeded, capped-out and unusable entries are filtered, and the roll returns <i>fewer</i> offers rather than padding with duplicates. For a faster loop in the editor: <span class="kbd">F1</span> → <b>Run (dev)</b> → <b>Per-run modifiers</b> grants stacks <b>immediately, mid-run</b>, and its <i>Budgets now</i> row shows the numbers the controller actually reads. What you hold appears on the HUD's modifier strip and the Loadout screen.</li>
+  </ol>
+
+  <div class="rule note"><b>Max Stacks is a safety property, and this rule is the loudest one in the chapter: every budget needs a cap.</b> Several effects raise a budget that is the <i>only</i> thing bounding a loop — the combo cancel is the clearest, because a cancel restarts the same attack index with a fresh timer, so an unbounded cancel budget is an attack state the player holds a direction and never leaves. <a href="combat.html#cancel">Combat §02's cancel section</a> walks the exact gate order where that budget is spent. "We cannot prove this terminates" is sufficient reason to lower a cap. The ceiling is <b>10</b>, enforced by the same validation a campaign's text faces, and its refusal says why in its own words: <i>"maxStacks &lt;n&gt; is above the ceiling of 10. This is not balance — for several effects the cap is the ONLY thing bounding a loop (the combo cancel restarts the same attack with a fresh timer), so a budget this large is an attack state the player may never leave."</i> The inspector's <code>[Min]</code> arrows are only a drawer — values arriving from a campaign's <code>.ini</code> walk straight past them, which is why the real gate lives in validation and not in the field.</div>
+
+  <div class="note"><b>Targeted boons — the Imbue effect.</b> An imbue turns one flag on for one <i>rolled</i> move — the shipped pair is Updraft (<code>IsLauncher</code>) and Loose Grip (<code>CanBeCancelled</code>), and those two flags are the whole vocabulary. Tick <b>Targets a move</b>, pick the flag, a default target and the legal-target mask — which must stay inside the <i>melee</i> moves, because an imbue writes into a melee attack config and a bow target could never fire. A target is always a <b>directional</b> move (<code>aerial:up</code>, <code>ground:forward</code>); a plain combo step cannot be addressed, so a boon meant for "swing two" would silently do nothing. The full imbue design, and the <code>imbue.*</code> text grammar a campaign uses, are on <a href="progression.html#runmods">Progression §04d</a> and <a href="modding.html#progression">Modding §08</a>.</div>
+
+  <p class="dim">Catalog order is load-bearing — the offer roll walks it, so order is part of what a seed reproduces. New entries append at the end, where they cannot renumber anything. And if you ever find <code>RunModifierCatalog.Defaults</code> in the code: it is only the generator's seed and a fallback — editing it changes nothing at runtime while the assets exist. The assets are the truth; retune those.</p>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-workbench-run-upgrades.png</code></b> — Content Workbench on the Run Upgrades tab (violet), a freshly created modifier selected with its Identity / Rule / Imbue / Requires form open, and the name-field + New button visible at the foot of the rail.</figcaption>
+  </figure>
+
+  <h3 id="ch6-author-upgrade">Author a kit upgrade — a permanent shop row</h3>
+  <ol class="steps">
+    <li>Same window, <b>Kit Upgrades</b> tab. Type a display name, press <b>New</b> — same id-seeding, same auto-registration, and one thing more: kit upgrades have a <b>compile step</b>, and creating one runs it for you (the <code>Baked</code> console line below). The five shipped upgrades beside yours are the worked examples.</li>
+    <li>Pick the <b>Effect</b> — one of the five <code>MetaEffect</code> kinds, each mapping to exactly one apply seam (<a href="progression.html#upgrades">Progression §03</a> tables them with their seams and shipped prices). Set <b>Per Level</b> (what one level grants — HP points, percent, weapon levels) and <b>Max Level</b>.</li>
+    <li>Set the <b>Price</b>: <b>Base Cost</b> is level 1; <b>Cost Growth</b> is added for each level beyond it, so the <i>n</i>th level costs <code>baseCost + (n−1) × costGrowth</code>. What a sensible Gleam number looks like is the economy's business — <a href="progression.html#currency">Progression §02</a>.</li>
+    <li><b>Editing after the fact is free — but the re-bake fires on the SAVE, not on the edit.</b> Kit upgrades are compiled into an array the shop reads; the recompile is an import hook, so it only runs when the asset actually reaches disk. The Workbench does not save on its own (Auto-Save ships <b>off</b>), so press <b>Save Asset</b> in its toolbar — or flip <b>Auto-Save: On</b> — before you go looking at the shop. Skip it and your row is there with the <em>creation-time defaults</em> the New button baked: MaxHp, one per level, five levels, 100 Gleam. A plausible wrong number rather than nothing, which is the harder kind to notice. Two more gaps, same shape: nothing bakes <b>during play</b>, so editing a row while the shop is open never takes; and <b>deleting</b> a definition never re-bakes at all, so after a delete run <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Bake Kit Upgrades</span> yourself. This is not pedantry: forgetting the bake once shipped an upgrade that existed, validated, appeared in the Workbench and did nothing.</li>
+    <li><b>Verify at the shop.</b> Play to the hub, talk to the <b>Shopkeeper</b>, open the <b>Upgrades</b> tab: your row is there, last, with its level and price — no placement, no wiring, because every shop tab reads its catalog (<a href="progression.html#hub">Progression §05</a>). Buy a level and the effect applies from the next run.</li>
+  </ol>
+
+  <div class="warn note"><b>Two ids, one grave.</b> An upgrade's <code>id</code> keys the owned <i>levels</i> in a parallel save array — renaming it does not just orphan the purchase, it drops every rank the player bought while they keep the Gleam they spent. Same rule as the boon's id: pick it once, keep it forever.</div>
+
+  <div class="warn note"><b>The MeleeCancel budget is capped from this side too.</b> A <code>MeleeCancel</code> upgrade's total (<code>perLevel × maxLevel</code>) may not exceed <b>10</b> — deliberately the same number as the boon ceiling, because Chain Break's stacks <i>add to</i> the base this upgrade grants and the two bound one budget from two sides. The refusal spells it out: <i>"grants &lt;total&gt; melee cancels in total (perLevel &lt;p&gt; × maxLevel &lt;m&gt;), above the ceiling of 10…"</i> — the same loop-guard argument as Max Stacks, because it is the same loop.</div>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-shop-upgrades-tab.png</code></b> — in play mode in the hub, the Shopkeeper's shop open on the Upgrades tab with the newly authored upgrade visible as the last row, its Gleam price on the right.</figcaption>
+  </figure>
+
+  <h3>Where the no-code path ends</h3>
+  <p>Everything above reuses a shipped effect. A <b>new</b> effect — a verb neither vocabulary has — is a programmer task: <code>RunEffect</code> and <code>MetaEffect</code> are compiled lists, and each new member is one read-seam in C# (<a href="extending.html#attributes">Extending</a> is that path). Two absences in this domain are decisions, not gaps: no shipped boon grants an extra air jump — the seam exists, but a double jump changes what rooms are fair, so where it enters the game is Hisham's call — and dash-charge / forge-charge upgrades are deferred until a charge mechanic exists for them to count.</p>
+
+  <h3>What success prints</h3>
+  <p>Pressing <b>New</b> on the Run Upgrades tab, the console (the first two can arrive in either order — and when the rebuild lands first it registers your asset itself, so the <code>Registered</code> line is skipped as already done and two lines are the whole success):</p>
+<pre><code>[Workbench] Registered '&lt;your-id&gt;' in RunModifierCatalog (position &lt;n&gt;). It is live the next time the catalog is read.
+[RunMods] Catalog rebuilt: &lt;n&gt; modifier(s). Created 0 (); left 14 existing asset(s) untouched (combo-cancels, …).
+[Workbench] Created RunModifierDefinition '&lt;your-id&gt;' at Assets/_Game/Systems/Run/Resources/RunModifiers/&lt;your-id&gt;.asset.</code></pre>
+  <p class="dim">"Created 0" counts the shipped seed set, not yours — your asset is inside the rebuilt total.</p>
+  <p>Pressing <b>New</b> on the Kit Upgrades tab:</p>
+<pre><code>[Workbench] Registered '&lt;your-id&gt;' in MetaUpgradeCatalog (position &lt;n&gt;). It is live the next time the catalog is read.
+[Upgrades] Baked &lt;n&gt; definition(s) into the catalog's runtime array.
+[Workbench] Created MetaUpgradeDefinition '&lt;your-id&gt;' at Assets/_Game/Systems/Run/Resources/KitUpgrades/&lt;your-id&gt;.asset.</code></pre>
+  <p class="dim">You may see two <code>Baked</code> lines — the new definition's import bakes once with the <i>old</i> count before registration bakes again with yours included. The last Baked line is the one that counts.</p>
+  <p>And after your fields are filled, a <b>healthy catalog prints nothing</b> in play mode. Failure is one loud line instead: a broken boon prints <code>[RunMods] '&lt;name&gt;' is not usable and was dropped from the catalog: &lt;problems&gt;.</code> at the catalog's first read, and a broken upgrade prints <code>[Upgrades] '&lt;name&gt;' is unusable and was DROPPED: &lt;problems&gt;</code> at the bake. Dropped-and-named is the tier's contract — the alternative was a reward that saves, restores, shows in the panel and does nothing.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li>Your boon's <code>.asset</code> exists in <code>Assets/_Game/Systems/Run/Resources/RunModifiers/</code>, named its id, and selecting <code>Assets/_Game/Systems/Run/Resources/RunModifierCatalog.asset</code> (one folder up from <code>RunModifiers/</code>) shows your entry <b>last</b> in the modifiers list.</li>
+    <li>Your upgrade's <code>.asset</code> exists in <code>…/Resources/KitUpgrades/</code>, and the console has printed an <code>[Upgrades] Baked</code> line since your last edit to it.</li>
+    <li>The console shows the <code>Registered</code> and <code>Created</code> lines for both, and <b>no</b> <code>[RunMods]</code> or <code>[Upgrades]</code> error.</li>
+    <li>Entering play mode and starting a run prints no dropped-and-named line.</li>
+    <li><span class="kbd">F1</span> → Run (dev) → Per-run modifiers lists your boon; granting a stack there changes the <i>Budgets now</i> row, and the HUD's modifier strip shows it.</li>
+    <li>If you authored a <b>Requires</b>: a fresh profile is not offered the boon at a rest, and the Loadout screen's NOT YET OFFERED section names it with its prerequisite.</li>
+    <li>The Shopkeeper's Upgrades tab shows your upgrade as the last row; buying level 1 debits exactly <b>Base Cost</b>.</li>
+  </ul>
+
+  <p>Your game now has a run worth repeating: a weapon, an economy to spend between runs, and rules that make each run different. Next it learns to talk — <b>Chapter 07, Dialogue</b>, gives your bosses and beats their lines (the reference behind it is the <a href="dialogue.html">Dialogue</a> page).</p>
+</section>
+
+<section id="ch7-dialogue">
+  <h2><span class="num">07</span>Dialogue</h2>
+  <p class="lead">Chapter 06 finished what your game <i>pays</i>; this chapter is what it <i>says</i>. One <code>DialogueSet</code> asset holds a speaker's whole script: <b>beats</b> keyed by the occasion they fire on (<code>Intro</code>, <code>Victory</code>, …), each beat a rotation of <b>encounters</b> that advances each time the player hears it, each encounter a run of speech-box <b>lines</b>. You will script the boss you built earlier, make every beat actually fire, watch it all without fighting anyone, and finish knowing exactly which of your words are voiced. The facts live on the <a href="dialogue.html">Dialogue reference</a> — this chapter is the procedure.</p>
+
+  <div class="note">One word will trip you: an <b>encounter</b> is not a fight — it is <i>one alternative version of a beat</i>. Three encounters on an Intro means three different greetings across three meetings, picked by a per-save counter (<a href="dialogue.html#shape">the shape</a>, <a href="dialogue.html#rotation">the rotation</a>).</div>
+
+  <h3>Write the script</h3>
+  <ol class="steps">
+    <li><b>Create the set.</b> In the Project window: <span class="kbd">Create ▸ Gleamwood ▸ Dialogue Set</span>, named <code>Dlg_&lt;Speaker&gt;</code>, beside the biome that owns the speaker.</li>
+    <li><b>Set the Dialogue Id now</b> — a stable kebab-case slug like <code>gale-warden</code>. It is the save key the rotation is tracked under, so it is the one field you can <b>never rename</b> once players have saves: renaming it silently resets every beat to encounter 1 for them (<a href="dialogue.html#traps">traps</a>).</li>
+    <li><b>Author the beats.</b> Open <span class="kbd">Gleamwood ▸ Content Workbench</span>, pick the Dialogue tab, select your set. Add an <code>Intro</code> beat and write encounter 1, one speaker + text row per line. One encounter is a complete, shippable beat — the rotation is a bonus, not a requirement.</li>
+    <li><b>Add a <code>Victory</code> beat</b> the same way. More encounters per beat are the story reveal; each beat's <b>Cycle When Exhausted</b> decides whether the rotation loops or sticks on the last encounter forever (<a href="dialogue.html#rotation">how the next encounter is picked</a>).</li>
+    <li><b>Point the boss at it</b> — the <code>dialogue</code> field on your <code>BossDefinition</code>, on the Workbench's Bosses tab. The Dialogue tab's top row confirms the hookup: green <code>[ok] spoken by a boss</code>.</li>
+  </ol>
+
+  <p>Prefer writing in a text editor? Every set pairs with a <code>.dlg</code> twin in <code>Assets/_Game/Content/Dialogue/</code> — same content, line-oriented, no escaping (<a href="dialogue.html#dlg">the grammar</a>). A <b>new</b> set has no twin yet, and nothing creates one for you: press <b>Write to file</b> on the Dialogue tab's Text file row (or <b>Write All To Files</b> in Dialogue Tools) to write it — only then does the row read <i>in sync</i>. From there, write in the file instead, then <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Sync All From Files</b>. <b>Nothing syncs on its own</b> — no watcher, no import hook. The Dialogue tab's <b>Text file</b> row tells you <i>in sync</i> or <b>DIVERGED</b>, and syncing either direction overwrites the other side, so pick which surface you are editing today and sync before you switch (<a href="dialogue.html#authoring">authoring</a>).</p>
+
+  <div class="note warn"><b>Add rows in the Workbench tab, not the raw inspector.</b> Unity's raw-inspector array grow <i>copies the previous element</i>, which is how a shipped boss once had four beats all reading the same line. The tab clears every add; the inspector still does not (<a href="dialogue.html#traps">traps</a>).</div>
+
+  <h3>Two beats fire by themselves — the other three need a component</h3>
+  <p>The trigger dropdown offers five names, and they are not equal. <code>Intro</code> and <code>Victory</code> are wired into every boss arena: the arena sequence speaks <code>Intro</code> once the boss has appeared and <code>Victory</code> once the gate opens, with nothing for you to add (<a href="dialogue.html#wired">what fires, and when</a>). <code>Defeat</code>, <code>Phase Two</code> and <code>Banter</code> have exactly one route into the game: a <b><code>DialogueBeat</code></b> component that <i>you</i> place on the thing that speaks. The component is shipped, working code — but <b>no shipped scene or prefab carries one yet</b>, so a beat you author for those three triggers is silent until you add it. If a beat never plays, check for the component before you re-read the words.</p>
+
+  <ol class="steps">
+    <li>Select the speaker — your enemy prefab, an NPC in a scene.</li>
+    <li>Press <b>Add Component</b> and search for <b>Dialogue Beat</b>.</li>
+    <li>Point <b>Set</b> at your <code>Dlg_</code> asset and type <b>Trigger</b> exactly as the beat is named (any custom beat name works too — the five are convention, not a whitelist).</li>
+    <li>Pick <b>When</b>: <code>OnHealthBelow</code> with a <b>Health Fraction</b> for a mid-fight taunt (fires once, on the crossing going down), <code>OnDeath</code> for last words, <code>OnInteract</code> for talk-to-me NPCs (needs an <code>InteractZone</code> on the same object or a parent), <code>OnEnable</code> to speak on wake. Leave <b>Once</b> on.</li>
+    <li>Leave <b>Freeze Time</b> off for combat lines — the boss beats play with the world running, and that is the intended feel. Turn it on for a standing conversation with nothing to keep alive behind the box.</li>
+  </ol>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-dialogue-beat.png</code></b> — the Inspector of an enemy prefab with a DialogueBeat component expanded: Set assigned to a Dlg_ asset, Trigger reading "Phase Two", When = OnHealthBelow, Health Fraction 0.5, Once ticked.</figcaption>
+  </figure>
+
+  <div class="note warn"><b>The speech panel exists in <code>3.BiomeHost</code> and <code>4.RestHost</code> only.</b> A Banter NPC in the hub is skipped in complete silence — no error, no box — because <code>2.Hub</code> has no <code>Dialogue.prefab</code>. Add that prefab to the scene first (<a href="dialogue.html#panel">the panel</a>).</div>
+
+  <h3>The rotation needs a save slot</h3>
+  <p>Each beat's times-heard counter lives <b>in the save file</b>, keyed <code>dialogueId:trigger</code>. Press Play straight into a level scene and there is no active slot, so every beat plays encounter 1 forever and nothing is recorded — <b>by design</b>, so sandbox testing never pollutes a save, not because your rotation is broken. To watch encounters advance, boot from <code>0.Bootstrapper</code>, pick a slot, and meet your speaker repeatedly (<a href="dialogue.html#rotation">where the count lives</a>). To just <i>see</i> encounter 3, use the preview below — it picks encounters by index and skips the rotation entirely.</p>
+
+  <h3>Faces, stings and voices</h3>
+  <p>Everything beyond a line's words is an optional entry on its presentation strip: a <b>pose</b> (portrait), a <b>side</b>, a <b>shake/flash</b> effect, an <b>sfx</b> sting, a <b>voice</b> take (<a href="dialogue.html#presentation">portraits, effects and voice</a>). Two different failure rules keep authoring safe: a pose id resolves through the <code>PoseCatalog</code> and a typo is a <b>validator error</b> with a file and line; sfx and voice resolve through the <code>VoiceBank</code> and a missing take is <b>silence, never an error</b> — "not recorded yet" is the normal state of a line mid-production.</p>
+  <p><b>Leave the voice field empty.</b> A line with no explicit id looks its take up by the <i>derived key</i> <code>dialogueId:trigger:encounter:line</code> — the tab shows each line's key and whether a take exists, and <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Report Voice Coverage</b> prints the whole project's. On disk the colons become dots (<code>gale-warden.Intro.0.0.wav</code> — Windows forbids <code>:</code> in filenames), so to voice a line you record a WAV, name it by that convention, and drop it beside the example pack's takes in <code>Documentation/ExampleDialogueVoice/Mods/example-voice/Dialogue/audio/</code> — the one folder both halves of the pipeline share: the regeneration script writes there, and <b>Bake Voice Into Bank</b> reads the same place (since 2026-08-23; for ten days before that the bake read a dead pre-campaign path and every take landed silently in the "missing" list, which is why this sentence used to be a warning). Then press <b>Bake Voice Into Bank</b> (<a href="dialogue.html#generators">the pipeline</a>). Spoken takes play through the SFX bus — there is no separate voice slider (<a href="audio.html#mixer">the mixer</a>).</p>
+  <div class="warn note"><b>Bake Voice Into Bank is all-or-nothing, and that folder is not empty.</b> It walks every line of every shipped set, copies whatever WAV the pack folder holds for each one into <code>Assets/_Game/Content/Voice/Lines/</code>, and wires the lot into the shipped <code>VoiceBank</code>. There is no per-file selection, and the log is a plain count — so a bake fired to hear <em>your</em> one recording also drags in the <b>28 machine-spoken takes still sitting in that pack folder</b>. Those were deleted from the game on 2026-08-24 for a licence reason (Windows' bundled SAPI voices are licensed for OS use, not for redistribution inside a product) and survive under <code>Documentation/</code> only because that is outside the build. <b>Move or delete the pack's 28 takes before you bake</b>, or your working copy has quietly put them back in the game and nothing will say so.</div>
+  <p class="dim">Honesty about the shipped voices: there are none — the 28 machine-spoken takes were stripped on 2026-08-24 and every shipped line is a silent text box until real recordings exist, and shipped portraits/stings are generated from existing art by the toolbox's <b>Generate Portraits</b> / <b>Generate Demo Audio</b> buttons (<a href="dialogue.html#generators">where they came from</a>). Note that all of these commands are <b>buttons inside the Dialogue Tools window</b>, not menu items — there is no <span class="kbd">Gleamwood ▸ Dialogue</span> menu to hunt for.</p>
+
+  <h3>See every beat without a boss fight</h3>
+  <ol class="steps">
+    <li><b>Open a scene that stays put first</b> — a gameplay scene, or an empty one. Not <code>0.Bootstrapper</code>, which is what chapter 01 left open: the preview spawns its panel into the <em>active</em> scene, and the bootstrapper's splash loads <code>1.Title</code> over the top of it seconds in (or instantly, since the first button press that advances the dialogue also skips the splash), taking the preview with it. The console still says it previewed.</li>
+    <li>Select your set in the Project window, then open <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> — the selection auto-fills the <b>Dialogue Set</b> field.</li>
+    <li>Pick a <b>Beat</b> and slide <b>Encounter</b> to the one you want. The slider is the whole point: it plays by index, so encounter 3 needs no save slot — and an un-fired <code>Phase Two</code> beat plays here even before its <code>DialogueBeat</code> exists.</li>
+    <li>Press <b>Preview ▶</b>. From edit mode it enters play mode for you and plays the beat through the <i>real</i> panel — poses, sides, shake, sfx and voice all render exactly as in game (<a href="dialogue.html#preview">preview</a>).</li>
+    <li>Advance with Submit (<span class="kbd">Enter</span> / controller A), or tick <b>Auto-advance</b> and watch. Walk the slider across every encounter of every beat before you call the script done.</li>
+  </ol>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-dialogue-tools.png</code></b> — the Gleamwood ▸ Dialogue Tools… window with a Dlg_ set assigned: the Beat dropdown, the Encounter slider showing "3 encounter(s) in this beat", the Preview ▶ button, and the batch toolbox (sync, voice, portraits) below the divider.</figcaption>
+  </figure>
+
+  <p>A campaign can rewrite every word of this from outside the build — <code>Mods/&lt;id&gt;/Dialogue/*.dlg</code> overrides any set whose <code>id:</code> line matches, with <code>poses/</code> and <code>audio/</code> folders beside it supplying new portrait art and takes (<a href="dialogue.html#modding">the contract</a>; <a href="modding.html#campaign">the campaign folder layout</a>) — just know that in the <i>editor</i> those files only load with an active campaign or <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span> switched on.</p>
+
+  <h3>What success prints</h3>
+  <p>Angle-bracketed parts vary; everything else is verbatim. In the Console:</p>
+<pre><code><span class="c">// every Preview ▶ announces exactly what it is playing:</span>
+[Dialogue] Previewing &lt;dialogueId&gt; — &lt;Beat&gt; #&lt;encounter&gt;.
+
+<span class="c">// Sync All From Files, with your new set paired and clean — failed must be 0:</span>
+[Dialogue] Sync from files: &lt;n&gt; synced, &lt;n&gt; with no .dlg, 0 failed.
+
+<span class="c">// Report Voice Coverage, after the per-set lines:</span>
+[Voice] TOTAL &lt;recorded&gt;/&lt;total&gt; lines recorded across &lt;n&gt; set(s).
+
+<span class="c">// and Gleamwood ▸ Validate Run Content still ends green:</span>
+[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code></pre>
+  <p>One line you must <b>not</b> see — it means you skipped step 2 and the rotation has no key to save under:</p>
+<pre><code>[Dialogue] '&lt;name&gt;' has no dialogueId — rotation can't be save-tracked.</code></pre>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li><code>Dlg_&lt;Speaker&gt;.asset</code> exists beside your biome's content, and its Dialogue Id is a kebab-case slug you accept you can never rename.</li>
+    <li>Its <code>.dlg</code> twin sits in <code>Assets/_Game/Content/Dialogue/</code> and the Dialogue tab's Text file row reads <i>in sync</i>, not DIVERGED.</li>
+    <li>The tab's top row is green — <code>[ok] spoken by a boss</code> — or you know exactly which <code>DialogueBeat</code> speaks the set instead.</li>
+    <li>Every <code>Defeat</code>, <code>Phase Two</code> or <code>Banter</code> beat you wrote has a <code>DialogueBeat</code> on its speaker, trigger spelled exactly as the beat is named.</li>
+    <li>You previewed every beat and walked the Encounter slider across every encounter — none of them plays a duplicate of the row above it.</li>
+    <li>The Console shows no missing-<code>dialogueId</code> warning, and <span class="kbd">Gleamwood ▸ Validate Run Content</span> printed the OK line.</li>
+    <li>Report Voice Coverage names your set, and you know — and accept — which of its lines are silent.</li>
+  </ul>
+
+  <p>Your boss now has words. <b>Chapter 08 — Audio</b> gives the fight under them a soundtrack: the three-bus mixer these voices already ride, the <code>MusicSet</code> slots, and why your new biome stays silent on purpose until you hand it a track.</p>
+</section>
+
+<section id="ch8-audio">
+  <h2><span class="num">08</span>Audio</h2>
+  <p class="lead">Chapter 07 left your boss speaking. This chapter is everything else the game plays — the jump, the swing, the shop's answer, the score — and you will write no code for any of it: every sound enters through a slot that already exists, most slots already hold a <b>placeholder</b> clip you replace one file at a time, and the facts — every seam, bus and style rule — live on <a href="audio.html">the Audio Stack page</a>. This chapter is the procedure: find the slot, fill it, hear it.</p>
+
+  <h3>Every sound has one home</h3>
+  <p>"Where do I put this sound?" has exactly one answer per kind, and finding it is the whole trick — a clip in the wrong place is not quieter, it is silent. The full seam map, with buses and who plays what, is <a href="audio.html#seams">audio.html §06</a>; this table is your index into it.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>You want to hear…</th><th>The slot</th><th>Where you fill it</th></tr>
+    <tr><td>A player state entry — the jump grunt, the dash whoosh, the wall-slide scrape</td><td><code>EnterSound</code> + <code>EnterSoundVolume</code> on that state's config in <code>PlayerDef.asset</code></td><td><span class="kbd">Gleamwood ▸ Content Workbench</span>, Player category — every clip field renders as a sound row with a <b>Play</b> preview</td></tr>
+    <tr><td>Landing, surviving a hit, the death sting</td><td><code>landSound</code> / <code>hurtSound</code> / <code>deathSound</code> on <code>PlayerBodyAudio</code></td><td>the component on <code>Assets/Prefabs/Player.prefab</code> — the note below says why these three are not <code>EnterSound</code>s</td></tr>
+    <tr><td>An enemy telegraph, strike or death sting</td><td><code>EnterSound</code> on the state config inside the enemy's <code>*Def.asset</code>; <code>hurtSound</code> on its <b>prefab</b></td><td>Workbench, Enemies category, Presentation tab — it labels which asset each row edits, because the definition is <b>shared</b>: tuning one hound's telegraph tunes every hound</td></tr>
+    <tr><td>A weapon — swing, dash attack, bow release</td><td><code>AttackSound</code> per swing and per dash attack; <code>ReleaseSound</code> / <code>PerfectReleaseSound</code> on the bow</td><td>Workbench, Melee and Ranged categories. (<code>DrawSound</code> exists and is never played — <a href="audio.html#seams">§06</a>; don't author into it)</td></tr>
+    <tr><td>A pickup — the heal orb, a secret</td><td><code>HealPickup.pickupSound</code> / <code>Secret.pickupSound</code></td><td>the pickup's prefab, in the Inspector</td></tr>
+    <tr><td>Using a forge, rest, boon site, pedestal, path door, bypass door or biome exit — or greeting the shopkeeper</td><td><code>InteractZone.interactSound</code> — one inherited field, so it is authored per zone rather than eight times in code</td><td>the zone's prefab; <b>ships empty on purpose</b> — see the shopping list below</td></tr>
+    <tr><td>A menu blip</td><td><i>no field</i> — the <b>filename is the wire</b></td><td><code>Assets/_Game/Audio/Resources/UISfx/</code>, seven stems: <code>ui_move</code>, <code>ui_submit</code>, <code>ui_cancel</code>, <code>ui_tab</code>, <code>ui_tick</code>, <code>ui_success</code>, <code>ui_refuse</code>. The menu framework dispatches them; you never wire a call</td></tr>
+    <tr><td>Music</td><td><code>musicTrack</code> on a biome or a boss, plus three global slots on the MusicSet</td><td>the music procedure below</td></tr>
+  </table>
+  </div>
+  <div class="rule note"><b>The one seam that is easy to guess wrong: the death sting.</b> Most player audio is a state entry, but the sting lives on <code>PlayerBodyAudio.deathSound</code>, <b>not</b> on a state's <code>EnterSound</code> — the death state is code-registered with no config, and the enter-sound hook reads the config map, so that seam can never reach it. Landing is not a state entry either (falling returns straight to idle or run, so a thud on either would fire whenever the player stopped or started), and <code>hurtSound</code> plays only on a hit the player <i>survives</i> — the fatal hit is the sting's moment, exactly once. Those three go on the component; everything else goes on the state.</div>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-audio-player-body.png</code></b> — the Inspector for <code>Assets/Prefabs/Player.prefab</code> with the PlayerBodyAudio component expanded, showing <code>player_land</code>, <code>player_hurt</code> and <code>player_death</code> sitting in the Landing, Hurt and Death slots.</figcaption>
+  </figure>
+
+  <h3>The placeholder folder is the audio pass's shopping list</h3>
+  <p><code>Assets/_Game/Audio/Placeholder/</code> holds nine short one-shots, generated by the committed <code>Tools/AudioPipeline/synthesize_placeholder_sfx.py</code> against the same style contract as the shipped pack. Eight are already wired: <code>player_jump</code>, <code>player_dash</code> and <code>player_wallslide</code> on their state configs; <code>player_land</code>, <code>player_hurt</code> and <code>player_death</code> on <code>PlayerBodyAudio</code>; <code>pickup_heal</code> on the heal orb and <code>pickup_secret</code> on both secrets. The ninth, <code>interact_use</code>, sits in the folder <b>wired to nothing</b>: which of the eight interact zones deserves a sound is an authoring call, so the clip waits for you to make it — drop it into a zone prefab's <code>Interact Sound</code> when you decide. (Two more placeholders live next door as UI blips: <code>ui_success</code> and <code>ui_refuse</code> in <code>UISfx/</code>, so the shop answers its one question out loud.) Replace these files one by one, each independently — the wiring never moves again. The pass is tracked as the OUTSTANDING row <i>"The player body makes no sound"</i>.</p>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-audio-placeholder.png</code></b> — the Project window focused on <code>Assets/_Game/Audio/Placeholder/</code> with all nine .wav files visible and one selected, so the Inspector shows its import info (mono, 44100 Hz).</figcaption>
+  </figure>
+  <p>To replace one:</p>
+  <ol class="steps">
+    <li><b>Author a mono 44.1&nbsp;kHz WAV</b> that follows the style contract in <a href="audio.html#style">audio.html §10</a> — layered body, the finish chain, sized to its class. The contract is linked rather than restated here because a sound that skips it "will stick out of the mix like a stock-asset thumb", §10's own words. Keep one-shots <b>under a second</b>: every slot these fill is a one-shot, and the suite refuses a longer file in this folder.</li>
+    <li><b>Overwrite the file under its exact name</b> — same folder, same filename, <code>player_jump.wav</code> stays <code>player_jump.wav</code>. Every wire is an asset reference held by the file's guid, so overwriting in place is the <i>entire</i> job; renaming or delete-and-recreate is how a wire dies.</li>
+    <li><b>Hear it in place</b>: the Workbench sound row's <b>Play</b> button previews without entering play mode, or just play the moment.</li>
+    <li><b>Run the suite</b> (<span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>). <code>PlaceholderAudioTests</code> pins this whole chapter: every wired slot still resolves on the shipped assets, every clip in the folder is a mono 44.1&nbsp;kHz one-shot, and the fatal hit plays the sting once — and not the hurt sound.</li>
+  </ol>
+  <div class="warn note"><b>Regenerating never breaks a wire — and it is never a way back for one clip.</b> The generator runs from the repo root (<code>C:/Python313/python.exe Tools/AudioPipeline/synthesize_placeholder_sfx.py</code>), uses one fixed seed so the same script emits the same bytes, and derives every <code>.meta</code> guid from the asset's path — so a re-run can never re-guid a clip and silently unwire it. What it <em>will</em> do is overwrite <b>all eleven files it owns in one pass</b> — the nine placeholders plus <code>ui_success</code> and <code>ui_refuse</code> — because it takes no arguments and regenerates the set or nothing (the script's own header says so in capitals). Eight files into a replacement pass, running it to undo one clip destroys the other seven. To get a single clip back, restore that one file from git instead. It never touches the five original UI blips or the combat pack.</div>
+
+  <h3>Music: a track per biome, a theme per boss, three global slots</h3>
+  <ol class="steps">
+    <li>Put the track in <code>Assets/_Game/Audio/Music/</code>. Any format Unity imports is fine <i>here</i> — the shipped library mixes .wav and .mp3; the strict <code>.wav</code>-only rule below applies to <b>campaign</b> folders, which are decoded at runtime.</li>
+    <li><b>For a biome</b>: Workbench, Levels category, the <b>Level Music</b> row. The track is pushed when a level assembles and survives through rests into the next biome. <b>For a boss</b>: Bosses category, Boss Staging, the <b>Boss Music</b> row — it erupts out of the intro hush at fight-on, and an empty row means the level track resumes instead (<a href="audio.html#bossbeats">the boss beats</a>).</li>
+    <li>Or in text: a <code>musicTrack =</code> line under the biome's or boss's section in <code>Assets/_Game/Content/GameContent.ini</code> (<a href="tuning.html#gamecontent">Tuning &amp; INI</a>).</li>
+    <li>The three global slots live on <code>Assets/_Game/Audio/Resources/MusicSet.asset</code> — <code>MenuTrack</code> (boot and title), <code>HubTrack</code> (the hub, and rests), <code>LevelTrack</code> (only a level scene <b>no biome has spoken for</b>). An empty <code>MenuTrack</code> or <code>LevelTrack</code> is silence, no errors — but an empty <code>HubTrack</code> falls back to <code>MenuTrack</code>, so emptying it to silence the hub gets you the title theme instead. Which slot answers when is <a href="audio.html#slots">audio.html §05</a> and <a href="audio.html#scenerules">§03</a>.</li>
+  </ol>
+  <div class="warn note"><b>Silence is a feature, not your bug.</b> A biome with no <code>musicTrack</code> plays <b>nothing</b> — it does not borrow <code>LevelTrack</code> or anyone else's theme. (The old fallback meant every run's finale played the entry biome's music, which is the game telling the player they are somewhere they are not.) If your new biome is quiet, you are hearing the design; the console says so once, in the exact sentence quoted below. Today six shipped biomes and nine of ten bosses have no track of their own — the gap is content, the OUTSTANDING row <i>"The music library does not cover the run"</i>.</div>
+
+  <h3>A campaign brings its own audio</h3>
+  <p>Everything above edits the shipped game. A campaign folder carries its own sounds instead, and the full contract is written once, in <a href="modding.html#campaign">Modding §07</a> — what follows is the shape and the two rules that surprise people. Music goes in <code>Mods/&lt;id&gt;/Campaign/Music/*.wav</code> and is named by filename stem on any <code>musicTrack</code> line; your folder is checked <b>before</b> the shipped library, so a file named after one of ours (say <code>Forest of the Demon.wav</code>) silently replaces it for your campaign — deliberate replacement and accidental collision look identical, so name carefully. Sound effects go in <code>Mods/&lt;id&gt;/Campaign/Sfx/*.wav</code>, named on any sound field the Enemies and Weapons text tiers expose (<code>EnterSound</code>, <code>AttackSound</code>, <code>ReleaseSound</code>…) — and here there is <b>no shipped fallback</b>: the game's own combat clips are referenced by asset, not by name, so you bring the sound or keep ours. A file named after a UI blip stem (<code>ui_submit</code>, <code>ui_refuse</code>…) replaces that blip. Everywhere: <code>.wav</code> only (an <code>.ogg</code> or <code>.mp3</code> earns <code>&lt;file&gt;: only .wav is supported for campaign music — skipped.</code> rather than silence; the <code>Sfx/</code> folder's twin says "campaign sound effects"), 16MB per file, and every complaint lands in the <a href="modding.html#report">mod report</a>. Dialogue voice takes are their own folder and were Chapter 07's ground.</p>
+  <div class="warn note"><b>Testing in the editor and hearing vanilla?</b> Campaign audio plays only while its campaign is <b>ACTIVE</b> — in the editor exactly as in a build: enter through the title and pick a slot bound to the campaign. The <span class="kbd">Gleamwood ▸ Simulate Mods</span> toggles cannot stand in for activation — they only enable the override tiers, and those tiers read the <i>active campaign's</i> folder, so a toggle on with no campaign active still plays vanilla. Activate first; then vanilla means your files.</div>
+
+  <h3>What success prints</h3>
+  <p>A correctly wired sound effect prints nothing — hearing it is the receipt, and the suite is the tripwire. The console's verbatim sentences for this chapter are about <b>music</b>. Deliberate silence announces itself once, at the moment the biome loads:</p>
+  <pre><code>[Music] Biome '&lt;name&gt;' has no musicTrack — playing nothing. A biome with no music is silent on purpose; it does not borrow another biome's.</code></pre>
+  <p><span class="kbd">Gleamwood ▸ Validate Run Content</span> warns for every biome and boss still undressed — a warning, never an error, so the OK line still prints beneath them and a silent biome still ships:</p>
+  <pre><code>[Validate] Biome '&lt;name&gt;' has no musicTrack - its levels play SILENCE. That is the honest answer for an undressed biome (it no longer borrows another biome's theme); fill musicTrack when it has one of its own.
+[Validate] Boss '&lt;name&gt;' (biome '&lt;biome&gt;') has no musicTrack - the fight keeps the biome's music, and goes silent with it if that biome has none.
+[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.</code></pre>
+  <p>And a campaign that names a track that is nowhere gets the refusal, in the mod report:</p>
+  <pre><code>[&lt;section&gt;] musicTrack = '&lt;value&gt;': no such track, in this campaign's Campaign/Music/ folder or in the shipped library. Known: &lt;list&gt;. Refused.</code></pre>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li><code>Assets/_Game/Audio/Placeholder/</code> still holds nine <code>.wav</code> files under their original names — every replacement you made overwrote in place, nothing renamed, nothing moved.</li>
+    <li><code>Player.prefab</code>'s PlayerBodyAudio shows a clip in all three slots: Landing, Hurt, Death.</li>
+    <li>In the Workbench's Player category, jump, dash and wall-slide each hold an Enter Sound, and the row's <b>Play</b> button plays it.</li>
+    <li><code>Assets/_Game/Audio/Resources/UISfx/</code> holds seven <code>ui_*.wav</code> — and in the hub Shop, a purchase and an unaffordable one sound <i>different</i>.</li>
+    <li>Every biome and boss you authored either holds a music track or you have read its <code>[Validate]</code> warning and chosen silence on purpose.</li>
+    <li>If your campaign ships audio: <code>Campaign/Music/</code> and <code>Campaign/Sfx/</code> hold only <code>.wav</code> under 16MB each, and the mod report lists no skipped or refused file.</li>
+    <li><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> still ends green with <code>PlaceholderAudioTests</code> in it — the test that notices a dead wire before a player does, because a dead <code>AudioClip</code> wire is just quiet.</li>
+  </ul>
+
+  <p>The game sounds like a game now. Next: <b>Chapter 09 — Rooms and ROOM_STANDARDS</b>, the spaces all of this plays in — how a <code>.room</code> drawing becomes a place in the run, and the socket contract that makes your rooms assemble with everyone else's.</p>
+</section>
+
+<section id="ch9-rooms">
+  <h2><span class="num">09</span>Rooms and ROOM_STANDARDS</h2>
+  <p class="lead">Chapter 08 left your biome sounding like a place. This chapter builds the places themselves: room prefabs painted on the Tilemap, sized from the controller's real movement numbers, and proved walkable by the same flood the shipped game runs. One document is the authority over everything here — <a href="../ROOM_STANDARDS.md"><code>Documentation/ROOM_STANDARDS.md</code></a>, the movement-budget and socket contract. This chapter is the procedure for obeying it; where the two ever seem to disagree, the standards doc wins.</p>
+
+  <h3>The one idea to hold</h3>
+  <p>Room geometry is <b>derived from the controller, never chosen by taste</b>. The player runs at 5&nbsp;u/s, jumps exactly 2&nbsp;u, and is roughly 0.57&nbsp;×&nbsp;1.33&nbsp;u of collider — so a 3&nbsp;u gap is jumpable, a 2&nbsp;u step-up is the hard ceiling, and a shelf exactly 2&nbsp;u above another puts a tile row at head height. The full budget, with every number's derivation, is <a href="levels.html#recipe">levels.html §03</a> and ROOM_STANDARDS §2. The rules you will lean on every minute of painting:</p>
+  <ul>
+    <li><b>Gaps:</b> 2–3&nbsp;u, and <b>3&nbsp;u is the main-path maximum</b>. A 4–5&nbsp;u dash-jump gap is advanced budget — secrets only, never the main path.</li>
+    <li><b>Step-ups:</b> 1&nbsp;u standard, <b>2&nbsp;u hard ceiling</b>; any climb past 2&nbsp;u terraces in ≤2&nbsp;u steps with ≥2&nbsp;u landings. Prefer 1&nbsp;u steps on the main path — a 2&nbsp;u rise against the 2.000&nbsp;u apex leaves a landing window of roughly 0.07&nbsp;s (ROOM_STANDARDS §3d rule&nbsp;4).</li>
+    <li><b>Size:</b> 8×8 is the hard minimum (a validator error below it), middle rooms are warned about under 12 wide, and 16–30 wide is typical.</li>
+    <li><b>Coyote time is forgiveness, not budget.</b> Never author a gap that needs it.</li>
+  </ul>
+
+  <h3>Build the room</h3>
+  <ol class="steps">
+    <li><b>Duplicate an existing room — do not build fresh.</b> Copy a <code>Room_Ember_*</code> prefab in <code>Assets/_Game/Biomes/Emberfall/</code> and rename the copy, keeping the <code>Room_Ember_</code> prefix so the biome's <code>roomPool</code> glob (<code>Room_Ember_*</code> — <a href="levels.html#biome">levels.html §06</a>) picks it up with no INI edit — though the import must still re-run (step 9): the glob expands into the biome asset only at import time, so a matching name is not yet a pool entry. Duplication is a rule, not a convenience: a tilemap created through Unity's own menus lands on layer <code>Default</code>, and the layer is the only thing the player's collision cast reads — so a fresh-built room is <b>air to the player, and both gates still pass it</b>. The copy inherits the correct layers.</li>
+    <li><b>Know what you copied.</b> A root GameObject carrying <code>RoomTemplate</code>; a child <code>Grid</code>; <code>Floors</code> and <code>Walls</code> tilemaps, <b>both on layer <code>Level</code>, both fully solid</b> — that split is a naming convenience and carries no collision meaning — plus an optional <code>Platforms</code> map on layer <code>OneWay</code>. The full anatomy is <a href="levels.html#anatomy">levels.html §02</a>.</li>
+    <li><b>Paint greybox, starting at cell (0,0).</b> The tiles are <code>Tile_GreyFloor</code> / <code>Tile_GreyWall</code> from <code>Assets/_Game/Biomes/Greybox/</code> — full-cell colliders, so the collider is exactly what you see. Painted content must begin at cell (0,0) and the grid must not be offset from the room root; both are validator errors. The footprint computes itself from the paint (<code>sizeInCells</code> stamps itself — nothing to type), and the corollary is loud: <b>never repaint the perimeter of a room that already ships</b>. The footprint feeds band packing and minimap scale, so a size change moves whole layouts even when every verdict stays green (§3d rule&nbsp;8).</li>
+    <li><b>Thin platforms: one tile, one map, one layer.</b> Paint <code>Tile_GreyPlatform</code> on the <code>Platforms</code> map (layer <code>OneWay</code>), full cells only, never sub-cell (§3d rule&nbsp;9). The <b>layer is the entire contract</b>: the player lands on the platform's top, jumps up through it from below, and holds <b>down&nbsp;+&nbsp;jump</b> to drop through. Paint the platform tile onto any other map and <span class="kbd">Gleamwood ▸ Validate Run Content</span> (chapter 10's gate, worth running now) refuses it — <i>"It will collide as a WALL — solid from every direction — while looking like something you can jump through."</i> Paint anything else on the <code>OneWay</code> map and the inverse fires: a wall drawn there is a wall the player walks through. And never platform a face the room needs for wall-jumping (§3d rule&nbsp;10) — if a shaft's only route is bouncing off that face, the face is structural.</li>
+    <li><b>Cut the doors.</b> On the <code>RoomTemplate</code>, add one socket per doorway: a side (<code>Left</code>/<code>Right</code>/<code>Up</code>/<code>Down</code>) and a cell — for L/R doors the cell is the aperture's <b>floor row</b>; for U/D, its <b>leftmost column</b>. The aperture itself is authored <b>open</b> (no tiles), is exactly <b>3 cells</b>, and a side door's floor cell sits flush with walkable floor inside the room. Check the cyan gizmo hugs the hole and that <code>cell + 3</code> stays inside the room bounds (a validator error when it leaves them). Unused sockets get sealed at generation by the biome's 3-cell cap prefab, so every socket must sit in a straight wall/floor/ceiling run the cap can seal. An Up door counts as an exit only if the room internally terraces up to it in ≤2&nbsp;u steps — the validator can only check the aperture; the climb is on you.</li>
+    <li><b>Tag the room, and give the tag its fixture.</b> <code>Entry</code> needs a <b>Right socket specifically</b> — not "L or R"; the build gate counts only an Entry that also has an R socket — plus a child GameObject named exactly <code>EntryPoint</code> (it is found by name, so the string is a contract). <code>Exit</code> needs a Left socket plus a <code>BiomeExit</code> component. <code>Combat</code> and <code>Traversal</code> middles need L+R. <code>Treasure</code> and <code>Secret</code> rooms take <b>exactly one door</b> — a room with two connected doors can never be a pocket, so a second door makes the payout unreachable — and a Secret room's payout is a <code>Secret</code> component on a trigger collider (it reports to the run's "X / Y" secrets count when touched). <code>Boss</code> and <code>BossCorridor</code> both need L+R and carry the staging components — <code>BossDoor</code> + <code>BossApproachSequence</code> on the corridor, <code>BossGate</code> + <code>BossArenaSequence</code> + the deferred markers on the arena (ROOM_STANDARDS §3e) — which your duplicated prefab inherits; chapter 04's <code>BossDefinition</code> is what fills them, and a missing <code>BossGate</code> is a validator error, not a nag. The whole tag-and-socket table is ROOM_STANDARDS §3e.</li>
+    <li><b>Place <code>EnemySpawnMarker</code>s</b> on floor cells with ≥3&nbsp;u of clearance. The biome's spawn table is rolled at each marker (<a href="levels.html#spawntables">levels.html §08</a>); a marker can carry an override table for a guaranteed elite, and only boss arenas set the defer/boss-point flags.</li>
+    <li><b>Author every pit.</b> A kill-gap is never implicit — there is no fall damage, so a drop without a hazard is just a drop. Add a <code>Hazard</code> component in <b>Pit</b> mode on a trigger spanning the gap floor, ≥2&nbsp;u below the lip, because the breadcrumb respawn needs real ground on the approach side.</li>
+    <li><b>Join the pool, then prove it.</b> Re-run <span class="kbd">Gleamwood ▸ Import Content INI</span> — unconditionally, glob or not. The glob is expanded into the biome asset only at import, so until you re-import, your matching name is not a pool entry and the room is silently absent from every generated level — while still passing the audit below, which sweeps all <code>Biomes/</code> prefabs regardless of pool. If your biome uses an explicit <code>roomPool</code> list instead of the prefix glob (pyre-crown does), add the room's name to the INI list first. Then run <span class="kbd">Gleamwood ▸ Audit Room Reachability</span> and read the console — what it checks, and what it deliberately does not, is the next section. Run <span class="kbd">Gleamwood ▸ Validate Run Content</span> too: the size, origin, socket-bounds, platform-layer and marker errors quoted in this chapter all fire from it, not from the reachability audit.</li>
+  </ol>
+
+  <div class="warn note"><b>Markers stand on <code>Level</code> floor, never on a platform.</b> The runtime's feet-snap ray masks <code>Level</code> only, so a marker placed on a <code>OneWay</code> ledge silently drops its enemy somewhere else — the validator errors with the exact cause, <i>"the ledge directly under it is on the OneWay layer, which the feet-snap ray does not see, so the enemy falls through to the first Level surface below"</i>, and ends with the fix: <i>"Put the marker on the floor the enemy will actually stand on."</i> The same pass also refuses markers buried in solid tiles, hovering above their floor, floorless within 8 cells, or without two open cells to stand in.</div>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-room-sockets.png</code></b> — Scene view with your duplicated room prefab open and the root's <code>RoomTemplate</code> selected: the ember bounds gizmo hugging the painted tiles, and a cyan 3-cell socket gizmo lined up exactly with an open doorway.</figcaption>
+  </figure>
+
+  <h3>Prove it — the flood, and why it is per ability</h3>
+  <p><span class="kbd">Gleamwood ▸ Audit Room Reachability</span> floods every room with a model of the real player — the flood's state is position <i>plus vertical velocity</i>, and its numbers are read from <code>PlayerSettings.asset</code> and pinned against <code>Player.prefab</code>, never chosen (<a href="levels.html#reachability">levels.html §04</a> documents the model rule by rule). It sweeps <b>every</b> shipped prefab room under <code>Assets/_Game/Biomes/</code> plus every campaign <code>.room</code> drawing, so the count in its verdict covers far more than the room you just built. One silence to distrust: a prefab whose sockets list is <b>empty</b> is skipped, not passed — and a clean room prints no per-room line — so if your socket authoring failed, the tail still reads "0 refused" over the other ~60 rooms while yours was never checked. Confirm the room count went up by one since your last run (or temporarily break a jump and check the audit names your room) before trusting the verdict.</p>
+  <p>Exactly two verdicts refuse a room, and both are judged <b>with every ability unlocked</b> — so a refusal always means broken geometry, never a missing unlock:</p>
+  <ul>
+    <li><b>A trap door</b> — a door you can arrive through and then never leave: <i>"…leaves the player with no way out: no other door is reachable from there, even with every ability unlocked. That is a dead run, so the room is refused."</i></li>
+    <li><b>Inescapable floor</b> — <i>"floor the player can fall into and not climb out of"</i>: cells a door reaches that reach no door back. The message prescribes the fix — <i>"Give them a route out — a step, a climbable face, a platform — or fill them in. Opening another way IN does not help."</i> The classic accidental trap is a hole in a roof over a chamber deeper than 2&nbsp;u: the wall jump is an indefinite ladder against any solid face, so a pit only becomes a trap when something <b>caps the climb</b> — like that roof.</li>
+  </ul>
+  <p><b>Everything else is per ability, and none of it is a fault.</b> Reachability is computed per <i>connection</i>, not per room: your ground corridor can be a stroll while your ceiling door needs the wall jump. A door the bare-kit player cannot reach is a deliberate design verb — it reads as "come back when you can climb" — and the audit reports it as a <i>note</i> naming the door pair and the ability, ending: <i>"The room is still offered; the layout just will not route the MAIN path through those doors until the player can take them."</i> The dash gates for real too: six cells of open air under a ceiling too low to finish a jump beneath comes back needing exactly the dash. This is why §2's "jump alone" budget binds the <b>ability-free spine</b> — what the room must offer a bare-handed player — not everything the room contains.</p>
+  <p>Warnings never refuse, but each names a different fault with a different fix — do not apply one's fix to another:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Warning</th><th>What it means</th><th>The fix it names</th></tr>
+    <tr><td>1-cell headroom</td><td>Standable floor under a 1-cell gap — the player is 2 cells tall, so <i>"these read as passages and are walls"</i></td><td>Raise the platform above by one, or fill the gap so it reads as solid</td></tr>
+    <tr><td>Overhang lip</td><td>The floor continues past an opening the head does not fit through, so the far side is unreachable from this side</td><td><i>"Raising a platform does NOT fix this"</i> — clear the cell <b>above</b> the opening, or fill the opening in</td></tr>
+    <tr><td>Sealed floor</td><td>Standable cells no door's flood ever reaches — the player can see them and never stand in them</td><td>Open a path from a door, or delete the pocket</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>Retune the player and every room re-derives.</b> The model reads the same asset you tune, so changing move, jump or dash numbers — or the collider — silently changes what every room demands. ROOM_STANDARDS §4 is the change-control list; after any such change, re-derive the doc and re-run both gates over the pools.</div>
+  <p>Two boundaries, stated plainly: rooms ship as <b>greybox</b> — perspective/art tilesets are a deliberate later import that will sit on a separate collider-less layer over this same collision, so paint for readability, not beauty. And this chapter is the prefab path only; a campaign can instead draw rooms as <code>.room</code> text files under the same socket contract — that tier belongs to <a href="modding.html#campaign">modding.html §07</a> and chapter 11.</p>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-room-audit.png</code></b> — the Console directly after <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>: the plain <code>[Reach]</code> tail line reporting 0 refused, with at least one "needs wall jump" note line above it.</figcaption>
+  </figure>
+
+  <h3>What success prints</h3>
+  <p>Run <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>. The last console line is the verdict:</p>
+<pre><code>[Reach] {N} room(s) checked — 0 refused, {W} that read wrong, {D} door(s) behind an ability</code></pre>
+  <p>…logged as a plain line. <code>{N}</code> counts every shipped room plus every campaign drawing, not just yours. <b>Refused must be 0</b> — a single refusal turns this same tail line into a console <i>error</i>, with the refusal above it naming the room and the door or cells at fault. <i>"That read wrong"</i> counts the warnings in the table above: aim for 0 on a new room, and read any you get. <i>"Door(s) behind an ability"</i> counts the notes — never faults, but every one should be a promise you knowingly built into the room.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li>The prefab lives beside its biome's rooms, its name matches the biome's <code>roomPool</code> (prefix glob, or added to the explicit list), and <span class="kbd">Gleamwood ▸ Import Content INI</span> has re-run since — the pool only takes the name in at import.</li>
+    <li>Every collidable tilemap sits on layer <code>Level</code>, except the <code>Platforms</code> map on <code>OneWay</code> — and only the platform tile is painted there.</li>
+    <li>Painted content starts at cell (0,0), and the <code>RoomTemplate</code> bounds gizmo hugs the drawing exactly.</li>
+    <li>Every socket's cyan gizmo lines up with a 3-cell open aperture, wall at both ends, <code>cell + 3</code> inside the bounds.</li>
+    <li>The tag's fixture is present: Entry ⇒ R socket plus a child named <code>EntryPoint</code>; Exit ⇒ L socket plus <code>BiomeExit</code>; Treasure/Secret ⇒ exactly one door.</li>
+    <li>Every <code>EnemySpawnMarker</code> stands on <code>Level</code> floor with ≥3&nbsp;u clearance — none hovering, none on a platform.</li>
+    <li>Every kill-gap has a <code>Hazard</code> (Pit) trigger spanning its floor, ≥2&nbsp;u below the lip.</li>
+    <li><span class="kbd">Gleamwood ▸ Audit Room Reachability</span> prints <b>0 refused</b> with a room count one higher than before your room existed (a socketless room is skipped, not passed), and you can explain every ability note it printed.</li>
+  </ul>
+
+  <p>Your biome now has rooms of its own, each one proved walkable. On to chapter 10 — <b>Validate and playtest</b> — where <span class="kbd">Gleamwood ▸ Validate Run Content</span> judges everything you have built since chapter 02 at once, and the F1 panel and the playtest loop tell you whether it is any fun.</p>
+</section>
+
+<section id="ch10-validate">
+  <h2><span class="num">10</span>Validate and playtest</h2>
+  <p class="lead">Chapter 9 left you with drawn rooms and a biome pool that names them. Before anyone else plays that, walk this loop: two one-click auditors that judge your content exactly the way the game will, the F1 panel for the questions only a live run can answer, and a checkpoint build that proves the whole thing outside the editor. None of it needs code, and none of it is busywork — every check here exists because the bug it refuses shipped once.</p>
+
+  <h3>Validate Run Content — the structural gate</h3>
+  <p>Run <span class="kbd">Gleamwood ▸ Validate Run Content</span>. One click checks everything reachable from the run plan: the web of nodes and its edges, the pool census every biome must satisfy (an Entry with a Right door, an Exit with a Left door, a middle with both), room geometry, the Entry/Exit fixtures, platform-tile/layer honesty, spawn-marker placement, weapon and loot resolution, dialogue ids. The check-by-check list is <a href="levels.html#validator">Levels §05</a>. One boundary to hold now, because chapter 11 depends on it: the plan it loads is the <b>shipped</b> one. It never reads a campaign's <code>Campaign/*.ini</code>, so the moment your work moves into a campaign folder this gate stops covering it and its OK line stops being about you. How to read the output:</p>
+  <ul>
+    <li><b>Errors refuse.</b> Every red <code>[Validate]</code> line is something the game cannot survive — a dangling web edge, a pool that cannot form a level, a spawn marker inside a wall. The same validator runs automatically before every build and turns any error into a refused build, so an error ignored today is a build nobody can make tomorrow.</li>
+    <li><b>Warnings never refuse.</b> A biome with no boss arena yet, a silent <code>musicTrack</code>, an enemy that never flinches — legal, worth knowing, and yours to schedule.</li>
+  </ul>
+  <p>Click any line in the Console and Unity pings the asset it names, so the fix is one click away. Re-run until the OK line prints — the run is instant, so there is no cost to running it after every change.</p>
+
+  <h3>Audit Room Reachability — the walkability gate</h3>
+  <p>Run <span class="kbd">Gleamwood ▸ Audit Room Reachability</span>. It sweeps every shipped prefab room <em>and</em> every campaign's <code>Campaign/Rooms/*.room</code> drawings — including the tutorial rooms in <code>Documentation/ExampleMod</code> — and walks each one with a simulated player: a flood that carries position <em>and</em> velocity, once per ability kit, using the real movement numbers from <code>PlayerSettings.asset</code>. The model is <a href="levels.html#reachability">Levels §04</a>; the verdict, and this is the part to memorise, comes in three severities:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Severity</th><th>Meaning</th><th>What you do</th></tr>
+    <tr><td><b>Error</b> (red)</td><td>A dead run. Only two shapes earn this, both judged with <b>every ability unlocked</b>: a door you arrive through and cannot leave by, and floor you can fall into and never climb out of.</td><td>Fix the drawing. A refused text room never joins the pool — and if your <code>roomPool</code> names it, the whole campaign is refused with it.</td></tr>
+    <tr><td><b>Warning</b></td><td>Geometry that reads wrong but is legal — one-cell headroom that looks like a passage, floor no door connects to.</td><td>Fix it or own it; the message says exactly which cells.</td></tr>
+    <tr><td><b>Note</b></td><td>A door locked behind wall jump or the dash. Not a fault — it is the promise the room makes.</td><td>Check each note is a gate you <em>meant</em> to author.</td></tr>
+  </table>
+  </div>
+  <p>The note's own wording says why it is not a fault: "The room is still offered; the layout just will not route the MAIN path through those doors until the player can take them." A door the bare kit cannot reach reads as <i>come back when you can climb</i> — that is deliberate design, and the auditor refuses only the other thing, a door you <em>arrive</em> through with no way out.</p>
+  <div class="note"><b>Row numbers in refusals count from the floor.</b> The engine counts <code>y=0</code> from the bottom of the room, so "sits on row 0" means the <em>last</em> line you typed in the <code>.room</code> file, not the first. The <code>file:line</code> prefix on a parse message, by contrast, is a real file line. Counting from the top of your text file sends you to the wrong row every time.</div>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-validate-console.png</code></b> — the Unity Console after running both auditors on clean content: the green-check <code>[Validate] Run content OK</code> line and the <code>[Reach] … 0 refused, 0 that read wrong …</code> tail line visible together, no red entries.</figcaption>
+  </figure>
+
+  <h3>The F1 panel — questions you can only answer while moving</h3>
+  <p>"Is this gap fun or merely crossable?" is not a question a validator can answer. Enter play mode, press <span class="kbd">F1</span>, and the <b>Debug Settings</b> panel opens: live sliders for movement, jump, dash and wall slide, hitbox overlays, an Impact tab for hitstop and shake, and read-only tabs that report the run's seed, route and loadout. Every control on it is documented in <a href="tuning.html#panel">Tuning §03</a>.</p>
+  <ol class="steps">
+    <li>Play into the room you are judging — the panel works wherever the player prefab does, in any scene.</li>
+    <li>Drag the slider while moving. The change is live, this session only.</li>
+    <li>Found the number? <b>Write it into the asset</b> — the Content Workbench (<a href="workbench.html#opening">Workbench §01</a>) or the inspector — because the panel forgets it the moment play stops, <em>by design</em>.</li>
+  </ol>
+  <div class="warn note"><b>A slider here is a question, never an edit — and the one exception is a trap.</b> Gameplay controls on the panel deliberately do not persist. A control marked to save writes into the <em>tracked</em> <code>DebugSettings/DebugSettings.json</code> and is re-applied at every boot <b>over the authored asset</b>, silently — so retuning the asset afterwards appears to do nothing, and the reason is three directories away. Today only the Camera tab persists, and a test fails the suite if a gameplay key ever joins it. If a value you authored seems ignored, check that file first. The full rule and its incident: <a href="tuning.html#saving">Tuning §05</a> and <a href="onboarding-designer.html#trap">Designer onboarding §06</a>.</div>
+
+  <h3>The PlayMode suite — the team's gate, not yours</h3>
+  <p>The project carries well over a thousand PlayMode tests, run with <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span>, verdict written to <code>Logs/playmode_test_results.txt</code>. Be honest about whose tool this is: it pins <em>code</em> behaviour, and nothing in this guide asks you to write or read a test. Your gates are the two auditors above. You meet the suite exactly once per loop — the checkpoint build below refuses to exist without a green run — and when you do run it, three courtesies keep it green: save your scenes first (a dirty scene wedges the runner behind a silent dialog), then leave the editor completely alone for the several minutes it runs, and if git afterwards shows <code>DebugSettings/DebugSettings.json</code> modified, restore it — the run strips camera lines from it, and that diff is not your change.</p>
+
+  <h3>The checkpoint build — prove it in the player</h3>
+  <p>The editor forgives things a build does not, so a milestone ends with a real build you (and Hisham) can play. The Build Manager fronts this, and <code>SuiteGate</code> fronts the Build Manager: it refuses to build when the suite results file is missing, red, unreadable — or <b>stale</b>, meaning green but older than a code change it cannot vouch for. Content edits (<code>.asset</code>, <code>.room</code>, <code>.ini</code>) never make a green file stale; only an edited <code>.cs</code> does.</p>
+  <ol class="steps">
+    <li>Run <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> and wait for it to finish — hands off the editor until the results file appears.</li>
+    <li>Open <span class="kbd">Build System ▸ Build Manager</span> (note: not under the Gleamwood menu).</li>
+    <li>Tick <b>Development Build (debug panel, profiler, no git tag)</b>. This is the checkpoint channel: it keeps the F1 panel in the build, lands under its own <code>Development/</code> folder, and never writes a tag to the shared repository. A release build is the team's move — the whole ship loop is <a href="publishing.html#loop">Publishing §02</a> and the two channels are <a href="publishing.html#channels">Publishing §03</a>.</li>
+    <li>Click <b>Build</b> on the <b>Windows 64-bit</b> row. If a dialog titled <b>"The suite does not permit a build"</b> appears, read it — it names the exact refusal and the fix is always some form of "re-run the suite". The validator from step one of this chapter also runs again automatically before the build compiles, so broken run content refuses here too.</li>
+    <li>Find the result under <code>Builds/StandaloneWindows64/Development/&lt;version&gt;/</code> and play your content in it, start to finish.</li>
+  </ol>
+  <div class="note"><b>A build reads <code>Mods/</code> from beside its own exe</b>, not from the project root the editor uses — so to playtest a campaign in the checkpoint build, your <code>Mods/&lt;id&gt;/</code> folder must sit next to <code>sentinels-of-gleamwood.exe</code>, and the campaign's load report in <code>Player.log</code> (<a href="modding.html#report">Modding §04</a>) is your feedback loop there. Chapter 11 makes this a proper procedure.</div>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-build-manager.png</code></b> — the Build Manager window (<span class="kbd">Build System ▸ Build Manager</span>) with the Build Actions foldout open, the "Development Build (debug panel, profiler, no git tag)" toggle ticked, and the Windows 64-bit platform row visible.</figcaption>
+  </figure>
+
+  <h3>What success prints</h3>
+  <p>Three lines, in the order you earn them. The first two are verbatim; in the <code>[Reach]</code> line your room and note counts will differ — the two zeros are the contract, and the tail turns into a red error line whenever the refused count is not zero.</p>
+<pre><code>[Validate] Run content OK — plan, rooms, sockets, fixtures, spawn tables all pass.
+[Reach] &lt;N&gt; room(s) checked — 0 refused, 0 that read wrong, &lt;D&gt; door(s) behind an ability
+Build completed for StandaloneWindows64 [DEVELOPMENT] -&gt; &lt;path to the exe&gt;</code></pre>
+  <p>And the failure shapes, so you recognise them: <code>[Validate] &lt;n&gt; problem(s) found — see the errors above.</code> from the validator, and — if anyone tries to build over broken content — the build itself dies with <span class="kbd">[Validate] Run content is broken — run 'Gleamwood ▸ Validate Run Content' and fix the errors.</span></p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li><span class="kbd">Gleamwood ▸ Validate Run Content</span> prints the <code>Run content OK</code> line — zero <code>[Validate]</code> errors in the Console, and every remaining warning is one you can name and defend.</li>
+    <li><span class="kbd">Gleamwood ▸ Audit Room Reachability</span> ends on <code>0 refused, 0 that read wrong</code>, and every "door behind an ability" note is a gate you meant to author.</li>
+    <li>Every number you liked on the F1 panel has been written into its asset — play mode stopped and restarted still plays your tuning.</li>
+    <li><code>git status</code> shows no change to <code>DebugSettings/DebugSettings.json</code> (restore it if a suite run touched it).</li>
+    <li><code>Logs/playmode_test_results.txt</code> exists and its <code>RUN FINISHED:</code> line says <code>Passed</code> with zero failed, zero skipped, zero inconclusive.</li>
+    <li>A development build exists under <code>Builds/StandaloneWindows64/Development/&lt;version&gt;/</code> and launches.</li>
+    <li>You played your content in that build — not only in the editor.</li>
+  </ul>
+
+  <p>Your content now passes the same gates the shipped game passes. Chapter 11 — <b>Package as a campaign and share</b> — turns the folder that survived them into something another machine can install and play.</p>
+</section>
+
+<section id="ch11-package">
+  <h2><span class="num">11</span>Package as a campaign and share</h2>
+  <p class="lead">Chapter 10 left you with content that validates clean and plays. This chapter puts it in a box: a <b>campaign</b> — one folder that is a whole game, playable on a stock install of Gleamwood without touching a shipped file. Building it, proving it loads, and handing it over is the last thing this guide teaches, because it is the point of everything before it.</p>
+
+  <h3>Three rules before you make the folder</h3>
+  <p>A campaign is a folder under <code>Mods/</code>, beside the game's executable, with a <code>mod.ini</code> at its root. Everything else follows from three deliberate rules:</p>
+  <ul>
+    <li><b>The folder name IS the campaign id.</b> No file carries an id key — an id inside a file could disagree with its folder. Rename the folder and you have made a <i>different</i> campaign: every save bound to the old name shows <code>(missing)</code> and refuses to launch, without touching the save.</li>
+    <li><b>Exactly one campaign is active at a time, or none.</b> No load order, no precedence, no dependency resolution — deliberately. There is never a second source to arbitrate against.</li>
+    <li><b>A save slot is bound to its campaign when created, for life.</b> The player picks once, on a new save; that slot never sees other content, and your campaign can never reach a vanilla save or anybody else's.</li>
+  </ul>
+  <p>Plain text inside it reaches nearly everything this guide had you build: retuned <b>values</b>, declared <b>variants</b>, <b>whole enemy behaviour graphs</b>, your own <b>music</b> and <b>sounds</b> — down to the <b>menu blips</b> — the <b>player's look</b>, <b>new biomes</b>, bosses, spawn tables, rooms drawn as text, the whole run web, the economy, and every spoken line. The capability table, honest <i>cannot</i> rows included, is <a href="modding.html#what">Modding §01</a>.</p>
+<pre><code>Mods/
+  <span class="a">my-campaign</span>/            <span class="c">&lt;-- the folder name IS the campaign id</span>
+    mod.ini               <span class="c">&lt;-- the identity card; without it the folder is ignored entirely</span>
+    Enemies/   Weapons/   Dialogue/   Player/   Progression/
+    Campaign/             <span class="c">&lt;-- the run's shape: [Plan], [Node:], [NewBiome:] ...</span>
+      Rooms/              <span class="c">&lt;-- your rooms, as .room drawings</span>
+      Music/  Sfx/        <span class="c">&lt;-- your .wav tracks and sounds — menu blips included</span></code></pre>
+
+  <h3>Build the folder</h3>
+  <ol class="steps">
+    <li><b>Create it where the game looks.</b> The game reads <code>Mods/</code> beside its executable: in a build, next to <code>sentinels-of-gleamwood.exe</code>; in the editor, that resolves to the <b>repo root's</b> <code>Mods/</code> — the parent of <code>Assets/</code>. Make <code>Mods/my-campaign/</code> there, under the real name you want, because you are naming the campaign itself.
+      <div class="note warn"><b>The repo root's <code>Mods/</code> is gitignored — an install, not source.</b> Author somewhere versioned and copy in, as the demo campaign does: its readable source is <code>Documentation/ExampleMod/Mods/example/</code>, and the copy under <code>Mods/</code> is a throwaway. Crib from the <code>Documentation/ExampleMod</code> copy, never the install — the two can drift.</div></li>
+    <li><b>Write <code>mod.ini</code>.</b> One section, <code>[Mod]</code>. A <code>;</code> starts a comment; <code>#</code> is <b>never</b> one, so hex colours survive. This file and <code>Campaign/*.ini</code> also strip a trailing <code>;</code> note, but the other folders do <b>not</b> — all five, <code>Dialogue/</code> included — a note on its own line is correct everywhere, so make that the habit (<a href="modding.html#new">Modding §03</a>). Misspellings are recorded as problems — you will meet them again in the picker.
+<pre><code>[<span class="a">Mod</span>]
+name        = <span class="a">My Campaign</span>
+author      = <span class="a">Your Name</span>
+version     = <span class="a">1.0.0</span>
+description = <span class="a">One line. The picker shows it under the name.</span></code></pre>
+      Optional: <code>expectEnemies</code> / <code>expectWeapons</code> state how many entries those tiers should end with (<i>retuned + declared</i>, the two numbers each report prints); a mismatch warns, never refuses. <code>gameVersion</code> exists but is <b>recorded and never checked</b>, and the game says so at every activation.</li>
+    <li><b>Move your work in, folder by folder.</b> There is no exporter: a campaign is text you author, and new things are declared <code>basedOn</code> something shipped. Each folder's grammar lives on its reference page — your job is the right file in the right place:
+      <div class="scrollx">
+      <table>
+        <tr><th>You made</th><th>It travels as</th><th>The grammar</th></tr>
+        <tr><td>Enemy retunes, new creatures, sprite sheets, whole behaviour graphs</td><td><code>Enemies/*.ini</code> + <code>sprites/</code></td><td><a href="enemies.html#modding">Enemies §10–12</a></td></tr>
+        <tr><td>Weapon retunes, new weapons, icons</td><td><code>Weapons/*.ini</code> + <code>sprites/</code></td><td><a href="combat.html#modding">Combat §10</a></td></tr>
+        <tr><td>Spoken lines and their WAV takes</td><td><code>Dialogue/</code></td><td><a href="dialogue.html#modding">Dialogue §09</a></td></tr>
+        <tr><td>The player's look</td><td><code>Player/</code> + sprites</td><td><a href="modding.html#player">Modding §06</a></td></tr>
+        <tr><td>Shop stock, prices, upgrades, run modifiers</td><td><code>Progression/*.ini</code></td><td><a href="modding.html#progression">Modding §08</a></td></tr>
+        <tr><td>Biomes, bosses, spawn tables, rests, player feel, the web</td><td><code>Campaign/*.ini</code> — nine section shapes</td><td><a href="modding.html#campaign">Modding §07</a></td></tr>
+        <tr><td>Rooms</td><td><code>Campaign/Rooms/*.room</code></td><td><a href="modding.html#campaign">Modding §07</a></td></tr>
+        <tr><td>Music and sounds</td><td><code>Campaign/Music/</code>, <code>Campaign/Sfx/</code></td><td><a href="modding.html#campaign">Modding §07</a></td></tr>
+      </table>
+      </div></li>
+    <li><b>Take the web from the game, not a blank page.</b> <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Generate Campaign Template</span> writes <code>Documentation/CampaignTemplate/RunWeb.ini</code> — the game's <b>own current web</b>, every line commented out. Copy it to <code>Campaign/RunWeb.ini</code>; uncommented as-is it rebuilds the shipped run exactly, and editing it is the whole job.
+      <div class="note warn"><b>The moment one <code>[Node:]</code> block is live, your campaign owns the WHOLE web</b> — the shipped one is set aside entirely. A graph is replaced wholesale, never merged. Uncomment the lot, then edit.</div></li>
+    <li><b>Score it.</b> Drop <code>.wav</code> files (16&nbsp;MB cap; other formats refused with a sentence, not silence) into <code>Campaign/Music/</code> — named, minus extension, by any <code>musicTrack</code> key — and <code>Campaign/Sfx/</code> — named by the sound fields on your weapons and enemies. Menu blips use the shipped clip's own stem: ship a <code>ui_submit.wav</code> and every menu confirm is yours.</li>
+  </ol>
+
+  <h3>Prove it loads</h3>
+  <ol class="steps">
+    <li><b>Start a new save.</b> Enter play mode (or launch your checkpoint build) and choose a free slot. With a campaign installed, a picker opens over the slot list — <i>"This save will be locked to the campaign you pick."</i> — Vanilla first, always, then every folder under <code>Mods/</code> carrying a <code>mod.ini</code>. If no picker appears the console says why — usually <code>[SaveSlots] No campaigns installed in &lt;path&gt;</code>, and the path in that line is where your folder should have been.</li>
+    <li><b>Read your own row before committing.</b> The detail block shows the name, <i>by author · version</i>, and your description. A broken manifest still lists and still plays — its problems surface only here, as a <code>⚠ N problem(s) in mod.ini</code> badge quoting the first. It is the last honest moment before the permanent binding: fix the badge before you pick.</li>
+    <li><b>Pick it, and read the report.</b> It prints at <b>activation — the moment you pick — not at boot</b>, so tailing the log from launch shows nothing. In the editor it lands in the Console; in a build, in <code>%USERPROFILE%\AppData\LocalLow\Cat Splat Studios\sentinels-of-gleamwood\Player.log</code> (the Steam Deck path is in <a href="modding.html#report">Modding §04</a>). The first line worth reading is <code>web accepted</code> — the one fact that says the campaign is <i>playable</i> — then a block from each of the <b>three tiers that report at activation</b>: enemies, weapons and the player skin, naming what each loaded, skipped or refused, and why. <b>The rest are quieter, on purpose.</b> Dialogue and Progression are read lazily and print a bare <i>count</i> the first time something asks for them — when a conversation plays, when the shop opens — not at pick time. The campaign web, your <code>.room</code> drawings and your audio report <b>problems only</b>, so silence from those means nothing was found wrong, not that nothing loaded. Do not go hunting the log for your filenames: outside the skin block, no tier prints one.</li>
+    <li><b>If it refused, it says so twice.</b> An unresolvable name or unplayable web prints <code>[Campaign] 'my-campaign' has an unusable run web, so it cannot be played:</code> with one reason per line, the game rolls <b>all the way back to vanilla</b> — every tier — and <code>[SaveSlots] Campaign 'my-campaign' did not load (see the error above), so no save was created.</code> Fix the named line and pick again; nothing was written. (A different sentence — <i>"no run content catalog in the build"</i> — means a stale editor catalog: run <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Rebuild Content Catalog</span>.)</li>
+  </ol>
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/guide-campaign-picker.png</code></b> — the campaign picker over the save-slot list in play mode, a fresh slot chosen, a campaign highlighted beneath the "Vanilla — the shipped game" row, its detail block showing name, author, version and description from mod.ini.</figcaption>
+  </figure>
+
+  <h3>The rules that hold while you iterate</h3>
+  <div class="note warn"><b>Campaigns swap only at the title.</b> Mid-run, a switch is refused — <i>"Refused to switch campaign during an active run … Campaigns change at the title only."</i> — because resetting the tiers would free definitions and textures the live scene is still reading. Finish or abandon the run (in the editor, leaving play mode counts), then edit and re-pick.</div>
+  <div class="note warn"><b>Editing numbers is free; reshaping the web is not.</b> Retuning tunables never strands anyone. Changing the web's <i>shape</i> — adding or removing nodes, repointing edges or a node's rest, changing topology — makes every run suspended on your campaign unresumable: <i>"The run cannot be continued and is treated as unresumable; the save's progress is untouched."</i> Profile, Gleam and unlocks survive; only the in-flight run is void. Ship shape changes knowingly.</div>
+  <p class="dim">One asymmetry while testing: <b>a build always loads mods; the editor only while a campaign is bound</b> — picking your campaign on a save <i>is</i> the switch, and <code>Campaign/</code> and <code>Progression/</code> have no other one. The editor-vs-build table is in <a href="modding.html#example">Modding §05</a>.</p>
+
+  <h3>Hand the folder to another person</h3>
+  <ol class="steps">
+    <li><b>Zip the campaign folder itself</b> — <code>my-campaign/</code>, not its contents loose and not the <code>Mods/</code> parent.</li>
+    <li><b>They unzip it one level under their <code>Mods/</code></b>, beside their executable, so <code>Mods/my-campaign/mod.ini</code> exists at exactly that depth. Discovery reads <b>exactly one level</b> under <code>Mods/</code> and skips a folder without <code>mod.ini</code> <b>silently</b> — no log line, no picker row — so a double-nested <code>Mods/my-campaign/my-campaign/</code> produces nothing and says nothing. It is the number-one delivery failure.</li>
+    <li><b>Tell them to keep the folder name.</b> It is the id: renamed, it is a different campaign, and a save bound to the old name reports <i>"…which is not installed. Reinstall it to continue this save; nothing has been changed."</i></li>
+    <li><b>Consider setting <code>expectEnemies</code> / <code>expectWeapons</code> before shipping</b>, so a pack that loses a file in transit warns — <i>"did not make it — the report above names what was skipped and why"</i> — instead of reading clean. Keep them current or delete them: a stale count cries wolf, which is how a warning stops being read.</li>
+  </ol>
+  <p><b>Copying the folder is the entire sharing story today:</b> Steam Workshop upload and subscribe do not exist yet — deferred to the handoff plan's H8, tracked in <code>Documentation/OUTSTANDING.md</code> as <i>"Steam Workshop, Cloud and achievements do not exist"</i>. (Shipping the <i>game itself</i> to Steam is a different job with its own page: <a href="publishing.html">Publishing</a>.)</p>
+
+  <h3>What success prints</h3>
+  <p>The moment you pick your campaign on a new save, the Console (or <code>Player.log</code>) prints — with your id and your node count:</p>
+<pre><code>[Campaign] 'my-campaign' web accepted: 10 nodes
+======== GLEAMWOOD MOD REPORT ========
+<span class="c">… the enemy tier: folder, counts, one verdict line per entry …</span>
+======== GLEAMWOOD WEAPON MOD REPORT ========
+<span class="c">… the weapon tier …</span>
+======== GLEAMWOOD PLAYER SKIN REPORT ========
+<span class="c">… the skin tier …</span></code></pre>
+  <p>Vanilla prints none of it, so any of these lines already proves your campaign is playing. Full sample blocks, and what a <code>FAILED</code> line means: <a href="modding.html#report">Modding §04</a>. A declared <code>gameVersion</code> adds one line first, saying the value is <i>"RECORDED AND NOT CHECKED"</i> — honesty about an inert key, not an error.</p>
+
+  <h3>Before you move on</h3>
+  <ul>
+    <li><code>Mods/&lt;your-id&gt;/mod.ini</code> exists at exactly that depth — open the folder and check the nesting with your own eyes.</li>
+    <li>The picker lists your campaign under the <code>name</code> from <code>mod.ini</code>, with <b>no</b> <code>⚠ problem(s)</code> badge in the detail block.</li>
+    <li>A <b>new</b> save picked it, and that slot's row now carries the campaign's name.</li>
+    <li>The Console or <code>Player.log</code> shows <code>web accepted</code> and the three report blocks from the moment you picked, with the entry counts you expected in the enemy and weapon blocks — and no <code>FAILED</code> or skipped line anywhere in them. The quieter tiers are judged by <em>silence</em>, not by finding your filenames.</li>
+    <li>An older vanilla slot still plays untouched vanilla content beside it.</li>
+    <li>The zip you would send unpacks to the same single level with the same folder name.</li>
+    <li>You know which future edits void suspended runs (web shape) and which never do (numbers).</li>
+  </ul>
+
+  <p>There is no chapter 12. The folder you just proved loads is a game — treat it like one: start a fresh save on it and put it through everything chapter 10 taught you, then hands on the controller, on Windows and on the Deck. One adjustment to that loop, because a campaign is not the shipped plan: <span class="kbd">Gleamwood ▸ Validate Run Content</span> judges the <b>shipped</b> run plan and never reads a campaign folder, so a green line from it says nothing about your content and must not be read as a pass. Your campaign's structural gate is the <code>web accepted</code> line you just earned by picking it — the step above <em>is</em> that check — and <span class="kbd">Gleamwood ▸ Audit Room Reachability</span> is the one auditor of the two that genuinely sweeps <code>Campaign/Rooms/</code>. Run that, read the web line, then play. When it survives that the way the shipped game does, hand the folder over. That is the whole walk — from a blank sheet to a campaign somebody else can play.</p>
+</section>
+
+</main>
+
+<footer>
+  Sentinels of Gleamwood — Cat Splat Studios · the living wiki · open <code>Documentation/Wiki/index.html</code> in any browser<br>
+  Found a lie on this page? Fix it in the same commit as the code that made it one.
+</footer>
+
+</body>
+</html>

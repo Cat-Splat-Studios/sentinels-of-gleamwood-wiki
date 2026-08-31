@@ -11,12 +11,14 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="guide.html">Build a Game</a>
   <a href="onboarding-programmer.html">For Programmers</a>
   <a href="onboarding-artist.html">For Artists</a>
   <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="executions.html">Executions</a>
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a class="on" href="progression.html">Progression</a>
@@ -223,8 +225,9 @@
     <tr><td><b>Neutral air</b></td><td><code>aerial:neutral</code></td><td>Air: attack</td><td>—</td></tr>
     <tr><td><b>The planted shot</b></td><td><code>bow:neutral</code></td><td>Bow: draw with no direction</td><td>—</td></tr>
     <tr><td><b>The running shot</b></td><td><code>bow:forward</code></td><td>Bow: draw while running</td><td>—</td></tr>
+    <tr><td><b>The dash strike</b> <span class="dim">— a move since 2026-08-25; free because it is already behind the dash <em>ability</em>, and charging twice for one button is a toll rather than a gate</span></td><td><code>dash</code></td><td>Attack while dashing</td><td>—</td></tr>
     <tr><td colspan="4" class="dim"><b>For sale — in catalog order, which is the order each tab lists its rows</b></td></tr>
-    <tr><td><b>Uppercut</b> <span class="dim">— the launcher</span></td><td><code>ground:up</code></td><td>Ground: UP + attack</td><td>20</td></tr>
+    <tr><td><b>Uppercut</b> <span class="dim">— the launcher; first row, cheapest price, and the purchase the whole first hour is pointed at</span></td><td><code>ground:up</code></td><td>Ground: UP + attack</td><td><b>20</b></td></tr>
     <tr><td>Plunge</td><td><code>aerial:down</code></td><td>Air: DOWN + attack</td><td>60</td></tr>
     <tr><td>Pin</td><td><code>ground:down</code></td><td>Ground: DOWN + attack</td><td>90</td></tr>
     <tr><td>Charge</td><td><code>ground:forward</code></td><td>Ground: a direction + attack</td><td>120</td></tr>
@@ -233,11 +236,11 @@
     <tr><td>Skyward Shot</td><td><code>bow:up</code></td><td>Bow: hold UP as you draw</td><td>100</td></tr>
   </table>
   </div>
-  <div class="note"><b>Where those prices live.</b> One <code>MoveDefinition</code> each in <code>Resources/Moves/</code>, ordered by <code>Resources/MoveCatalog.asset</code>; <code>MoveCatalog.Defaults</code> is the seed the generator writes them from and the fallback when the asset is missing — hence the lead's warning. The baseline three have no asset and no shop row — <code>MoveCatalog.Baseline</code> is a list of keys, so their input lines above are descriptions rather than authored strings.</div>
+  <div class="note"><b>Where those prices live.</b> One <code>MoveDefinition</code> each in <code>Resources/Moves/</code>, ordered by <code>Resources/MoveCatalog.asset</code>; <code>MoveCatalog.Defaults</code> is the seed the generator writes them from and the fallback when the asset is missing — hence the lead's warning. Three of the baseline four have no asset and no shop row — <code>MoveCatalog.Baseline</code> is a list of keys, so their input lines above are descriptions rather than authored strings; the launcher's <code>ground-up.asset</code> is back in the catalog list as of 2026-08-27 and has its shop row again — it survived on disk through the ten days it spent out of the catalog, which is the only reason the return was a three-line change rather than a re-authoring job.</div>
 
   <div class="rule note"><b>Why the neutral moves are never sold.</b> <code>aerial:neutral</code> is the fallback every aerial leans on: with it unowned, an unowned Up resolves to <em>nothing</em> and an airborne swing plays the <b>grounded combo clip</b> — a planted stance hanging in mid-air, the exact bug the aerial moveset was built to fix. <code>bow:neutral</code> is that same structural argument on the bow, every bow entry's fallback. <code>bow:forward</code> is baseline for a different reason: firing while running is what the bow <i>does</i>, not a thing you buy — the split rig has always let the torso draw while the legs carry on, and selling it back as a weaker instant shot played worse than the behaviour it replaced.
-  <br><br><b>The launcher used to be up there with them, and is now the cheapest row in the shop.</b> <code>ground:up</code> is still the <em>only</em> move in the shipped data that puts an enemy in the air, and four of the ten executions are gated on a juggled target — which was the whole argument for giving it away. Hisham's call overrode it: <i>"I don't think executions are necessarily things the player should be worried about on their first couple of runs."</i> So it sells, and the <b>price is the mechanic</b>: <code>MoveUnlockTests.TheLauncher_IsSold_AndIsTheCheapestThingInTheShop</code> pins it as both the cheapest entry and the <i>first</i> row, because it is the purchase that opens the game up rather than one that widens it. A launcher priced like a luxury would be the wall the old rule was protecting against.
-  <br><br><code>MoveUnlockTests</code> pins the neutral air out of the shop, the launcher's price, and the invariant that every move is either baseline or sellable (a move that is neither is authored, animated, permanently dead content).</div>
+  <br><br><b>The launcher has been in and out of this list, and it is FOR SALE again — the call has inverted three times.</b> <code>ground:up</code> is still the <em>only</em> move in the shipped data that puts an enemy in the air. It started baseline because four of the ten executions are gated on a juggled target; Hisham's call sent it on sale at 20 — <i>"I don't think executions are necessarily things the player should be worried about on their first couple of runs."</i> That is still true <em>about executions</em>; what changed is the measurement the sale exposed: four executions need an airborne target and three more need one recently spiked, which also begins with a launch — so a bare kit owned a trigger for <b>none of the ten</b>, and the EXECUTE prompt still flashed over an Imp at a player with no way to answer it. A mechanic the game advertises and the kit cannot reach is worse than one it never mentions — so on 2026-08-17 the launcher went <b>free and out of the shop</b>. <b>Hisham reversed that on 2026-08-27 and it is a 20-Gleam row again</b>, because the 8-17 measurement was right about the gap and wrong about the remedy: it treated "bare kit" as a lasting state, when the point of pricing it at 20 against the next row's 60 is that it lasts exactly one run. The remedy is to GUARANTEE the purchase rather than delete it — <i>"after first death, you should always have enough money in order to buy up+attack and they have to go buy it before they can take another run - and they are lead towards buying it."</i> <b>That beat is not built yet</b>, so run one currently cannot execute at all; it is tracked in <code>Documentation/OUTSTANDING.md</code> as <i>"The first run cannot reach an execution, and the beat that is meant to cover it does not exist"</i>. <code>MoveUnlockTests.TheLauncher_IsSold_AndIsTheFirstThingAProfileBuys</code> and <code>ExecutionReachabilityTests</code> pin the current design — the latter asserts BOTH that the bare kit cannot launch and that the bought kit can, so the gap stays visible rather than being re-argued.
+  <br><br><code>MoveUnlockTests</code> also pins the neutral air out of the shop and the invariant that every move is either baseline or sellable (a move that is neither is authored, animated, permanently dead content).</div>
 
   <div class="grid c2">
     <div class="card accent-violet">
@@ -254,7 +257,7 @@
 
   <div class="note"><b>Unlike an ability, a move applies IMMEDIATELY</b> — in the hub or mid-run. Abilities are frozen mid-run because the <i>level</i> was generated from them; <code>RoomReachability</code> has no attack term at all, so nothing the generator decided depends on the moveset. You walk out of the shop swinging what you just bought.</div>
 
-  <div class="warn note"><b>Existing profiles buy the sellable list back.</b> A save written before this shipped has an empty <code>moveIds</code>, so it reads as the baseline — the same thing that happens to a new profile. That is the identical call <a href="#ability-source">movement abilities</a> made, and for the identical reason: the alternative is granting them silently, which would mean no existing player ever sees the feature. Three testers, early-stage saves, and the launcher priced at 20 so the first re-purchase costs almost nothing.</div>
+  <div class="warn note"><b>Existing profiles buy the sellable list back.</b> A save written before this shipped has an empty <code>moveIds</code>, so it reads as the baseline — the same thing that happens to a new profile. That is the identical call <a href="#ability-source">movement abilities</a> made, and for the identical reason: the alternative is granting them silently, which would mean no existing player ever sees the feature. Three testers, early-stage saves. <b>And as of 2026-08-27 the launcher is a 20-Gleam row again, so an existing profile buys it back like everything else</b> — including a profile that has been swinging it free since 2026-08-17, because it was granted by the baseline and so was never written into anyone's <code>moveIds</code>. At 20 against the next row's 60 that is one run's Gleam.</div>
 </section>
 
 <section id="runmods">
@@ -400,6 +403,12 @@
     <tr><td><b>Ground bounce</b>: a spiked enemy pops back up once</td><td><code>ResolveSpikeLanding</code>'s <code>SpikeBounce</code></td><td>Re-entering the juggle needs <code>CanBeJuggled</code> respected, or bosses start flying.</td></tr>
   </table>
   </div>
+  <div class="note"><b>Consumables do not exist, and that is a decision, not a gap.</b> The recorded
+  shape, for whenever they come: a quick inventory on a shoulder trigger the player scrolls through.
+  It waits because nothing in the spec yet says what a consumable <i>does</i> — and because this
+  tier has no <b>revoke</b>, so the cheap modelling (a self-spending single-stack modifier) cannot
+  work yet. Do not author toward them; the deferral is recorded in <code>OUTSTANDING.md</code>'s
+  deferred-on-purpose section, and this note exists so a designer reads it here rather than there.</div>
 </section>
 
 <section id="hub">
@@ -480,7 +489,7 @@
     <li>Author the move on the weapons (<code>AerialAttacks</code> / <code>GroundAttacks</code>) as usual — the shop sells access, not content.</li>
     <li>Add a bit to <code>MoveSet</code> and a case to <code>MoveKey.Of</code> / <code>MoveKey.For</code>'s table. <b>Never hand-write <code>MoveSet.All</code></b> — it is composed from its members precisely so a new bit cannot be silently left out of it.</li>
     <li>Author a <code>MoveDefinition</code> asset (Workbench → <i>Moves</i>, or <code>Create ▸ Gleamwood ▸ Move</code> into <code>Resources/Moves/</code>) with a stable <code>key</code> (it is a <b>save key</b> and a mod-file address), the <code>input</code> line, and a cost — then list it in <code>Resources/MoveCatalog.asset</code>. Same generator and the same trap as the abilities: the seed creates, the asset rules, so editing <code>MoveCatalog.Defaults</code> after its asset exists changes nothing at runtime. Nothing else to wire: the shop tab and the F1 toggles both build from the catalog.</li>
-    <li><b>Decide whether it is free.</b> The baseline is not generosity — it holds the moves other systems depend on existing: the aerial fallback, the bow's neutral aim, and the running shot the split rig has always allowed. If withholding your move would break a fallback rather than gate content, it belongs in <code>Baseline</code>, and say why in a comment. Gating <i>content</i> is not a reason to make it free — the launcher gates four executions and sells anyway, at a price low enough to be the first purchase.</li>
+    <li><b>Decide whether it is free.</b> The baseline is not generosity — it holds the moves other systems depend on existing: the aerial fallback, the bow's neutral aim, the running shot the split rig has always allowed, and the dash strike, which is already behind the dash <em>ability</em>. If withholding your move would break a fallback after a spell on sale at 20 — it belongs in <code>Baseline</code>, and say why in a comment. Gating <i>content</i> alone is not a reason to make it free.</li>
     <li><code>MoveUnlockTests.TheBaselineAndTheShop_TogetherCoverEveryMove</code> will fail until the move is either free or sellable — that is the point: a move that is neither is authored, animated, permanently dead content.</li>
   </ol>
 
@@ -508,7 +517,7 @@
     <tr><td><code>RunModifierOfferTests</code></td><td>The roll: the same seed and salt offer the same things, a different salt does not, a capped modifier is never offered, an imbue with nowhere to land is not offered, asking for more than exists returns what there is, and taking an offer grants exactly what was shown.</td></tr>
     <tr><td><code>MovementModifierTests</code></td><td>The five movement scales measured <b>through the live <code>PlayerContext</code></b> — asserting <code>Scale()</code> in isolation would pass with the stamp in <code>PlayerStateMachine.Awake</code> deleted, and "granted but not wired" is this project's most common bug shape. Also pins <code>TheReachabilityModel_DoesNotSeeRunModifiers</code>, and records the deferred dash rebaseline in <code>TheDashBase_SitsOnACliff</code>.</td></tr>
     <tr><td><code>RunModifierAssetTests</code></td><td>The shipped assets themselves — the catalog is backed by assets rather than the built-in fallback, it lists every definition in the project, a broken definition is refused rather than shipped, and an imbue may only target melee moves.</td></tr>
-    <tr><td><code>MoveUnlockTests</code></td><td>The neutral air stays out of the shop; the launcher is sold and is the cheapest thing in it; and the baseline and the shop together cover every move — one that is neither is authored, animated, permanently dead content.</td></tr>
+    <tr><td><code>MoveUnlockTests</code></td><td>The neutral air stays out of the shop; the launcher <b>is sold, at the cheapest price and as the first catalog row</b>, because it is meant to be the first purchase a profile makes (<code>TheLauncher_IsSold_AndIsTheFirstThingAProfileBuys</code>); the baseline and the shop together cover every move — one that is neither is authored, animated, permanently dead content; and every <code>MoveDefinition</code> asset in the project is in the catalog the game reads (<code>EveryProgressionAssetIsInItsCatalog</code>), so the Workbench cannot offer a move nothing loads.</td></tr>
     <tr><td><code>AbilityUnlockTests</code></td><td>Buying an ability debits once and is permanent, a pre-ability save reads as owning none, the hub has exactly what the slot owns, buying the dash in the hub lets you dash <i>in the hub</i>, and a mid-run purchase still waits for the next run.</td></tr>
     <tr><td><code>AbilityGatingTests</code></td><td>That the flag actually changes what the generator builds: a wall shaft asks for the wall jump and nothing more, a gap wider than a jump asks for the dash, a room is judged by the <b>journey</b> and not by its hardest door, and a reduced kit still gets a finishable biome.</td></tr>
     <tr><td><code>ShopRowLayoutTests</code></td><td>The panel physically fits: every row encloses its own content, rows do not overlap, every tab fits the smallest logical viewport, the list is bounded and scrollable, the tab bar stays on one row, and every move reaches exactly one tab.</td></tr>

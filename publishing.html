@@ -11,12 +11,14 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="guide.html">Build a Game</a>
   <a href="onboarding-programmer.html">For Programmers</a>
   <a href="onboarding-artist.html">For Artists</a>
   <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="executions.html">Executions</a>
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
@@ -33,7 +35,7 @@
 
 <header class="page">
   <h1>Publishing to <span class="flame">Steam</span></h1>
-  <p class="tag">Getting a build into your testers' hands: the build → upload → set-live loop, who can actually play an unreleased app, and the handful of contracts that quietly break everything if you change them.</p>
+  <p class="tag">Getting a build into your testers' hands: the build → upload → set-live loop, who can actually play an unreleased app, the handful of contracts that quietly break everything if you change them, and what the store page has to disclose about where the art and audio came from.</p>
 </header>
 
 <main>
@@ -57,7 +59,7 @@
   <h2><span class="num">02</span>The loop — build, upload, set live</h2>
   <p class="lead">Four steps, every time. The upload script only <b>finds</b> a build; it never runs Unity, so you always build first.</p>
   <ol class="steps">
-    <li><b>Build.</b> <span class="kbd">Build System ▸ Build Manager</span> → build Windows. Output lands at <code>Builds/StandaloneWindows64/&lt;version&gt;/sentinels-of-gleamwood.exe</code>. The version bumps automatically — and <b>rolls back if the build fails or is cancelled</b>, so a dead build never consumes a number out of the same monotonic sequence the Steam releases draw from. <b>Two refusals fire BEFORE the build, so they cost nothing:</b> a version format
+    <li><b>Build.</b> <span class="kbd">Build System ▸ Build Manager</span> → build Windows. Output lands at <code>Builds/StandaloneWindows64/&lt;version&gt;/sentinels-of-gleamwood.exe</code>. The version bumps automatically — and <b>rolls back if the build fails or is cancelled</b>, so a dead build never consumes a number out of the same monotonic sequence the Steam releases draw from. <b>Three refusals fire BEFORE the build, so they cost nothing.</b> The first is the suite: <code>SuiteGate</code> refuses a missing, red, unreadable or <b>stale</b> <code>Logs/playmode_test_results.txt</code> &mdash; stale meaning a green file older than a <code>.cs</code> under <code>Assets/</code>, which reads exactly like a pass and describes code that no longer exists. Re-run <code>Tools/run-tests.sh</code> and build from the green. Then: a version format
   <code>System.Version</code> cannot parse (<code>VersionFormat.Simple</code>, which emits a bare
   build number) is rejected outright, because the uploader skips any folder it cannot parse as a
   version; and a release whose <code>build-&lt;version&gt;</code> tag already exists is refused — that
@@ -181,6 +183,30 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
   <div class="note"><b><code>SetLive</code> cannot target <code>default</code></b> — Valve blocks it deliberately, and the script refuses <code>-Branch default</code> too. Promoting to default is always a manual <i>Set Build Live Now</i>. Once the game is <b>released</b>, that also requires a Steam Mobile Authenticator or SMS confirmation, and it auto-updates every owner instantly — so before you flip to released, make sure default holds a build you'd be happy shipping.</div>
 </section>
 
+<section id="provenance">
+  <h2><span class="num">08</span>Provenance and the AI disclosure</h2>
+  <p class="lead">Steam asks, at submission, whether the game contains AI-generated content, and the answer is a public field on the store page. <b>The answer is yes, and it stays yes after the strip</b> &mdash; the six music tracks are Suno, generated on a Pro subscription that carries commercial rights, and they ship. Every other AI-generated class goes.</p>
+
+  <p><b>The ledger is <code>Documentation/PROVENANCE.md</code></b> &mdash; one row per media class with the evidence for it, and what the H4 strip does with it. It is checked mechanically, not maintained by memory: <code>Tools/check-provenance.py</code> refuses a media file under <code>Assets/</code> with no row <i>and</i> a row that covers no file, and <code>Tools/check-wiki.py</code> runs it, so it is part of the ordinary verification loop rather than a second command to remember.</p>
+
+  <div class="scrollx">
+  <table>
+    <thead><tr><th>Fate</th><th>Files</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><code>keep</code></td><td>129</td><td>Provenance is clean and recorded. Our own art and synthesized audio, the input glyphs, the fonts, Unity&rsquo;s TextMesh Pro samples, the generated kit, and the six Suno tracks.</td></tr>
+      <tr><td><code>strip</code></td><td>139</td><td>Leaves the repo in H4. The AI sprite sets, the AI portraits and weapon icons, the SAPI voice-over, the placeholder hero and level art, and the sword-slash pack. Git keeps every byte.</td></tr>
+      <tr><td><code>decide</code></td><td>0</td><td>Nothing is undecided. The three open questions were answered on 2026-08-19.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Run <code>python Tools/check-provenance.py --fate strip</code> to see exactly which files that is, by name, before deleting anything.</p>
+
+  <div class="note"><b>What the disclosure has to say.</b> Not &ldquo;none required&rdquo;. One AI-generated class ships: the <b>six Suno music tracks</b> (Pro tier, account <code>anagrammc</code>, all generated 2026-06-26, per-track ids in the ledger), so the honest declaration is <i>pre-generated AI audio</i>, naming the music. Everything else that ships is ours outright or third-party under a recorded licence; every AI sprite, portrait and icon is a <code>strip</code> — and the SAPI voice-over is no longer pending: its 28 takes were deleted on 2026-08-24, so that class is already out. The sword-slash pack and the hand-drawn hero sheets go too &mdash; both are placeholder being redrawn, so their provenance stopped mattering rather than being resolved.</div>
+
+  <div class="note"><b>Two gaps hold regardless of those answers.</b> Neither the OFL text nor the required copyright line ships for <b>Pixelify Sans</b> or <b>Space Mono</b> &mdash; Liberation&rsquo;s copy is present, so the omission is inconsistent rather than a policy. Both copyright lines are in the ledger, read out of the fonts&rsquo; own name tables. And the <b>credits roll has no Art &amp; Animation or Music &amp; Sound row</b> &mdash; deliberately, because there is nobody to name yet; <code>CreditsScreenController.cs</code> says the rows come back when the ledger says what the shipped art and audio are. Answering the three questions above is what unblocks the credits, too.</div>
+</section>
+
 <div class="honest">
   <h4>Keep this page honest</h4>
   <ul>
@@ -188,6 +214,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
     <li>The build side: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildManagerWindow.cs</code> — <code>GetBuildPath</code> (the channel tier), <code>WriteChannelMarker</code>, <code>BeginPendingVersion</code>/<code>DiscardPendingVersion</code> (the version rollback) and <code>CreateGitTagForBuild</code>. Both of that file's stale "NOT uploadable" claims — the on-screen channel note and the <code>DevelopmentBuild</code> doc comment — are fixed; it now names the invocation (<code>-Channel development -Branch playtest</code>) instead of denying the workflow. <code>Upload-SteamBuild.ps1</code> remains the authority: write §03 from the PowerShell.</li>
     <li>The pinned exe: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildNaming.cs</code>, consumed by <code>BuildManagerWindow.GetBuildPath</code>. Identity lives in <code>ProjectSettings/ProjectSettings.asset</code>.</li>
     <li>The release notes: <code>Documentation/BUILD-NOTES.md</code> — §02 step 4 is the only instruction in the wiki to write them, so a change to how they are kept lands here as well as on <a href="maintaining.html#map">maintaining §05</a>.</li>
+    <li>The provenance numbers in §08 are not hand-counted: <code>python Tools/check-provenance.py --list</code> prints them, and <code>Tools/check-wiki.py</code> prints the same totals on every run as <code>media assets swept</code>. If they disagree with the table, the table is stale — the ledger is <code>Documentation/PROVENANCE.md</code> and the rows carry their own evidence.</li>
     <li>Valve's rules (branches, Dev Comp autogrant, key waiting periods) come from the Steamworks partner docs and <b>do drift</b> — re-verify against <code>partner.steamgames.com/doc/</code> before trusting a detail that costs you an afternoon.</li>
   </ul>
 </div>
@@ -196,6 +223,32 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
   <a href="framework.html"><span>← Previous</span>Framework</a>
   <a href="maintaining.html"><span>Next →</span>Maintaining</a>
 </div>
+
+<section id="deck">
+  <h2><span class="num">09</span>The Steam Deck — proof happens on hardware</h2>
+  <p class="lead">There is no Deck build and no Deck depot: a Deck installs the <b>Windows</b> depot (2953371) and runs it through Proton. Nothing in <a href="#loop">§02</a>'s loop changes — what the Deck adds is a debt on every checkpoint build: the platform claims in the code are proven by tests driving an injection seam, and <b>only hardware can close them</b>.</p>
+
+  <p><b>Why a walk at all.</b> Deck detection is <code>SteamUtils.IsSteamRunningOnSteamDeck()</code>, fenced behind <code>GLEAMWOOD_STEAM</code> — a Standalone scripting define in <code>ProjectSettings.asset</code>, so release and development players alike carry the detection, the overlay pause and the Steam glyph branding. On any machine that is not a Deck, every non-injected path answers <i>not a Deck</i>: the suite's green certifies what the game <i>would</i> do with the platform fact, never that the fact arrives. The designer-facing half — what to author for that screen, and the text-size floors — is <a href="tuning.html#deck">tuning §10</a>; this section is the shipping half.</p>
+
+  <h3>The checkpoint-build Deck walk</h3>
+  <p>Run it on every checkpoint build that touched display, windowing, UI scaling, pause or haptics — and at least once before any public build. Use a <b>development</b> build set live on a passworded beta branch (<a href="#channels">§03</a>, <a href="#branches">§07</a>): the F1 panel and the version&nbsp;·&nbsp;commit&nbsp;·&nbsp;seed stamp are what make a Deck report traceable.</p>
+  <ol class="steps">
+    <li><b>Install and launch once, normally.</b> First boot seeds <code>config.ini</code> inside the Proton prefix: <code>&lt;Steam&nbsp;library&gt;/steamapps/compatdata/2953370/pfx/drive_c/users/steamuser/AppData/LocalLow/Cat Splat Studios/sentinels-of-gleamwood/config.ini</code> — reachable from Desktop Mode with any file manager.</li>
+    <li><b>Set the display keys deliberately wrong</b> — say <code>resW = 640</code>, <code>resH = 480</code> under <code>[Display]</code> — and relaunch. <b>The picture must not change.</b> A changed picture means a saved resolution reached <code>Screen.SetResolution</code> past the policy, which is the exact regression the display fix exists to prevent.</li>
+    <li><b>Open Settings ▸ Display.</b> Window Mode and Resolution must be present, dimmed, reading <i>Set in Steam</i>. Present-but-dimmed is the decision — a greyed row names where the setting really lives — so a <i>missing</i> row is a bug too.</li>
+    <li><b>Press the Steam button mid-fight.</b> The game must pause <b>once</b>. Twice is the failure to hunt for: the overlay can take focus and drop the pad in the same moment, and two pause pushes against one pop is a game frozen after Resume. Close the overlay, Resume, play on.</li>
+    <li><b>Pair a Bluetooth pad, play with it, switch it off mid-fight.</b> Same expectation: one pause, clean resume.</li>
+    <li><b>Take a hit; feel the pad buzz.</b> Then set Screen Shake to Off and take another — <b>it must still buzz</b>. Stilling the camera and silencing the motors are two separate accessibility answers, and the walk is where that separation is felt rather than asserted.</li>
+    <li><b>Text Size at Large, then back to Medium</b> — and at Medium, read the smallest HUD text (status stacks, run-modifier names, the pause-menu seed) at arm's length. This is the field test for the floors in <a href="tuning.html#deck">tuning §10</a>.</li>
+    <li><b>Walk the fan column bare-kit on the pad</b> — the one route with a precision hop, and nobody has walked it on this hardware.</li>
+  </ol>
+  <p>Fold every verdict into its row rather than into memory: OUTSTANDING <i>"The Steam Deck display fix is in, but unproven on hardware"</i> (steps 2–5), OUTSTANDING <i>"Deck legibility: 10–13 px text and a Text Size row read by nothing"</i> (step 7), OUTSTANDING <i>"The UI is not consistent across resolutions"</i> (step 7), OUTSTANDING <i>"The fan column's S12→S14 hop breaks ROOM_STANDARDS' own rule"</i> (step 8). A step that fails becomes an item on its row; a step that passes deletes the row's <i>unproven</i> clause — either way the row moves, which is how the next reader knows the walk actually happened.</p>
+
+  <h3>The compatibility review</h3>
+  <p>Valve grades every app's Deck experience — <b>Verified / Playable / Unsupported</b> — and the grade is public on the store page. It reviews a <i>build</i>, and it can be pointed at a beta branch, which is how it is sequenced here: at H8 in <code>Documentation/DESIGNER-HANDOFF-PLAN.md</code>, from a beta branch, after the provenance strip and the designers' content land, alongside the rest of the store runway. Nothing on the partner site is configured for it yet — this paragraph documents the plan, not a done thing.</p>
+  <p>Measured against what ships today: controller-first menus with correct glyphs (<code>SteamInputBrandProvider</code>), no keyboard-dependent entry point, and a default configuration that runs without ever opening a settings screen — the display policy exists for exactly this — are all in place. The known gap is <b>text legibility</b>: the 10–13&nbsp;px rules on OUTSTANDING <i>"Deck legibility: 10–13 px text and a Text Size row read by nothing"</i> are precisely the sort of thing a Verified grade fails on, so close that row before requesting the review. And the warning this page already carries about Valve's rules applies double here: the criteria drift — re-verify against <code>partner.steamgames.com/doc/</code> before scheduling anything against them.</p>
+  <div class="warn note"><b>A Deck regression is a real regression, not a polish item.</b> The platform bar in <code>CLAUDE.md</code> says it and shipping is where it bites: any change to display, windowing, fullscreen or UI scaling re-opens the hardware debt — the walk above goes back on the next checkpoint build, and <i>it works on Windows</i> goes back to being half a claim.</div>
+</section>
 
 </main>
 

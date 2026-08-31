@@ -39,15 +39,28 @@ without a prefab, so it is not dead code — it is just not how the game gets th
 
 **Event** — `Action<IState, IState> OnStateChanged` *(previous, current)*.
 
-> ### `AddTransition` REPLACES same-target edges — it does not stack
-> `list.RemoveAll(t => t.TargetState == toState)`. A code-registered edge **deletes the authored
-> one** to the same target. Four of `meleeAtk`'s five authored edges in `PlayerDef.asset` died this
-> way, and one carries a condition nobody noticed was wrong *because it never ran*.
+> ### `AddTransition` MERGES same-target edges — it does not stack, and it no longer deletes
+> A second edge to a target a state already has becomes **one** edge: the condition ORs both, the
+> priority is the higher of the two, and the pair is recorded in `ReplacedEdges`.
 >
-> The replacement itself is correct — `CheckTransitions` takes the first match, so two edges to one
-> target would leave the second unreachable anyway. What was wrong was doing it silently; it now
-> reports and names both sides. **The fix is always the same: one edge, one condition, ORing the two
-> cases together.** Any state whose edges are half data and half code is one refactor from this.
+> **It used to delete**, and that is the bug this behaviour was built to end: `list.RemoveAll(t =>
+> t.TargetState == toState)` ran before every insert, so a code-registered edge silently took the
+> authored one's condition with it. Four of `meleeAtk`'s five authored edges in `PlayerDef.asset`
+> died that way, and one of the four carried a condition nobody had noticed was wrong *precisely
+> because it never ran* — it required `CanGroundJump` to raise a bow.
+>
+> **The order of the fix was the point.** The four collisions were resolved by hand FIRST — three
+> authored conditions were strictly worse duplicates of the code edge and the fourth was that wrong
+> one, so all four asset entries went — and only THEN did the merge land. Doing it the other way
+> round would have folded the wrong condition in, and a merge makes a condition fire MORE, not less.
+>
+> **A merge is safe and is still a smell**, so it stays loud: two places now decide one edge, and the
+> console names each pair once per session. One thing genuinely is still lost — only the incoming
+> edge's `onTransition` callback survives. **So the fix is unchanged: one edge, one condition, ORing
+> the two cases together.** Any state whose edges are half data and half code is one refactor from
+> this. The shipped player graph resolves none of them, and `TransitionCollisionTests` asserts that
+> zero with a deliberate collision beside it, so the zero cannot come from the recorder having
+> quietly stopped.
 
 Insertion is a **stable** highest-priority-first insert, deliberately not `List.Sort` — that is an
 unstable quicksort, and since `CheckTransitions` takes the first match, re-sorting would turn
@@ -186,7 +199,7 @@ the entry for tooling — use them rather than re-deriving why an execution did 
 | **Movement** | `EnemyIdleState` · `EnemyChaseState` · `EnemyFloatChaseState` · `EnemyRelocateState` |
 | **Offence** | `EnemyAttackPhaseState` (the phase chain) · `EnemyProjectileAttackState` · `EnemySummonState` · `EnemyHazardPhaseState` |
 | **Reactions** | `EnemyHitState` · `EnemyJuggledState` · `EnemyDeathState` |
-| **Executions** | `EnemyBowExecutionState` · `EnemyDashExecutionState` · `EnemyExplosiveExecutionState` |
+| **Executions** | `ExecutionPayoffState` (one runner, ten data-authored payoffs; the three bespoke execution states were deleted 2026-08-30) |
 
 `EnemyState` as a base class is **gone** — every enemy state is a
 `ConfigurableState<EnemyContext, TConfig, EnemyStateMachine>`.

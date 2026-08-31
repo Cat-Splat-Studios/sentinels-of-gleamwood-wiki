@@ -11,12 +11,14 @@
 <nav class="wiki">
   <a class="home" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="guide.html">Build a Game</a>
   <a href="onboarding-programmer.html">For Programmers</a>
   <a href="onboarding-artist.html">For Artists</a>
   <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="executions.html">Executions</a>
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
@@ -211,9 +213,9 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <tr><th>INI section</th><th>Keys (defaults)</th></tr>
     <tr><td><code>[Display]</code></td><td><code>windowMode</code> (0 = exclusive fullscreen, 1 = borderless, 2 = windowed), <code>vsync</code>, <code>frameCap</code> (index into 30/60/120/144/unlimited; applies only with VSync off), <code>resW</code>, <code>resH</code> — plus <code>brightness</code>, which is stored and <b>not yet consumed</b>: nothing reads it, and its menu row is <b>dimmed</b> exactly like the <code>[Accessibility]</code> placeholders below. <b>On a Steam Deck the stored <code>resW</code>/<code>resH</code> and <code>windowMode</code> are IGNORED, never erased:</b> the Deck runs the Windows player through Proton and the resolution is chosen before launch, so <code>DisplayPlatform.Policy</code> (<code>Assets/_Game/Systems/Settings/DisplayPlatform.cs</code>, detection via <code>SteamUtils.IsSteamRunningOnSteamDeck</code>) answers <code>ApplySavedResolution</code>/<code>ApplySavedWindowMode</code> false, <code>GameSettings.ApplyResolution</code>/<code>ApplyWindowMode</code> return before touching <code>Screen</code>, and the settings menu draws both rows <b>dimmed</b>, reading "Set in Steam", rather than deleting them. The keys stay in the file because the same profile has to keep working on a desktop. Pinned from both sides by <code>DeckDisplayPolicyTests</code>; unproven on hardware — <code>Documentation/OUTSTANDING.md</code>, the row <i>"The Steam Deck display fix is in, but unproven on hardware"</i></td></tr>
     <tr><td><code>[Audio]</code></td><td><code>masterVol</code> 100, <code>musicVol</code> 80, <code>sfxVol</code> 90, <code>uiVol</code> 90, plus four <code>*Muted</code> flags</td></tr>
-    <tr><td><code>[Controls]</code></td><td><code>vibration</code> — stored and <b>not yet consumed</b>; dimmed row, same treatment</td></tr>
-    <tr><td><code>[Accessibility]</code></td><td><code>screenShake</code> and <code>reduceFlashing</code> are <b>live</b> — read in <code>ShakeComponent.Shake</code> and by the HUD's damage flash respectively. <code>aimMode</code>, <code>colourblind</code>, <code>textSize</code> are stored and not yet consumed; their menu rows are <b>dimmed</b> rather than deleted, so the key keeps parsing and a greyed row says "not yet" instead of "never"</td></tr>
-    <tr><td><code>[Game]</code></td><td><code>damageNumbers</code>, <code>tutorials</code> — both stored and <b>not yet consumed</b>; dimmed rows. With <code>brightness</code>, <code>vibration</code> and the three <code>[Accessibility]</code> ones that makes <b>seven</b> keys the INI parses and nothing reads</td></tr>
+    <tr><td><code>[Controls]</code></td><td><code>vibration</code> — <b>live</b> since 2026-08-21: read by <code>Rumble.Enabled</code>, which drives the pad motors from <code>ShakeComponent.Shake</code> (see <a href="#deck">§10</a>); the row is no longer dimmed</td></tr>
+    <tr><td><code>[Accessibility]</code></td><td><code>screenShake</code>, <code>reduceFlashing</code> and <code>damageTaken</code> are <b>live</b> — read in <code>ShakeComponent.Shake</code>, by the HUD's damage flash, and inside <code>PlayerContext.TakeDamage</code> respectively. <code>damageTaken</code> is 0 = Normal, 1 = Half, 2 = Quarter, scaling every hit at the one funnel they all pass through, floored at 1 pip so it stays a difficulty option rather than an invincibility one; a kill volume ignores it. <b>Per install, not per profile</b> — it lives here beside Screen Shake rather than on the save, because somebody who needs it needs it on every slot. <code>textSize</code> is <b>live</b> too, since 2026-08-21 — <code>GameSettings.TextSizeScale</code> multiplies the shared panel's scale, applied at boot and on change (see <a href="#deck">§10</a>). <code>aimMode</code> and <code>colourblind</code> are stored and not yet consumed; their menu rows are <b>dimmed</b> rather than deleted, so the key keeps parsing and a greyed row says "not yet" instead of "never"</td></tr>
+    <tr><td><code>[Game]</code></td><td><code>damageNumbers</code>, <code>tutorials</code> — both stored and <b>not yet consumed</b>; dimmed rows. With <code>brightness</code> and the two <code>[Accessibility]</code> ones that makes <b>five</b> keys the INI parses and nothing reads (<code>brightness</code>, <code>aimMode</code>, <code>colourblind</code>, <code>damageNumbers</code>, <code>tutorials</code>)</td></tr>
     <tr><td><code>[Controllers]</code></td><td>Per-controller glyph-brand overrides written by <code>ControllerOverrides</code> (e.g. <code>XInput-1 = Nintendo</code>) — desktop/INI-only, since it enumerates the section</td></tr>
     <tr><td><code>Misc</code></td><td>Fallback section for any key not in the <code>Sections</code> map</td></tr>
   </table>
@@ -236,7 +238,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
 
 <section id="gamecontent">
   <h2><span class="num">08</span><code>GameContent.ini</code> — the content authoring INI</h2>
-  <p class="lead">The other INI is nothing like <code>config.ini</code>. <code>Assets/_Game/Content/GameContent.ini</code> is the <b>authoring source for the entire run</b> — biomes, bosses, enemy vitals, rests, and the node web — imported by <code>ContentIniImporter</code> (<code>Assets/_Game/Editor/ContentIniImporter.cs</code>).</p>
+  <p class="lead">The other INI is nothing like <code>config.ini</code>. <code>Assets/_Game/Content/GameContent.ini</code> is the <b>authoring source for the entire run</b> — biomes, bosses, enemy vitals, rests, the player's feel, and the node web — imported by <code>ContentIniImporter</code> (<code>Assets/_Game/Editor/ContentIniImporter.cs</code>).</p>
   <div class="rule note"><b>Strictly one-way, editor-only.</b> The INI is the authoring source; the SO assets stay the runtime truth. The game <b>never</b> reads INI at runtime, and there is no INI export. <code>RunContentValidator</code> (<span class="kbd">Gleamwood ▸ Validate Run Content</span>) auto-runs after every import — and the same validator is the build gate, so broken content refuses to compile.</div>
   <h3>Grammar</h3>
   <div class="scrollx">
@@ -256,7 +258,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <div class="scrollx">
   <table>
     <tr><th>Key</th><th>Sets</th><th>Meaning</th></tr>
-    <tr><td><code>displayName</code> / <code>chapter</code> / <code>objective</code></td><td>Intro card</td><td>The CHAPTER band, title and objective text shown on biome entry.</td></tr>
+    <tr><td><code>displayName</code> / <code>chapter</code> / <code>objective</code></td><td>Intro card</td><td>The band, title and objective text shown on biome entry. <b>Leave <code>chapter</code> out</b> &mdash; every shipped biome does &mdash; and the card counts the RUN: <code>CHAPTER I</code> on the first level entered, <code>II</code> on the second. A constant cannot be right on a branching web, where one biome is one player&rsquo;s second level and another&rsquo;s fourth; it used to run backwards on fourteen of the twenty-two routes. Author it only for a fixed band a campaign wants verbatim (<code>Biome_DebugPool</code> says <code>DEBUG</code>).</td></tr>
     <tr><td><code>minRooms</code> / <code>maxRooms</code></td><td><code>genRules</code></td><td>How many <b>middle</b> rooms between the Entry and Exit rooms (inclusive range).</td></tr>
     <tr><td><code>verticalJogChance</code></td><td><code>genRules</code></td><td>0–1 chance per step to prefer a room whose door row jogs vertically.</td></tr>
     <tr><td><code>calmRoomBeforeBoss</code></td><td><code>genRules</code></td><td>Suppress enemy spawns in the room directly before the boss corridor. Must be ON for any node with a bypass — the junction door lives there.</td></tr>
@@ -270,7 +272,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <tr><td><code>socketCap</code></td><td>Prefab ref</td><td>Cap prefab sealing every unused socket aperture.</td></tr>
     <tr><td><code>spawnTable</code></td><td>EnemySpawnTable</td><td>Rolled at every spawn marker (markers can override).</td></tr>
     <tr><td><code>boss</code></td><td>BossDefinition</td><td>Empty/<code>-</code> = stand-in mode (arena adds only).</td></tr>
-    <tr><td><code>musicTrack</code></td><td>AudioClip</td><td>Looping biome music; empty = the MusicSet's LevelTrack fallback.</td></tr>
+    <tr><td><code>musicTrack</code></td><td>AudioClip</td><td>Looping biome music; <b>empty = silence</b>, deliberately — it no longer borrows <code>MusicSet.LevelTrack</code>, and <code>RunContentValidator</code> warns per biome that has none (<a href="audio.html">Audio</a> §05).</td></tr>
     <tr><td><code>standInLayout</code></td><td>Prefab ref</td><td>Hand-authored fallback layout used when the pool is empty (needs <code>EntryPoint</code> + <code>BiomeExit</code>).</td></tr>
   </table>
   </div>
@@ -278,6 +280,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <div class="scrollx">
   <table>
     <tr><th>Key</th><th>Meaning</th></tr>
+    <tr><td><code>displayName</code></td><td>What the boss health bar calls it. <b>Added 2026-08-18</b> — until then the importer accepted every other key and not this one, so a boss authored entirely from this file worked in every respect and had a blank title card, with nothing reporting a problem. Blank still falls back to the enemy definition’s asset name.</td></tr>
     <tr><td><code>bossPrefab</code></td><td>Enemy prefab (<code>EnemyStateMachine</code> on the root) spawned at the arena's boss-point marker.</td></tr>
     <tr><td><code>dialogue</code></td><td><code>DialogueSet</code> with every beat the boss speaks. The lines themselves are NOT authored here — they live in <code>.dlg</code> files. See <a href="dialogue.html">Dialogue</a>.</td></tr>
     <tr><td><code>entranceDelay</code></td><td>Extra pause before the boss arrives, added on top of the <code>spawnInterval</code> the add loop already waits after the last add — see <a href="dialogue.html#encounter">Dialogue §04</a>.</td></tr>
@@ -307,6 +310,19 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <tr><td><code>layoutPrefab</code></td><td>The hand-authored rest layout (needs <code>EntryPoint</code>, <code>RestSite</code>, <code>RestExit</code>). Editor-only in practice — a campaign has no prefab catalog to resolve a name against, and <code>CampaignPlan.ApplyRest</code> refuses it by name rather than as an unknown key.</td></tr>
   </table>
   </div>
+  <h4><code>[Player.state:&lt;stateId&gt;]</code></h4>
+  <p>The player's per-state feel numbers &mdash; the ones the Workbench's Player tab and the F1 panel already show. Keys are the field names on that state's config, case-insensitively, and the state ids are the sub-asset names in <code>PlayerDef.asset</code>: <code>idle</code>, <code>run</code>, <code>jump</code>, <code>fall</code>, <code>wallSlide</code>, <code>dash</code>, <code>dashAttack</code>, <code>meleeAtk</code>, <code>bowAim</code>. A section naming a state that does not exist is refused and the message lists the real ones.</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Example</th><th>Meaning</th></tr>
+    <tr><td><code>[Player.state:fall]</code><br><code>GravityMultiplier = 1.4</code></td><td>Any <code>int</code>, <code>float</code>, <code>bool</code>, <code>string</code> or enum field on <code>PlayerFallConfig</code>. Same for every other state and its own config.</td></tr>
+    <tr><td><code>StateName</code></td><td><b>Refused by name.</b> It is the key the state is REGISTERED under, so renaming it from text would leave every transition naming that state resolving to nothing &mdash; silently.</td></tr>
+    <tr><td><code>*TransitionPriority</code></td><td><b>Refused by name.</b> Priorities decide which edge wins when several are legal, which is the shape of the machine rather than its feel.</td></tr>
+    <tr><td><code>Animation</code>, <code>Animator*</code></td><td><b>Refused by name</b>, pointing at the <code>[PlayerSkin]</code> tier &mdash; that one has a clip grammar and a donor to fall back on. This section is how the player MOVES.</td></tr>
+  </table>
+  </div>
+  <div class="note"><b>The same section works in a campaign, and there it never touches the asset.</b> The importer writes the tracked sub-asset, which is what importing this file means. A campaign's copy of the block is applied to the per-machine CLONE <code>PlayerStateMachine.InitializeFromDefinition</code> already makes (rule 10, and the same clone that made <code>[Tunable]</code> possible), so a mod can retune Balen's feel without a diff in <code>PlayerDef.asset</code>. Both readers and the sync report share one vocabulary through <code>PlayerFeelOverrides</code>, so they cannot drift into accepting different words &mdash; the drift <code>EnemyKeyParityTests</code> exists for.</div>
+
   <h4><code>[Node:&lt;nodeId&gt;]</code> and <code>[Plan]</code></h4>
   <div class="scrollx">
   <table>
@@ -396,7 +412,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   </ol>
   <div class="note"><b>Drift is watched from both sides now.</b> The INI and the assets can disagree — a Workbench edit the INI doesn't know about, or an INI edit nobody imported. <span class="kbd">Gleamwood ▸ Check Content INI Sync</span> reports every section's verdict on demand; the Workbench shows an <b>in sync / DIVERGED</b> row on biome forms, boss staging and enemy vitals (the fields the INI co-owns); <span class="kbd">Gleamwood ▸ Validate Run Content</span> warns per diverged section; and <span class="kbd">Import Content INI</span> logs which units it is about to overwrite <i>before</i> it does. The compare mirrors the importer key-for-key (same parser, same resolvers — <code>ContentIni.cs</code> / <code>GameContentSync.cs</code>), and the <code>ContentIniSyncTests</code> flagship test keeps the committed INI and assets in agreement forever. One deliberate nuance: <code>[Node:]</code> sections rebuild the web <b>wholesale</b>, so an absent key there counts as a reset, not "untouched" — the compare knows.</div>
   <div class="warn note"><b>Re-globbing changes old seeds.</b> The resolved <code>roomPool</code> order feeds the seeded generator, so adding a room that matches an existing glob can change layouts for old seeds. Resumed runs re-generate from the current pool — acceptable by design, but know it's happening.</div>
-  <div class="rule note"><b>nodeIds are SAVE data.</b> They're written into suspended-run files; never rename shipped ones — the INI's own header says so. Renaming a <i>biomeId</i> breaks the <code>[Node]</code> <code>biome =</code> references at import time, not existing saves.</div>
+  <div class="rule note"><b>nodeIds are SAVE data.</b> They're written into suspended-run files; never rename shipped ones — the INI's own header says so. A <i>biomeId</i> is save data too — a suspended run resolves its biome by id and the run-web fingerprint hashes it, and the field's own tooltip says never rename once players have saves — so renaming one breaks existing saves as well as the <code>[Node]</code> <code>biome =</code> references at import time.</div>
 </section>
 
 <section id="future">
@@ -416,7 +432,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
       <p>One-way import + the validator-as-build-gate means text edits can never silently break a build — a typo errors and leaves wiring untouched. Pair that with a human-editable <code>config.ini</code> and a <code>TunableRegistry</code> that the Impact tab has now used exactly as designed (§04), and the tuning surface is already shaped for hands that aren't ours.</p>
     </div>
   </div>
-  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. The order in which the open items on this page are meant to land — the <code>[Player]</code> section and per-state cloning, <code>displayName</code> in <code>[Boss:]</code>, campaign-declared biomes and bosses, the Deck hardware walk — is sequenced in <code>Documentation/DESIGNER-HANDOFF-PLAN.md</code>; the rows themselves live only in <code>Documentation/OUTSTANDING.md</code>. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
+  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. The order in which the open items on this page are meant to land — <code>displayName</code> in <code>[Boss:]</code> and the Deck hardware walk — is sequenced in <code>Documentation/DESIGNER-HANDOFF-PLAN.md</code>; the rows themselves live only in <code>Documentation/OUTSTANDING.md</code>. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
 </section>
 
 <div class="honest">
@@ -437,6 +453,43 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
   <a href="audio.html"><span>← Previous</span>Audio</a>
   <a href="extending.html"><span>Next →</span>Extending</a>
 </div>
+
+<section id="deck">
+  <h2><span class="num">10</span>The Steam Deck — a display you don't own</h2>
+  <p class="lead">The Deck is a <b>primary platform</b>, and it has no build of its own: it runs the <b>Windows</b> player through Proton, under gamescope. Every number this page teaches you to tune therefore has a second audience — a 1280×800 panel seven inches wide, held at arm's length, pad in both hands — and <i>it works on Windows</i> is not the same claim as <i>it works on the Deck</i>.</p>
+
+  <h3>The display is decided before the game exists</h3>
+  <p>On a Deck the resolution is chosen <b>before launch</b>, from Steam/Proton settings, and the game defers on both halves: the Display tab's Window Mode and Resolution rows are dimmed to <i>Set in Steam</i>, and the boot-time apply of a saved <code>resW</code>/<code>resH</code>/<code>windowMode</code> returns before touching <code>Screen</code> — the keys are ignored, never erased, so the same <code>config.ini</code> still drives a desktop. The mechanics live in <a href="#gamesettings">§07</a>; what this section adds is the rule behind them: <b>never author anything that assumes the game can set its own resolution or window mode</b>, and before any change that touches display, windowing, fullscreen or UI scaling, ask <i>what does Proton do with it?</i> Under gamescope every window mode composites into the same host-owned surface — Fullscreen and Borderless are the same picture, and a floating window is hostile to a handheld — so a feature whose value depends on owning the display has no value on this platform.</p>
+  <p>Interruptions are platform behaviour too. <code>FocusGuard</code> pauses a live run when the window loses focus, when a pad disconnects, and when the Steam overlay opens — and on a Deck the Steam button does that mid-fight, routinely. Author nothing that cannot tolerate the pause menu opening on any frame. Details: <a href="ui.html#dev">ui.html §05</a>.</p>
+
+  <figure class="shot pending">
+    <figcaption><b>Figure (to capture): <code>images/tuning-deck-set-in-steam.png</code></b> — the Settings screen's Display tab running on a Steam Deck: Window Mode and Resolution dimmed with the value text <i>Set in Steam</i>, VSync and Frame Rate live below them. Captured on hardware during the checkpoint walk (Steam&nbsp;button&nbsp;+&nbsp;R1), never by the capture tool.</figcaption>
+  </figure>
+
+  <h3>Text has a physical floor</h3>
+  <p>The shared <code>Assets/UI Toolkit/PanelSettings.asset</code> scales the whole interface from a 1200×800 reference, half by width and half by height, so the factor a screen actually receives depends on its aspect:</p>
+  <div class="scrollx">
+  <table>
+    <tr><th>Display</th><th>Panel scale</th><th>A 12 px USS rule renders at</th></tr>
+    <tr><td>Steam Deck — 1280×800, 16:10, 7-inch panel</td><td>≈ ×1.03</td><td>≈ 12 physical px</td></tr>
+    <tr><td>1920×1080 monitor</td><td>≈ ×1.47</td><td>≈ 18 px</td></tr>
+    <tr><td>2560×1440 monitor</td><td>≈ ×1.96</td><td>≈ 24 px</td></tr>
+  </table>
+  </div>
+  <p>At ×1.03 a USS pixel is, near enough, a physical pixel on a screen seven inches across. Hence the floor: <b>keep information-bearing text at 12 px or more</b>. Enemy status stacks, HUD run-modifier names, run-map node names and the pause-menu seed are all information, and several of them ship below that today — the open half of <code>Documentation/OUTSTANDING.md</code>, the row <i>"Deck legibility: 10–13 px text and a Text Size row read by nothing"</i>, and closing it is USS-only, designer-doable work. The player's Text Size row (Small ×0.9 / Medium ×1 / Large ×1.15, <code>GameSettings.TextSizeScale</code>) multiplies the whole panel's scale; it is the player's accessibility dial, <b>not your size budget</b> — Large does not make a 10 px rule readable on a handheld, and Small makes it smaller still. Author for Medium and keep your floor clear of both ends.</p>
+  <div class="note"><b>The reference aspect is an open decision.</b> 1200×800 is 3:2 — an aspect the game ships on nowhere — which is why the factor swings by aspect at all. The fix starts with a decision only Hisham can make and is tracked on OUTSTANDING <i>"The UI is not consistent across resolutions"</i>. Until it lands, walk any screen you author at 16:9 <b>and</b> 16:10 before calling it done.</div>
+
+  <h3>A shake number is a haptics number</h3>
+  <p>The Deck has motors, and <code>Rumble</code> drives them from <code>ShakeComponent.Shake</code> — every impact that shakes the camera also buzzes the pad, at a strength derived from the <b>same amplitude you author</b>: full motor at 0.35, and most shipped shakes run 0.1–0.3, so a heavy hit reads strong without every tap saturating — the one outlier is the bow execution's authored 0.5, which pegs the motor at full. Retune a <code>HitShake</code> on a swing (<a href="combat.html#swings">combat §02</a>) and you have retuned the player's hands as well as their eyes. Deliberately, the rumble sits <b>above</b> the Screen Shake gate and reads its own Vibration key: stilling the camera and silencing the pad are two different accessibility answers, and <code>RumbleTests</code> pins them apart — don't tidy them into one condition.</p>
+
+  <h3>Sanity-checking without the hardware</h3>
+  <ol class="steps">
+    <li><b>Walk your screens at the Deck's shape.</b> Add a <b>1280×800</b> entry to the Game view's resolution dropdown and re-check every screen you touched at 16:10 — the aspect and the panel scale are the Deck's even though the editor's DPI is not. Read the smallest text from further back than feels fair.</li>
+    <li><b>Check Text Size in a development build, not in play mode.</b> The panel write is deliberately compiled out of the editor — <code>PanelSettings</code> is a tracked asset and a play-mode write to one survives exiting play mode — so flipping the row under the editor changes nothing, by design. In a build, Settings ▸ Accessibility ▸ Text Size: your layout must survive ×0.9 and ×1.15 without clipping a row.</li>
+    <li><b>Run the suite.</b> <code>DeckDisplayPolicyTests</code> (the display deference, pinned in both directions with a desktop control), <code>InterfaceScaleTests</code> (the Text Size apply), <code>RumbleTests</code> (shake→motor, and the gate separation) and <code>PauseGuardTests</code> (the pause-on-interruption rules) all run on every machine, because each drives the platform answer through an injection seam.</li>
+  </ol>
+  <div class="warn note"><b>The editor can prove the policy, never the platform.</b> Nothing on a dev machine is a Steam Deck — detection is <code>SteamUtils.IsSteamRunningOnSteamDeck()</code>, and every non-injected path answers <i>not a Deck</i> — so a green suite here is exactly as good as the injection seam and no better. The proof is a hardware walk at the next checkpoint build, scripted step by step in <a href="publishing.html#deck">publishing §09</a>; until somebody walks it, the whole policy stays on OUTSTANDING <i>"The Steam Deck display fix is in, but unproven on hardware"</i>.</div>
+</section>
 
 </main>
 

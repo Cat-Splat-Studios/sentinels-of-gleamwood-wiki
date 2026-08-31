@@ -11,12 +11,14 @@
 <nav class="wiki">
   <a class="home on" href="index.html">⚔ Gleamwood Wiki</a>
   <a href="quickstart.html">Quick Start</a>
+  <a href="guide.html">Build a Game</a>
   <a href="onboarding-programmer.html">For Programmers</a>
   <a href="onboarding-artist.html">For Artists</a>
   <a href="onboarding-designer.html">For Designers</a>
   <a href="workbench.html">Workbench</a>
   <a href="combat.html">Combat &amp; Weapons</a>
   <a href="enemies.html">Enemies &amp; Bosses</a>
+  <a href="executions.html">Executions</a>
   <a href="dialogue.html">Dialogue</a>
   <a href="levels.html">Levels &amp; Rooms</a>
   <a href="progression.html">Progression</a>
@@ -59,7 +61,7 @@
     </div>
     <div class="card accent-green">
       <h4>Validated, loudly</h4>
-      <p>Two validators + the full PlayMode suite gate every change. Unreachable rooms and unregistered weapons are <b>build-breaking errors</b>; missing animation states flag red in the Workbench and every <code>[AnimatorStateRef]</code> dropdown. The exact test count lives in <code>Logs/playmode_test_results.txt</code> and is deliberately never copied into prose.</p>
+      <p>Two validators + the full PlayMode suite guard the content, and <code>SuiteGate</code> refuses a BUILD on a red, stale or unreadable suite. Unreachable rooms and unregistered weapons are <b>build-breaking errors</b>; missing animation states flag red in the Workbench and every <code>[AnimatorStateRef]</code> dropdown. The exact test count lives in <code>Logs/playmode_test_results.txt</code> and is deliberately never copied into prose.</p>
     </div>
   </div>
 </section>
@@ -109,8 +111,26 @@
   <div class="note">Know which of the <b>three tuning surfaces</b> you're on: the <b>Workbench</b> edits authored assets (the source of truth), <b>scene tuners</b> edit those same assets visually, and the <b>F1 panel</b> edits the <i>runtime copy</i> in play mode — transcribe keepers back into the asset.</div>
 </section>
 
+<section id="build">
+  <h2><span class="num">03</span>Build the vanilla game</h2>
+  <p class="lead">The designer’s manual, chapter by chapter — one continuous walk from a fresh clone to a campaign folder another person can play. Each chapter is the procedure and links the reference pages for the facts; each ends with what success prints and a checklist.</p>
+  <ol class="steps" id="build-spine">
+    <li><a href="guide.html#ch1-kit">The kit and the contracts</a> — the two grids, PPU 64, pivots, the split rig, clip grammar, audio style — and the generated kit that embodies them</li>
+    <li><a href="guide.html#ch2-biome">A biome from nothing</a> — look, music, roster, rooms, and a node on the run web — playable end to end</li>
+    <li><a href="guide.html#ch3-enemy">An enemy from nothing in the Workbench</a> — definition, state graph, prefab, spawn table — all in the Workbench, no code</li>
+    <li><a href="guide.html#ch4-boss">A boss: staging, phases, beats</a> — staging, phases, beats, the bar and the music</li>
+    <li><a href="guide.html#ch5-weapon">A weapon: melee, bow, moves</a> — melee chain, bow, directional moves — registered, lootable, buyable</li>
+    <li><a href="guide.html#ch6-boons">Boons and kit upgrades</a> — run boons with caps that are safety properties, and hub kit upgrades</li>
+    <li><a href="guide.html#ch7-dialogue">Dialogue</a> — trigger-keyed sets, rotation, portraits and takes</li>
+    <li><a href="guide.html#ch8-audio">Audio</a> — every seam a sound plugs into, and the style that keeps it in the mix</li>
+    <li><a href="guide.html#ch9-rooms">Rooms and ROOM_STANDARDS</a> — tilemap geometry sized to the controller, sockets, and the reachability flood</li>
+    <li><a href="guide.html#ch10-validate">Validate and playtest</a> — the two validators, the F1 panel, and the checkpoint build</li>
+    <li><a href="guide.html#ch11-package">Package as a campaign and share</a> — mod.ini, the campaign folder, the activation report — and handing it to a person</li>
+  </ol>
+</section>
+
 <section id="onboarding">
-  <h2><span class="num">03</span>New here? Start with your craft</h2>
+  <h2><span class="num">04</span>New here? Start with your craft</h2>
   <p class="lead">Three road maps, one per discipline. Each takes somebody who has never opened this project to the point of shipping a change on their own — and each links out to the reference pages below rather than restating them, so there is only ever one copy of a fact to keep true.</p>
   <div class="grid c3">
     <a class="card accent-cyan" href="onboarding-programmer.html"><h4>For Programmers 🛠</h4><p>The architecture in one screen, the ten rules this codebase paid real bugs for, the state machine that is the spine of both the player and the enemies, the <b>Content Workbench in full detail</b> — including how to add a field and a whole new page — and how to verify a change without breaking the editor.</p></a>
@@ -120,13 +140,15 @@
 </section>
 
 <section id="pages">
-  <h2><span class="num">04</span>The wiki</h2>
+  <h2><span class="num">05</span>The wiki</h2>
   <p class="lead">Every page is the complete story of one surface — with screenshots captured from the actual editor, field-by-field references, and step-by-step recipes. These are the reference; the three guides above are the road maps into them.</p>
   <div class="grid c3">
     <a class="card accent-ember" href="quickstart.html"><h4>Quick Start ⚡</h4><p>Start here. Two hands-on guides: add content to a system that exists, and add a whole new mechanic — plus the one rule that keeps additions from breaking what already works.</p></a>
+    <a class="card accent-gold" href="guide.html"><h4>Build a Game 🔨</h4><p>The designer’s manual: one continuous walk from a fresh clone to a packaged campaign — contracts, biome, enemy, boss, weapon, boons, dialogue, audio, rooms, validation, packaging. The road maps above orient; this one builds.</p></a>
     <a class="card accent-cyan" href="workbench.html"><h4>The Content Workbench</h4><p>The designer cockpit: every category, every sub-tab, the save model, the validated dropdowns — a full guided tour in real screenshots.</p></a>
     <a class="card accent-ember" href="combat.html"><h4>Combat &amp; Weapons</h4><p>Melee swings, ranged, dash attacks, statuses — every live field and the scene tuners that let you drag hitboxes instead of typing them.</p></a>
     <a class="card accent-red" href="enemies.html"><h4>Enemies &amp; Bosses</h4><p>The zero-code enemy recipe: FSM states as data, phases, super armor, reactions — and the full boss staging kit with doors, music and dialogue.</p></a>
+    <a class="card accent-violet" href="executions.html"><h4>Execution Payoffs</h4><p>Finishers authored as data: the nineteen beat kinds and exactly which fields each reads, how beats compose, the three accessibility tiers, the traps that make a payoff render nothing — and the preview window that tells you which one you hit.</p></a>
     <a class="card accent-cyan" href="dialogue.html"><h4>Dialogue</h4><p>One asset per speaker, beats keyed by trigger, encounters that rotate per save — plus an honest list of which triggers actually fire in game today.</p></a>
     <a class="card accent-gold" href="levels.html"><h4>Levels &amp; Rooms</h4><p>Rooms from tiles to sockets, the reachability guarantee, biome definitions, and the run web with branches and side dungeons.</p></a>
     <a class="card accent-green" href="progression.html"><h4>Progression &amp; Economy</h4><p>The Hades-style spine: earn Gleam per run, bank it on death or victory, spend it on permanent kit upgrades and weapon unlocks — every number, seam and save field.</p></a>
@@ -142,7 +164,7 @@
 </section>
 
 <section id="reference">
-  <h2><span class="num">05</span>Reference card</h2>
+  <h2><span class="num">06</span>Reference card</h2>
   <p class="lead">The whole wiki in one screen: what you want to do, the menu item that does it, and the page that explains it.</p>
   <div class="scrollx">
   <table>
@@ -153,6 +175,8 @@
     <tr><td>Tune movement live while playing</td><td><span class="kbd">F1</span> (then transcribe keepers to PlayerSettings)</td><td><a href="tuning.html">Tuning</a></td></tr>
     <tr><td>Author the run web / biomes / bosses in text</td><td><code>GameContent.ini</code> → <span class="kbd">Gleamwood ▸ Import Content INI</span></td><td><a href="tuning.html">Tuning</a></td></tr>
     <tr><td>Tune Gleam rewards, add a kit upgrade, or lock a weapon</td><td><span class="kbd">Content Workbench ▸ Economy</span> (<code>Systems/Run/Resources/Economy.asset</code> — <b>not</b> <code>Economy.cs</code>, which holds no numbers) · <code>MetaUpgradeCatalog.asset</code> · a <code>WeaponDefinition</code>'s lock</td><td><a href="progression.html">Progression</a></td></tr>
+    <tr><td>Watch a finisher without earning it in a run</td><td><span class="kbd">Gleamwood ▸ Execution Preview…</span></td><td><a href="executions.html">Executions</a></td></tr>
+    <tr><td>Author a finisher's beats, and see what each tier does to them</td><td><span class="kbd">Content Workbench ▸ Executions</span></td><td><a href="executions.html">Executions</a></td></tr>
     <tr><td>Verify content before calling it done</td><td><span class="kbd">Gleamwood ▸ Validate Run Content</span></td><td><a href="levels.html">Levels</a></td></tr>
     <tr><td>Check room traversability alone</td><td><span class="kbd">Gleamwood ▸ Audit Room Reachability</span></td><td><a href="levels.html">Levels</a></td></tr>
     <tr><td>Check the INI still matches the assets</td><td><span class="kbd">Gleamwood ▸ Check Content INI Sync</span></td><td><a href="tuning.html">Tuning</a></td></tr>
