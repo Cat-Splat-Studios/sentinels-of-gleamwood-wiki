@@ -364,7 +364,7 @@
   <h3>8 · A shop upgrade</h3>
   <ol class="steps">
     <li>Workbench ▸ <b>Kit Upgrades</b> ▸ type a name ▸ <b>New</b>. It lands in <code>Assets/_Game/Systems/Run/Resources/KitUpgrades/</code> with <code>id</code> and <code>displayName</code> seeded.</li>
-    <li>Set <b>Effect</b> from the existing <code>MetaEffect</code> list, then <b>Per Level</b>, <b>Max Level</b>, <b>Base Cost</b> and <b>Cost Growth</b> (added per level beyond the first). Write a <b>Description</b> in the player's language — it is the blurb on the shop row.</li>
+    <li>Set <b>Effect</b> from the existing <code>MetaEffect</code> list, then <b>Per Level</b>, <b>Max Level</b>, <b>Base Cost</b> and <b>Cost Growth</b> (added per level beyond the first). Write a <b>Description</b> in the player's language — it is what the shop's detail pane shows beside the list when the player highlights that row.</li>
     <li><b>New already listed it</b> in <code>MetaUpgradeCatalog</code>'s definitions, at the end — the same create-handler that regenerates the run-modifier catalog in recipe 9 registers all four progression types, so the "I made it and nothing happened" step is done for you. Your job is the <b>shop order</b>: drag it up the list if it does not belong last. Then run <span class="kbd">Gleamwood ▸ Dev ▸ Run ▸ Bake Kit Upgrades</span>. The baked array is what the game reads, so a forgotten bake means a row that does not exist — a test catches it rather than shipping a phantom.</li>
     <li>Nothing else. The Shopkeeper's <b>Upgrades</b> tab reads the baked array, so the row appears by itself.</li>
   </ol>

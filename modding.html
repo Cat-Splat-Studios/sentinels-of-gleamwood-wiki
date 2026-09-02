@@ -445,7 +445,7 @@ perBoss      = <span class="a">60</span></code></pre>
   <div class="scrollx">
   <table>
     <tr><th>Key</th><th>What it is</th><th>Shipped</th></tr>
-    <tr><td><code>currencyName</code></td><td>What the meta currency is called on the HUD, in the Shop and on the death and results screens — all of which read <code>Economy.CurrencyName</code>. <b>Not yet everywhere</b>: <code>LoadoutScreen.cs</code> hard-codes the word twice (<code>Priced()</code> at <code>:505</code>, <code>"{name} ({cost} Gleam)"</code>, and the buy hint at <code>:644</code>), so a campaign that renames it to <i>Embers</i> still shows "Vigor (80 Gleam)" on the Loadout screen's withheld-boon and buy lines. Rename it and the rest of the game re-themes.</td><td><code>Gleam</code></td></tr>
+    <tr><td><code>currencyName</code></td><td>What the meta currency is called on the HUD, in the Shop and on the death and results screens — all of which read <code>Economy.CurrencyName</code>. <b>Everywhere since 2026-09-01</b>: the Loadout's <code>Priced()</code> and <code>BuyLine()</code> read <code>Economy.CurrencyName</code> too, so a campaign's currency name reaches every screen that prints a price.</td><td><code>Gleam</code></td></tr>
     <tr><td><code>perKill</code></td><td>Per enemy felled inside a biome — the moment-to-moment trickle.</td><td><code>2</code></td></tr>
     <tr><td><code>perDepth</code></td><td>Run-end bonus per depth tier reached — what rewards pushing deeper.</td><td><code>20</code></td></tr>
     <tr><td><code>clearBonus</code></td><td>Extra on a full clear, over a death at the same depth.</td><td><code>100</code></td></tr>

@@ -216,7 +216,7 @@
 <section id="moves">
   <h2><span class="num">04c</span>The directional moveset</h2>
   <p class="lead">Seven of the ten directional moves are permanent Gleam purchases, and <b>their prices live in ASSETS</b> — a cost edited in C# after its asset exists changes nothing at runtime, so read the asset when a number matters.</p>
-  <p>The moveset went from one swing to nine in a day. Handing all of it over at once is both a worse first hour and a wasted progression axis — Hisham: <i>"in order to make the perm upgrade shop more interesting - should we have to purchase all aerial and directional attacks? this makes a lot of sense"</i>. Everything outside <code>MoveCatalog.Baseline</code> is bought at the shopkeeper's <b>Ground</b>, <b>Air</b> and <b>Bow</b> tabs — one tab per input family, so the tab name and the row's own instruction line (<i>"Ground: UP + attack"</i>) say the same word. It was ONE "Moves" tab until the bow's moves took it to eight rows and the panel outgrew the screen; the split is filtered through <code>MoveKey.TryParse</code>, so a new move lands in its tab with no category field to keep in sync.</p>
+  <p>The moveset went from one swing to nine in a day. Handing all of it over at once is both a worse first hour and a wasted progression axis — Hisham: <i>"in order to make the perm upgrade shop more interesting - should we have to purchase all aerial and directional attacks? this makes a lot of sense"</i>. Everything outside <code>MoveCatalog.Baseline</code> is bought at the shopkeeper's single <b>Moves</b> tab, under <b>Ground</b> / <b>Air</b> / <b>Bow</b> group headings, so the heading and the row's own instruction line (<i>"Ground: UP + attack"</i>) say the same word. Those headings were three separate TABS between 2026-08-27 and 2026-09-01: one Moves tab outgrew the screen at eight rows, so it was split, and then Hisham asked for it back — <i>"I think one moves tab with a nice menu for it would be sufficient"</i>. What makes the merge hold this time is that the panel is bounded and the LIST scrolls, so row count no longer decides tab count. Either way the grouping is filtered through <code>MoveKey.TryParse</code>, so a new move lands under its heading with no category field to keep in sync.</p>
 
   <div class="scrollx">
   <table>
@@ -413,7 +413,7 @@
 
 <section id="hub">
   <h2><span class="num">05</span>The shopkeeper</h2>
-  <p class="lead">All spending happens at ONE hub NPC — the <b>Shopkeeper</b> in <code>2.Hub</code> — that opens a full-screen <b>tabbed menu</b>: <b>Upgrades</b>, <b>Weapons</b>, <b>Abilities</b> (§04b) and the three move tabs <b>Ground</b> / <b>Air</b> / <b>Bow</b> (§04c). This replaced the old per-item greybox altars: every tab reads a catalog, so a new upgrade, a newly-locked weapon, a new ability or a new move appears automatically with nothing to place in the world.</p>
+  <p class="lead">All spending happens at ONE hub NPC — the <b>Shopkeeper</b> in <code>2.Hub</code> — that opens a full-screen <b>tabbed menu</b>: <b>Upgrades</b>, <b>Weapons</b>, <b>Abilities</b> (§04b) and <b>Moves</b> (§04c). "Full-screen" is literal since 2026-09-01 — the panel is pinned to all four edges of the viewport rather than being a 700px card floating over the hub. This replaced the old per-item greybox altars: every tab reads a catalog, so a new upgrade, a newly-locked weapon, a new ability or a new move appears automatically with nothing to place in the world.</p>
   <div class="grid c2">
     <div class="card accent-violet">
       <h4>ShopkeeperNPC — the world trigger</h4>
@@ -421,13 +421,48 @@
     </div>
     <div class="card accent-ember">
       <h4>ShopScreen — the tabbed menu</h4>
-      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). Each tab is a <b>(name, builder) pair</b> in one array — they used to be a names array beside a separately-filled row list, joined only by position, so adding a name without its rows threw the moment the player tabbed onto it. <b>Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapons</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>; <b>Abilities</b> and the three move tabs iterate their catalogs. The row list is a <b>ScrollView bounded at 420px</b> — sized against the 21:9 logical viewport (~636px), not 16:9 — with <code>ScrollTo</code> following the selection: an unbounded list grew the panel until the title and the hint bar were clipped off both edges of the screen. Rows show a name + a blurb (<code>MetaUpgrade.description</code> / <code>WeaponDefinition.Description</code> — this tab is the <b>only</b> place a weapon's Description reaches the player) on the left, level/cost + your balance on the right; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); a done row can't be re-bought, and its cost column says a word instead of a price — <b>UNLOCKED</b> (weapons, abilities), <b>LEARNED</b> (moves) or <b>MASTERED</b> (upgrades).</p>
+      <p><code>Assets/_Game/UI/Code/Screens/ShopScreen.cs</code>, a <code>MenuScreen</code> modeled on Settings (shoulder buttons / Q-E switch tabs). Each tab is a <b>(name, builder) pair</b> in one array — they used to be a names array beside a separately-filled row list, joined only by position, so adding a name without its rows threw the moment the player tabbed onto it. <b>Upgrades</b> iterates <code>RunDirector.MetaCatalog.upgrades</code>; <b>Weapons</b> iterates <code>RunDirector.Weapons.LockedWeapons()</code>; <b>Abilities</b> and the single <b>Moves</b> tab iterate their catalogs — Ground / Air / Bow were three tabs until 2026-09-01 and are group headings inside one list now. The row list is a <b>ScrollView</b> with <code>ScrollTo</code> following the selection; it used to carry an explicit 420px cap because an unbounded list grew the panel until the title and the hint bar were clipped off both edges. Since the panel went <b>full-bleed</b> — pinned to all four edges of the viewport — the cap is gone and the viewport itself is the bound, which cannot be set to the wrong number; what still has to hold is that the list is the one region declared shrinkable, and <code>MenuFitTests</code> asserts exactly that. Rows show a name, its input hint and a price; the blurb (<code>MetaUpgrade.description</code> / <code>WeaponDefinition.Description</code> — this tab is the <b>only</b> place a weapon's Description reaches the player) is in the <b>detail pane</b> beside the list, for the highlighted row, alongside a Status fact the row computes and hides — and, since 2026-09-01, the weapon's <code>Icon</code> in a 120px tile, or on the Moves and Abilities tabs a clip placeholder; Submit buys inline via <code>TryBuyUpgrade</code> / <code>TryUnlockWeapon</code> (no confirm popup); a done row can't be re-bought, and its cost column says a word instead of a price — <b>UNLOCKED</b> (weapons, abilities), <b>LEARNED</b> (moves) or <b>MASTERED</b> (upgrades).</p>
     </div>
   </div>
   <div class="note">Opened from the world, so — unlike Settings, whose opener already froze the game — the shop pushes <code>MenuState</code> itself (freeze + UI input map), like Pause/Death. Owned/affordable state is snapshot on open and after each buy, never polled per-frame (those reads hit the save file). The weapon <b>pedestals</b> (<a href="combat.html#recipe">Combat §09</a>) stay separate: the shop is where you <i>unlock</i> a weapon permanently; the pedestals are the per-run random pick from what you've unlocked.</div>
 </section>
 
 <section id="save">
+
+  <h2><span class="num">05b</span>The Compendium — the game explaining itself</h2>
+  <p class="lead">A second hub NPC, in the raised gallery at the west end of <code>2.Hub</code>, opens a read-only reference: <b>How to Play</b>, <b>Moves</b> (all eleven) and <b>Executions</b> (all ten). It exists because Hisham asked for one place that does what a fighting game's move list does — <i>"we should also figure out a way to also nicely show a movelist and executions like a fighting game does"</i> — and because the Loadout had quietly become the game's tutorial, which is not what a loadout is for.</p>
+
+  <div class="grid c2">
+    <div class="card accent-ember">
+      <h4>What it reads</h4>
+      <p><b>Moves</b> come from <code>MoveIndex</code>, which is the only list in the project that holds <i>all eleven</i>. Seven are sellable and read from <code>MoveCatalog.All</code>; the other four are baseline and have no asset and no shop row, so they are authored in <code>MoveIndex.Free</code> — Air Slash, Planted Shot, Running Shot, Dash Attack. Before this screen those four were undocumented anywhere a player could reach.</p>
+      <p><b>Executions</b> are walked out of the enemy catalog &mdash; every shipped enemy's ordered <code>Executions</code> list, distinct &mdash; rather than kept as a second list, because a hand-kept list is exactly how a shipped execution ends up missing from the only place it is documented. (The first version used <code>Resources.LoadAll</code>, which found nothing: the assets are not under a Resources folder, and the tab shipped reading "None found" until a test opened it.)</p>
+    </div>
+    <div class="card accent-violet">
+      <h4>What it does not do</h4>
+      <p>It never buys anything and never changes anything — <code>OnSubmit</code> is empty. It is a page you read, so the only inputs are move-the-cursor, change-tab and back.</p>
+      <p>Ownership is <i>shown</i>: a move you have not bought reads as its price rather than as a lock, because the Compendium's job is to tell you the move exists. Buying it is the shopkeeper's job, four steps away.</p>
+    </div>
+  </div>
+
+  <div class="note"><b>Master-detail, on the shared <code>DetailPane</code>.</b> The list is on the left and the description on the right — the same component the shopkeeper now uses, extracted to <code>UI/Code/Framework/</code> when the second consumer appeared rather than being copied. It hides any field you pass empty, so a screen can show a title and a body on one entry and a title, a kicker, four facts and a footer on the next without branching. Since 2026-09-01 it also carries an optional <b>media tile</b> &mdash; a weapon's icon, or a clip placeholder captioned CLIP &mdash; hidden entirely when a caller passes neither. It sits <b>below</b> the text on the Shop and the Compendium, where a clip is a 560&times;315 frame and an icon a 160px square, and <b>beside</b> the section title on Settings, where a frame would push the row's facts under the fold. Add a third consumer by mounting it on any <code>VisualElement</code>; it does not know what a move or a weapon is.</div>
+
+  <h2><span class="num">05c</span>The training room</h2>
+  <p class="lead">A door in the hub's sunken vault loads <code>5.Training</code>, a flat room with a <b>summoning post</b>. Each interact <b>cycles to the next name on the post's roster and spawns it</b>. A second door returns you to the hub.</p>
+  <p>The post ships with <b>three</b>: <code>CinderHoundDef</code>, <code>ImpScoutDef</code>, <code>SootBomberDef</code> — a charger, a ranged skirmisher and an exploder, because a room that only holds one kind of fight teaches one kind of lesson. The roster is a <code>string[]</code> of <code>EnemyDefinition</code> <i>asset names</i> resolved through <code>EnemyCatalog</code> at spawn time, so <b>any</b> of the ten shipped enemies can go on it by typing its name, and a campaign that declares its own enemies retargets the post without touching the scene. A name the catalog cannot resolve says so rather than silently doing nothing.</p>
+
+  <div class="grid c2">
+    <div class="card accent-ember">
+      <h4>Why the cap is not balance</h4>
+      <p><code>SummonPost.maxAlive</code> is <b>3</b>, and that number is a <i>safety property</i>, not a tuning knob. The post is the only thing bounding a loop the player drives at their own rate; without a cap, holding the button is an unbounded spawn. This project's rule is that every budget needs a cap because the cap is usually the only loop guard, and "we cannot prove this terminates" is sufficient reason to lower it.</p>
+    </div>
+    <div class="card accent-violet">
+      <h4>Both doors are <code>SceneDoor</code></h4>
+      <p>One component, an <code>InteractZone</code> and a target scene name. The room is generated from a table by <span class="kbd">Gleamwood ▸ Dev ▸ Level ▸ Rebuild Training Room</span>, so its proportions are numbers in one file rather than objects to drag.</p>
+      <p><b>The return door shipped broken and its own new test caught it on the first run</b> — no <code>InputReader</code>, so you could walk into training and not get out, with nothing in the game saying so. The project's scene validator cannot see this: it only walks rest prefabs reachable from the run plan, and the training room is reachable from neither.</p>
+    </div>
+  </div>
+
   <h2><span class="num">06</span>What is saved</h2>
   <p class="lead">All progression lives on <code>MetaProgress</code> (the survives-death profile) and the suspended <code>RunSave</code>. JsonUtility has no dictionaries, so maps are parallel arrays; the format is <b>wiped, not migrated</b> — new fields are safe with no version bump.</p>
   <div class="scrollx">
@@ -471,7 +506,7 @@
   <h3>Lock a weapon behind an unlock</h3>
   <ol>
     <li>On the <code>WeaponDefinition</code>, set <code>lockedUntilUnlocked = true</code> and an <code>unlockCost</code>. Keep it in the <code>WeaponCatalog</code> + its loot table — the offer gate handles the rest.</li>
-    <li>Write its <code>Description</code> (Workbench → Identity). Gating the weapon is what makes that field player-facing: it becomes the blurb under the name on its shop row. Leave it empty and the row shows a bare name.</li>
+    <li>Write its <code>Description</code> (Workbench → Identity). Gating the weapon is what makes that field player-facing: it is what the shop's detail pane shows when the player highlights that row. Leave it empty and the pane shows the name and the price with nothing under them.</li>
     <li>Done. It hides from offers until bought, resumes cleanly if a saved run already holds it, AND appears in the shopkeeper's <b>Weapons</b> tab automatically (that tab is <code>WeaponCatalog.LockedWeapons()</code>).</li>
   </ol>
 
