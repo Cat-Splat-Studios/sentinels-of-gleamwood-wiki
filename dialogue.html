@@ -145,7 +145,7 @@
 
 <section id="wired">
   <h2><span class="num">03</span>What actually fires in game today</h2>
-  <p class="lead">This is the most important section on the page. Five trigger names are offered in the Workbench dropdown, but <b>only two of them have code that calls them</b>. Authoring the other three produces content that is saved, validated, and never spoken.</p>
+  <p class="lead">This is the most important section on the page. Five trigger names are offered in the Workbench dropdown, and <b>all five can be spoken</b> — but only two have an automatic caller. <code>Defeat</code>, <code>Phase Two</code> and <code>Banter</code> speak through a <code>DialogueBeat</code> component you place, so authoring one of those three without placing the component produces content that is saved, validated, and never spoken.</p>
 
   <div class="scrollx">
   <table>
@@ -206,16 +206,24 @@
   <h2><span class="num">05</span>The panel that draws it</h2>
   <p class="lead"><code>DialogueController</code> is a <code>MenuScreen</code> that owns the bottom speech box. Callers never reference it directly — they resolve it through the router, which is what makes the whole system degrade gracefully.</p>
 
-<pre><code><span class="c">// BossArenaSequence, verbatim — note all THREE guards</span>
-<span class="k">if</span> (sequence != <span class="k">null</span> &amp;&amp; sequence.lines != <span class="k">null</span> &amp;&amp; sequence.lines.Length &gt; <span class="a">0</span>
-    &amp;&amp; <span class="t">MenuRouter</span>.TryGet(<span class="k">out</span> <span class="t">DialogueController</span> ui))
+<pre><code><span class="c">// DialoguePlayback.TryPlay, verbatim — the ONE copy of the dance, and all THREE guards.</span>
+<span class="c">// The boss intro, the victory outro, DialogueBeat and the preview driver all come through here.</span>
+<span class="k">public static bool</span> TryPlay(<span class="t">DialogueSet</span> set, <span class="k">string</span> trigger, <span class="t">Action</span> onComplete = <span class="k">null</span>,
+                           <span class="k">bool</span> freezeTime = <span class="k">false</span>)
 {
+    <span class="k">if</span> (set == <span class="k">null</span> || <span class="t">string</span>.IsNullOrEmpty(trigger)) <span class="k">return false</span>;
+
+    <span class="t">DialogueSequence</span> sequence = set.Next(trigger);
+    <span class="k">if</span> (sequence?.lines == <span class="k">null</span> || sequence.lines.Length == <span class="a">0</span>) <span class="k">return false</span>;
+    <span class="k">if</span> (!<span class="t">MenuRouter</span>.TryGet(<span class="k">out</span> <span class="t">DialogueController</span> ui)) <span class="k">return false</span>;
+
     <span class="c">// BEFORE MarkSeen: the prefix names the encounter being played, and MarkSeen</span>
     <span class="c">// advances the counter it is derived from.</span>
-    <span class="t">string</span> voiceKey = activeSet.VoiceKeyPrefix(<span class="t">DialogueTriggers</span>.Intro);
-    activeSet.MarkSeen(<span class="t">DialogueTriggers</span>.Intro);
-    ui.Play(sequence.lines, () =&gt; done = <span class="k">true</span>, freezeTime: <span class="k">false</span>, voiceKeyPrefix: voiceKey);
-    <span class="k">while</span> (!done) <span class="k">yield return</span> <span class="k">null</span>;
+    <span class="k">string</span> voiceKey = set.VoiceKeyPrefix(trigger);
+    set.MarkSeen(trigger);
+
+    ui.Play(sequence.lines, onComplete, freezeTime, voiceKey);
+    <span class="k">return true</span>;
 }</code></pre>
   <p>The <code>lines.Length &gt; 0</code> test is the one that is easy to drop and expensive to lose. <code>DialogueController.Play</code> treats an empty array as "already finished" — it invokes the callback and shows nothing. Without that guard, an encounter authored but left blank would <b>advance the rotation while the player sees no box at all</b>.</p>
 
@@ -346,7 +354,7 @@ KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
     <tr><td><span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Bake Voice Into Bank</b></td><td>the spoken takes → BASE game (<code>Assets/…/Voice/Lines</code> + <code>VoiceBank</code>)</td><td>Imports the pack's WAVs and wires each into the <code>VoiceBank</code> under its derived key, so the bosses speak in the base build with no mod folder. Run it after <code>generate_voice.ps1</code>.</td></tr>
   </table>
   </div>
-  <p class="dim">Portraits and SFX are one-click and idempotent — not hand-placed pixels, so safe to regenerate after an art change. Spoken VO ships in the base game too (baked into the <code>VoiceBank</code>), still machine-voiced as a stand-in for real recordings. Regenerating it is a Windows-only three-step: export the manifest in Unity, run <code>generate_voice.ps1</code>, then <span class="kbd">Bake Voice Into Bank</span>.</p>
+  <p class="dim">Portraits and SFX are one-click and idempotent — not hand-placed pixels, so safe to regenerate after an art change. <b>No spoken VO ships in the base game</b>: the takes were stripped on 2026-08-24 (see the warning below) and <code>Assets/_Game/Content/Voice/Lines/</code> no longer exists. Regenerating them is a Windows-only three-step: export the manifest in Unity, run <code>generate_voice.ps1</code>, then <span class="kbd">Bake Voice Into Bank</span>.</p>
   <div class="warn note"><b>Nothing in the shipped game is spoken. All 65 lines are silent text boxes.</b> The 28 SAPI takes were <b>stripped on 2026-08-24</b> (Hisham: real voice-over comes when there is a script worth recording), so the bank now holds its <b>five stings and nothing else</b>. That is a decision, not a regression, and it settled a licence question as well as a taste one: Microsoft's bundled SAPI voices are licensed for OS use, not for redistribution inside a commercial product. A missing take is silent rather than an error, so nothing in the editor will tell you a line is unvoiced; <span class="kbd">Report Voice Coverage</span> is report-only and now reports zero. The pipeline is unchanged and fully exercised — the example pack still holds its 28 takes, and a campaign's own <code>Dialogue/audio/</code> still resolves. Tracked in <code>Documentation/OUTSTANDING.md</code>, the row <i>"Boss voice-over is Windows text-to-speech, and seven sets are silent"</i>.</div>
 
   <h3 id="preview">Previewing — see a beat without reaching the arena</h3>
@@ -359,16 +367,12 @@ KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <div class="note"><b>Shipped content only, unless you opt in.</b> Poses and sfx resolve from the baked <code>PoseCatalog</code> / <code>VoiceBank</code>; a modded pose or a derived-key voice take previews only with <span class="kbd">Gleamwood ▸ Simulate Mods ▸ Dialogue</span> on (§09).</div>
 
   <h3>Wiring a beat that isn't wired yet</h3>
-  <p>To make <code>Defeat</code> (or any unwired trigger) actually speak, add a call site. That is the entire job — no registration, no editor change, no new type:</p>
+  <p>Every one of the five canonical triggers has a route in already — <code>Intro</code> and <code>Victory</code> from <code>BossArenaSequence</code>, the other three from a placed <code>DialogueBeat</code> (<a href="#wired">§03</a>). A call site is only needed for a CUSTOM trigger, or for a moment <code>DialogueBeat.Moment</code> cannot see. Route it through <code>DialoguePlayback.TryPlay</code> rather than by hand — the ordering it owns is the whole reason it exists:</p>
 <pre><code><span class="c">// wherever the moment happens — e.g. the player-death path for this boss</span>
-<span class="t">DialogueSequence</span> seq = bossSet.Next(<span class="t">DialogueTriggers</span>.Defeat);
-<span class="k">if</span> (seq != <span class="k">null</span> &amp;&amp; seq.lines != <span class="k">null</span> &amp;&amp; seq.lines.Length &gt; <span class="a">0</span>
-    &amp;&amp; <span class="t">MenuRouter</span>.TryGet(<span class="k">out</span> <span class="t">DialogueController</span> ui))
-{
-    <span class="t">string</span> voiceKey = bossSet.VoiceKeyPrefix(<span class="t">DialogueTriggers</span>.Defeat); <span class="c">// before MarkSeen</span>
-    bossSet.MarkSeen(<span class="t">DialogueTriggers</span>.Defeat);   <span class="c">// only after you commit to playing it</span>
-    ui.Play(seq.lines, onDone, freezeTime: <span class="k">true</span>, voiceKeyPrefix: voiceKey);
-}</code></pre>
+<span class="k">bool</span> spoke = <span class="t">DialoguePlayback</span>.TryPlay(bossSet, <span class="t">DialogueTriggers</span>.Defeat, onDone,
+                                      freezeTime: <span class="k">true</span>);
+<span class="c">// false = nothing authored for the beat, or no DialogueController on the router.</span>
+<span class="c">// onDone never fires in that case, so a caller that waits on it must check the return.</span></code></pre>
   <p>Three rules keep it consistent with the shipped beats:</p>
   <div class="scrollx">
   <table>
@@ -402,7 +406,7 @@ KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
   <table>
     <tr><th>Member</th><th>Returns</th><th>Use</th></tr>
     <tr><td><code>Next(trigger)</code></td><td><code>DialogueSequence</code> or <b>null</b></td><td>The encounter to play right now. Null = missing/empty beat = skip it.</td></tr>
-    <tr><td><code>Has(trigger)</code></td><td><code>bool</code></td><td>Whether any playable line exists for the beat — for branching <i>before</i> committing to a cutscene. <b>No runtime call sites</b> — only <code>DialogueFormatTests</code> exercises it. It is a provided seam, not a proven one.</td></tr>
+    <tr><td><code>Has(trigger)</code></td><td><code>bool</code></td><td>Whether any playable line exists for the beat, asked without consuming the rotation. <code>DialoguePlayback.HasSomethingToSay</code> wraps it and <code>DialogueBeat.Fire</code> calls that before every beat it speaks — so it is the guard that stops a placed component burning a fire on a set with nothing to say.</td></tr>
     <tr><td><code>MarkSeen(trigger)</code></td><td>void</td><td>Advance the rotation. Call only when the lines actually play. No-op without an active save slot.</td></tr>
     <tr><td><code>Group(trigger)</code></td><td><code>DialogueGroup</code> or null</td><td>The raw group. <b>First match wins</b> — this is why duplicate triggers are dead data.</td></tr>
   </table>
@@ -453,7 +457,7 @@ KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
   </div>
   <p class="dim">That mapping is lossy — a key genuinely containing a dot could collide with one containing a colon — which is why the loader logs what each file claimed. A silent mis-binding would be far worse than a noisy one.</p>
 
-  <div class="note"><b>A ready-made example.</b> The base game already speaks these lines (baked into the <code>VoiceBank</code>), so <code>Documentation/ExampleDialogueVoice/</code> is what an audio mod that <b>overrides</b> them looks like: 28 takes named by the derived-key convention above (<code>krag-emberfall.Intro.0.0.wav</code>), each winning over the baked one. Swap any file for a real recording to re-voice one line. Regenerate with <code>generate_voice.ps1</code> after <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Export Voice Manifest</b>.</div>
+  <div class="note"><b>A ready-made example.</b> The base game speaks none of these lines any more — its 28 takes were stripped on 2026-08-24 and the <code>VoiceBank</code> holds only its five stings — so <code>Documentation/ExampleDialogueVoice/</code> is what an audio mod that <b>supplies</b> them looks like: 28 takes named by the derived-key convention above (<code>krag-emberfall.Intro.0.0.wav</code>), each resolving where the baked bank has nothing. Swap any file for a real recording to re-voice one line. Regenerate with <code>generate_voice.ps1</code> after <span class="kbd">Gleamwood ▸ Dialogue Tools…</span> → <b>Export Voice Manifest</b>.</div>
 
   <div class="note"><b>Installing it.</b> Copy the whole <code>Mods</code> folder next to <code>sentinels-of-gleamwood.exe</code>, then pick <b>Example Voice Pack</b> when you start a new save. The loader walks <code>Mods/</code> for directories containing a <code>mod.ini</code> and <b>skips every one that does not</b>, then reads <code>Mods/&lt;campaign-id&gt;/Dialogue/</code>. Until 2026-08-13 this pack shipped its takes at <code>Mods/Dialogue/audio/</code> — the pre-campaign shape, with no <code>mod.ini</code> — so it was skipped in silence, and since the base game already speaks all 28 lines you heard the baked takes and nothing said the pack had not loaded. It is now <code>Mods/example-voice/</code> with a manifest.</div>
 
@@ -487,7 +491,7 @@ KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
 <div class="honest">
   <h4>Honest limits — what this system does not do yet</h4>
   <ul>
-    <li><b>Three of the five canonical triggers have no call site.</b> <code>Defeat</code>, <code>Phase Two</code> and <code>Banter</code> are vocabulary and data model only. §06 has the recipe to wire one.</li>
+    <li><b>Three of the five canonical triggers have no AUTOMATIC caller.</b> <code>Defeat</code>, <code>Phase Two</code> and <code>Banter</code> speak only from a <code>DialogueBeat</code> component placed on the enemy or the NPC (<a href="#wired">§03</a>), and nothing in the editor warns when it is missing. No shipped scene or prefab carries one today.</li>
     <li><b>No conditions on encounters.</b> Selection is purely "how many times has this beat fired". You cannot yet say "this line only if the player has the Emberbrand" — that would need a predicate on <code>DialogueGroup</code> and a filter in <code>Next()</code>.</li>
     <li><b>No branching or player choice.</b> A sequence is linear; Submit is the only input. There are no response options and no jump targets.</li>
     <li><b>No per-line camera or emote hooks.</b> Pose, side, effect, sfx and voice exist; anything beyond them is a new field on <code>DialogueLine</code> plus a handler in <code>DialogueController.ShowLine</code>.</li>
@@ -507,7 +511,7 @@ KRAG [krag.angry|right|shake|sfx:krag_growl]: Enough.</code></pre>
     <li>What actually fires (§03–§04): <code>Assets/_Game/Systems/Run/ProcGen/BossArenaSequence.cs</code> · <code>BossGate.cs</code> · <code>BossDoor.cs</code>, plus <code>Assets/_Game/Systems/Run/BossDefinition.cs</code> and the <code>Boss_*.asset</code> / <code>Dlg_*.dlg</code> files under <code>Assets/_Game/Biomes/</code> and <code>Assets/_Game/Content/Dialogue/</code>. <b>A new boss makes §03, §04 and §06 stale in the same commit.</b></li>
     <li>The panel (§05): <code>Assets/_Game/UI/Code/Screens/DialogueController.cs</code> · <code>Assets/_Game/UI/Code/Framework/MenuRouter.cs</code> · <code>Assets/_Game/UI/Panels/Dialogue/Dialogue.uxml</code> · <code>Assets/Prefabs/UI/Dialogue.prefab</code>. Its two non-set consumers: <code>Assets/_Game/Systems/Run/Weapons/ForgeSite.cs</code> · <code>Assets/_Game/Systems/Run/RunModifierSite.cs</code>.</li>
     <li>Authoring and sync (§06): <code>Assets/_Game/Systems/Dialogue/DialogueParser.cs</code> · <code>DialogueWriter.cs</code> · <code>Assets/_Game/Editor/DialogueSync.cs</code> · <code>Assets/_Game/Editor/Workbench/WorkbenchCategories.cs</code> (the Dialogue tab and its <code>+ Add Beat</code> / duplicate checks) · <code>Assets/_Game/Editor/RunContentValidator.cs</code>.</li>
-    <li>Presentation, preview and generators (§06): <code>Assets/_Game/Systems/Dialogue/PoseCatalog.cs</code> · <code>VoiceBank.cs</code> · <code>DialoguePreviewDriver.cs</code>, and <code>Assets/_Game/Editor/Dialogue/DialoguePreviewWindow.cs</code> · <code>DialoguePortraitGenerator.cs</code> · <code>DialogueAudioGenerator.cs</code>. The counts (15 portraits, 5 stings, 28 takes) mirror <code>Assets/_Game/Content/Dialogue/PoseCatalog.asset</code>, <code>Assets/_Game/Content/Voice/VoiceBank.asset</code> and <code>Assets/_Game/Content/Voice/Lines/</code>; the set and line inventory (eleven sets, 65 lines, 37 unvoiced) mirrors <code>Assets/_Game/Content/Dialogue/*.dlg</code> against those takes — a new <code>Dlg_</code> set or a recorded line moves every one of those numbers.</li>
+    <li>Presentation, preview and generators (§06): <code>Assets/_Game/Systems/Dialogue/PoseCatalog.cs</code> · <code>VoiceBank.cs</code> · <code>DialoguePreviewDriver.cs</code>, and <code>Assets/_Game/Editor/Dialogue/DialoguePreviewWindow.cs</code> · <code>DialoguePortraitGenerator.cs</code> · <code>DialogueAudioGenerator.cs</code>. The counts (15 portraits, 5 stings, 0 spoken takes) mirror <code>Assets/_Game/Content/Dialogue/PoseCatalog.asset</code> and <code>Assets/_Game/Content/Voice/VoiceBank.asset</code> — <code>Assets/_Game/Content/Voice/Lines/</code> went with the 2026-08-24 strip and no longer exists; the set and line inventory (eleven sets, 65 lines, all 65 unvoiced) mirrors <code>Assets/_Game/Content/Dialogue/*.dlg</code> — a new <code>Dlg_</code> set or a recorded line moves every one of those numbers.</li>
     <li>Modding and localisation (§09): <code>Assets/_Game/Systems/Dialogue/DialogueOverrides.cs</code> · <code>DialogueAssets.cs</code> · <code>DialoguePaths.cs</code> · <code>WavReader.cs</code> · <code>ModImageLoader.cs</code>, plus <code>Assets/_Game/Systems/Modding/ModSet.cs</code> for where a campaign's folder resolves. The INI seam is <code>Assets/_Game/Editor/ContentIniImporter.cs</code>.</li>
     <li>The example pack this page tells players to install: <code>Documentation/ExampleDialogueVoice/</code>. Restructured to <code>Mods/example-voice/Dialogue/audio/</code> with a <code>mod.ini</code> on 2026-08-13, and the §09 warning that described the old shape went with it. <code>generate_voice.ps1</code>'s default <code>-OutDir</code> points at the same path — move one and the other stops writing where the pack reads.</li>
   </ul>

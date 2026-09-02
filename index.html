@@ -158,7 +158,7 @@
     <a class="card accent-ember" href="modding.html"><h4>Modding &amp; Campaigns</h4><p>The player-facing story: a folder beside the game becomes a <b>campaign</b> you pick when you start a save. Text files retune enemies, weapons, dialogue and the player's look — and re-web the run itself. No Unity. The destination is <b>maker mode</b>: a campaign is a whole game, and Gleamwood ships as its own first one.</p></a>
     <a class="card accent-cyan" href="extending.html"><h4>Extending the Game</h4><p>The seam catalog — every extension point in one place — plus meta-recipes for adding new seams when the catalog isn't enough.</p></a>
     <a class="card accent-violet" href="framework.html"><h4>Framework &amp; Architecture</h4><p>The state machine under everything, boot/services, signals — condensed, with pointers to the full API references.</p></a>
-    <a class="card accent-red" href="publishing.html"><h4>Publishing to Steam</h4><p>Build → upload → set live, in three commands. Who can play an unreleased app, the pinned-executable contract, and the traps that make a good build refuse to start.</p></a>
+    <a class="card accent-red" href="publishing.html"><h4>Publishing to Steam</h4><p>Build in the Build Manager, upload with one PowerShell script, set live on the partner site. Who can play an unreleased app, the pinned-executable contract, the traps that make a good build refuse to start — and the Steam Deck hardware walk every checkpoint build owes.</p></a>
     <a class="card accent-gold" href="maintaining.html"><h4>Maintaining this Wiki</h4><p>The dummy-proof part: the update matrix, one-click screenshot regeneration, and how to add pages. Read once, never wonder again.</p></a>
   </div>
 </section>
@@ -180,7 +180,7 @@
     <tr><td>Verify content before calling it done</td><td><span class="kbd">Gleamwood ▸ Validate Run Content</span></td><td><a href="levels.html">Levels</a></td></tr>
     <tr><td>Check room traversability alone</td><td><span class="kbd">Gleamwood ▸ Audit Room Reachability</span></td><td><a href="levels.html">Levels</a></td></tr>
     <tr><td>Check the INI still matches the assets</td><td><span class="kbd">Gleamwood ▸ Check Content INI Sync</span></td><td><a href="tuning.html">Tuning</a></td></tr>
-    <tr><td>Run the test suite</td><td><span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> → <code>Logs/playmode_test_results.txt</code></td><td><a href="maintaining.html">Maintaining</a></td></tr>
+    <tr><td>Run the test suite</td><td><code>Tools/run-tests.sh</code> → <code>Logs/playmode_test_results.txt</code> (it saves open scenes first and its exit code is the whole verdict; the menu item <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> does neither and wedges on a dirty scene)</td><td><a href="maintaining.html">Maintaining</a></td></tr>
     <tr><td>Rebuild / re-route the audio mixer</td><td><span class="kbd">Gleamwood ▸ Audio ▸ Create + Route Game Audio Mixer</span></td><td><a href="audio.html">Audio</a></td></tr>
     <tr><td>Re-capture the wiki screenshots</td><td><span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span></td><td><a href="maintaining.html">Maintaining</a></td></tr>
     <tr><td>Add a whole new mechanic / content type</td><td>One SO class + attributes</td><td><a href="extending.html">Extending</a></td></tr>

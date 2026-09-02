@@ -193,8 +193,8 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
   <table>
     <thead><tr><th>Fate</th><th>Files</th><th>What it means</th></tr></thead>
     <tbody>
-      <tr><td><code>keep</code></td><td>129</td><td>Provenance is clean and recorded. Our own art and synthesized audio, the input glyphs, the fonts, Unity&rsquo;s TextMesh Pro samples, the generated kit, and the six Suno tracks.</td></tr>
-      <tr><td><code>strip</code></td><td>139</td><td>Leaves the repo in H4. The AI sprite sets, the AI portraits and weapon icons, the SAPI voice-over, the placeholder hero and level art, and the sword-slash pack. Git keeps every byte.</td></tr>
+      <tr><td><code>keep</code></td><td>144</td><td>Provenance is clean and recorded. Our own art and synthesized audio, the input glyphs, the fonts, Unity&rsquo;s TextMesh Pro samples, the generated kit, and the six Suno tracks.</td></tr>
+      <tr><td><code>strip</code></td><td>111</td><td>Leaves the repo in H4. The AI sprite sets, the AI portraits and weapon icons, the placeholder hero and level art, and the sword-slash pack. (The SAPI voice-over is already gone — 28 takes deleted 2026-08-24.) Git keeps every byte.</td></tr>
       <tr><td><code>decide</code></td><td>0</td><td>Nothing is undecided. The three open questions were answered on 2026-08-19.</td></tr>
     </tbody>
   </table>
@@ -204,7 +204,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 
   <div class="note"><b>What the disclosure has to say.</b> Not &ldquo;none required&rdquo;. One AI-generated class ships: the <b>six Suno music tracks</b> (Pro tier, account <code>anagrammc</code>, all generated 2026-06-26, per-track ids in the ledger), so the honest declaration is <i>pre-generated AI audio</i>, naming the music. Everything else that ships is ours outright or third-party under a recorded licence; every AI sprite, portrait and icon is a <code>strip</code> — and the SAPI voice-over is no longer pending: its 28 takes were deleted on 2026-08-24, so that class is already out. The sword-slash pack and the hand-drawn hero sheets go too &mdash; both are placeholder being redrawn, so their provenance stopped mattering rather than being resolved.</div>
 
-  <div class="note"><b>Two gaps hold regardless of those answers.</b> Neither the OFL text nor the required copyright line ships for <b>Pixelify Sans</b> or <b>Space Mono</b> &mdash; Liberation&rsquo;s copy is present, so the omission is inconsistent rather than a policy. Both copyright lines are in the ledger, read out of the fonts&rsquo; own name tables. And the <b>credits roll has no Art &amp; Animation or Music &amp; Sound row</b> &mdash; deliberately, because there is nobody to name yet; <code>CreditsScreenController.cs</code> says the rows come back when the ledger says what the shipped art and audio are. Answering the three questions above is what unblocks the credits, too.</div>
+  <div class="note"><b>One gap holds regardless of those answers.</b> The OFL text and the required copyright line now ship for <b>Pixelify Sans</b> and <b>Space Mono</b>: <code>PixelifySans - OFL.txt</code> and <code>SpaceMono - OFL.txt</code> sit beside the faces, <code>ThirdPartyNotices.Compose</code> reproduces every such file verbatim, and <code>BuildManagerWindow</code> writes the assembled <code>THIRD-PARTY-NOTICES.txt</code> into the version folder on every successful build. Both copyright lines are also in the ledger, read out of the fonts&rsquo; own name tables. And the <b>credits roll has no Art &amp; Animation or Music &amp; Sound row</b> &mdash; deliberately, because there is nobody to name yet; <code>CreditsScreenController.cs</code> says the rows come back when the ledger says what the shipped art and audio are. Answering the three questions above is what unblocks the credits, too.</div>
 </section>
 
 <div class="honest">

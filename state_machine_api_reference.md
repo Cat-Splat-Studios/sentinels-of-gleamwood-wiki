@@ -21,7 +21,7 @@
 The component that owns states and transitions for one entity. It has **no abstract members**: a
 concrete machine builds its context in `Awake`. `Initialize(context)` is the public wiring path but
 has **no game call sites** — both shipped machines assign the protected `context` field directly
-(`PlayerStateMachine.cs:96`, `EnemyStateMachine.cs:62`). Tests call it to stand a machine up
+(`PlayerStateMachine.cs:160`, `EnemyStateMachine.cs:87`). Tests call it to stand a machine up
 without a prefab, so it is not dead code — it is just not how the game gets there.
 
 **Properties** — `CurrentState`, `PreviousState`, `Context`.
@@ -116,6 +116,9 @@ animation when `TConfig` implements `IStateConfigWithAnimation`, and it override
 - **`List<TransitionCondition<TContext>> Conditions`** — typed condition assets.
 - **`List<DynamicCondition> DynamicConditions`** — reflection-driven: name a context property, pick
   an operator, give a value.
+- **`int Priority`** — higher is checked first. `CheckTransitions` takes the first match, so this is
+  the only way an authored edge can outrank a code-registered one out of the same state; ties keep
+  authoring order.
 
 **Both lists gate the same edge.** This is the pair no previous page mentioned, and it matters when
 reading an authored graph: an edge that "has no conditions" may have all of them in the other list.
@@ -143,7 +146,7 @@ reading an authored graph: an edge that "has no conditions" may have all of them
 
 > **`context.Animator` exists on both — and is a different type on each.** On `EnemyContext` it is a
 > `UnityEngine.Animator`; on `PlayerContext` it is a `Gleamwood.Player.Animation.PlayerAnimation`
-> (`PlayerContext.cs:151`), which is also what its `AnimationDriver` returns. Same member name, same
+> (`PlayerContext.cs:177`), which is also what its `AnimationDriver` returns. Same member name, same
 > apparent shape, no compile error until you use it — so code and docs copied from the enemy side
 > read as if they apply to the player when they do not.
 
@@ -197,7 +200,7 @@ the entry for tooling — use them rather than re-deriving why an execution did 
 | | |
 |---|---|
 | **Movement** | `EnemyIdleState` · `EnemyChaseState` · `EnemyFloatChaseState` · `EnemyRelocateState` |
-| **Offence** | `EnemyAttackPhaseState` (the phase chain) · `EnemyProjectileAttackState` · `EnemySummonState` · `EnemyHazardPhaseState` |
+| **Offence** | `EnemyAttackPhaseState` (the phase chain) · `EnemyProjectileAttackState` · `EnemySummonState` · `EnemyHazardPhaseState` · `EnemyGroundHazardState` |
 | **Reactions** | `EnemyHitState` · `EnemyJuggledState` · `EnemyDeathState` |
 | **Executions** | `ExecutionPayoffState` (one runner, ten data-authored payoffs; the three bespoke execution states were deleted 2026-08-30) |
 
@@ -205,7 +208,8 @@ the entry for tooling — use them rather than re-deriving why an execution did 
 `ConfigurableState<EnemyContext, TConfig, EnemyStateMachine>`.
 
 **`IEnemySuperArmor`** — `bool TryAbsorbHit(in HitInfo hit)`. Implemented by
-`EnemyAttackPhaseState` and `EnemySummonState`; `EnemyStateMachine.TakeHit` consults it in the
+`EnemyAttackPhaseState`, `EnemyProjectileAttackState`, `EnemySummonState`, `EnemyRelocateState`,
+`EnemyHazardPhaseState` and `EnemyGroundHazardState`; `EnemyStateMachine.TakeHit` consults it in the
 hitstun fallback branch. Any new state that should shrug off hits implements the same interface.
 
 ---

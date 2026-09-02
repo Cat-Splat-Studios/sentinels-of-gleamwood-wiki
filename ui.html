@@ -42,14 +42,15 @@
 
 <section id="anatomy">
   <h2><span class="num">01</span>Where the pieces live</h2>
-  <p class="lead">Four in-play UI pieces, and the scene each one actually ships in — check this column first when a readout is missing, because "it is not in that scene" is the commonest answer.</p>
+    <p class="lead">Five in-play UI pieces, and the scene each one actually ships in — check this column first when a readout is missing, because "it is not in that scene" is the commonest answer.</p>
   <div class="scrollx">
   <table>
     <tr><th>Thing</th><th>Files</th><th>In which scenes</th></tr>
-    <tr><td><b>Player HUD</b> — portrait, health pips, status tags, combo, weapon chips (icon + name + binding glyph), bow ring, dash cooldown, damage vignette, Gleam (this run <i>and</i> the banked balance), run modifiers, dev stamp</td><td><code>UI/Code/HUD/PlayerHUDController.cs</code> + <code>UI/Panels/PlayerHUD/PlayerHUD.uxml|.uss</code>, shipped on <code>Prefabs/UI/PlayerHUD.prefab</code></td><td>2.Hub, 3.BiomeHost, 4.RestHost</td></tr>
-    <tr><td><b>Combat read</b> — per-enemy tags (EXECUTE, health, execution meter, status chips) and the boss bar</td><td><code>UI/Code/HUD/EnemyUIController.cs</code> + <code>UI/Panels/EnemyUI/EnemyUI.uxml|.uss</code>, shipped on <code>Prefabs/UI/CombatHUD.prefab</code></td><td>3.BiomeHost only — enemies exist nowhere else</td></tr>
+    <tr><td><b>Player HUD</b> — portrait, health pips, status tags, combo, weapon chips (icon + name + binding glyph), bow ring, dash cooldown, damage vignette, Gleam (this run <i>and</i> the banked balance), run modifiers, dev stamp</td><td><code>UI/Code/HUD/PlayerHUDController.cs</code> + <code>UI/Panels/PlayerHUD/PlayerHUD.uxml|.uss</code>, shipped on <code>Prefabs/UI/PlayerHUD.prefab</code></td><td>2.Hub, 3.BiomeHost, 4.RestHost, 5.Training</td></tr>
+    <tr><td><b>Combat read</b> — per-enemy tags (EXECUTE, health, execution meter, status chips) and the boss bar</td><td><code>UI/Code/HUD/EnemyUIController.cs</code> + <code>UI/Panels/EnemyUI/EnemyUI.uxml|.uss</code>, shipped on <code>Prefabs/UI/CombatHUD.prefab</code></td><td>3.BiomeHost and 5.Training — the only two scenes enemies exist in</td></tr>
     <tr><td><b>Minimap</b></td><td><code>UI/Code/HUD/MinimapController.cs</code></td><td>3.BiomeHost</td></tr>
     <tr><td><b>Bow charge ring</b></td><td><code>UI/Code/HUD/BowChargeRing.cs</code> — a custom <code>VisualElement</code> that paints itself, added in code rather than authored in UXML</td><td>with the player HUD</td></tr>
+    <tr><td><b>Fullscreen FX</b> — an execution payoff's flash, wash, letterbox, dim and the finisher's name</td><td><code>UI/Code/HUD/ScreenFxLayer.cs</code> + <code>UI/Panels/ScreenFx/</code>, shipped on <code>Systems/Boot/GameServices.prefab</code></td><td>every scene — it rides the persistent services root</td></tr>
   </table>
   </div>
 
