@@ -52,6 +52,9 @@ classDiagram
         +string WeaponName
         +string Description
         +Sprite Icon
+        +string LayeredAppearanceVariant
+        +WeaponActionGrip ActionGrip
+        +WeaponCarryHand CarryHand
         +int BaseDamage
         +float BaseKnockback
         +float BaseHitstun
@@ -72,6 +75,7 @@ classDiagram
     }
     class RangedWeaponDefinition {
         &lt;&lt;ScriptableObject&gt;&gt;
+        +string ReleasePresentationEvent
         +List~RangedAttack~ BowAttacks
         +GameObject ProjectilePrefab
         +float DrawTime
@@ -97,10 +101,14 @@ classDiagram
         &lt;&lt;struct&gt;&gt;
         +float Duration
         +float ComboWindow
+        +float RecoveryTime
         +float DamageMultiplier
         +Vector2 KnockbackForce
         +bool LockMovement
         +Vector2 MovementForce
+        +float StepDistance
+        +float StepWindowStart
+        +float StepWindowEnd
         +GameObject HitEffect
         +AudioClip AttackSound
         +float ExecutionPoints
@@ -230,6 +238,7 @@ classDiagram
         +Standard = 0
         +Spike = 1
         +Crumple = 2
+        +Push = 3
     }
     class DamageType {
         &lt;&lt;enumeration&gt;&gt;
@@ -355,6 +364,7 @@ classDiagram
         +CheckConditions(EnemyContext,HitInfo) bool
         +CheckConditions(EnemyContext,HitInfo,string) bool
         +DescribeGates() string
+        +Steps() IReadOnlyList~string~
         +PlayerHint() string
     }
     class CombatStatusDefinition {
@@ -373,6 +383,7 @@ classDiagram
         +Standard = 0
         +Spike = 1
         +Crumple = 2
+        +Push = 3
     }
     class DamageType {
         &lt;&lt;enumeration&gt;&gt;
@@ -845,6 +856,7 @@ classDiagram
         +Reset() void$
         +Load() void$
         +BuildClipSet(SpriteClipSet) SpriteClipSet$
+        +TryBuildAppearance(SpriteClipSet,Shader,Appearance) bool$
         +LogIfModded() void$
     }
     class ProgressionOverrides {
@@ -932,6 +944,9 @@ classDiagram
         +string WeaponName
         +string Description
         +Sprite Icon
+        +string LayeredAppearanceVariant
+        +WeaponActionGrip ActionGrip
+        +WeaponCarryHand CarryHand
         +int BaseDamage
         +float BaseKnockback
         +float BaseHitstun
@@ -998,8 +1013,9 @@ stateDiagram-v2
     state "wallSlide" as s_wallSlide
     [*] --&gt; s_fall
     s_bowAim --&gt; s_fall : 0. Dy_IsAttackFinished, Dy_IsNotGrounded
-    s_bowAim --&gt; s_idle : 1. Dy_IsAttackFinished, Dy_IsGrounded
-    s_bowAim --&gt; s_meleeAtk : 2. CODE
+    s_bowAim --&gt; s_idle : 1. Dy_IsAttackFinished, Dy_IsGrounded, Dy_I...
+    s_bowAim --&gt; s_run : 2. Dy_IsAttackFinished, Dy_IsGrounded, Dy_I...
+    s_bowAim --&gt; s_meleeAtk : 3. CODE
     s_dash --&gt; s_dashAttack : 0. CODE (p20)
     s_dash --&gt; s_fall : 1. CODE (p10)
     s_dash --&gt; s_jump : 2. CODE (p5)
