@@ -101,7 +101,7 @@
     <tr><td><code>DemonKingDef</code> (final boss)</td><td>800</td><td>no</td><td>0.85 <span class="dim">/ enraged 1.5</span></td><td>14 states, two phases. Phase 1 (he does not chase hard — 0.85 is the slowest lane on any boss): <code>castBolt</code> (Projectile Attack, Damage 1, speed 10, fires at 0.6 normalized) + charge/slam/recover (Damage 1, range 2.2, charge armor 2, recover armor 0). At half health → <code>igniteArena</code> (HazardId <code>DemonPyre</code>) → <code>chaseEnraged</code> + a heavier second chain (Damage 2, range 2.4, charge2 armor 3) + <code>relocate</code> (PointId <code>Perch</code>, farthest-from-player). ExecutionThreshold 140, and <code>Executions</code> carrying the unjuggleable three — Pinfall, Explosion and Firestorm — since 2026-08-17. It was <b>empty</b> before that, which made him the one enemy no finisher could reach while authoring the highest threshold on the roster.</td></tr>
   </table>
   </div>
-  <div class="rule note"><b>The Chase × column is a real speed, not a modifier on one.</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to 3 u/s and nothing reads a speed from any definition, so the chase config's <code>SpeedMultiplier</code> <i>is</i> the per-enemy speed knob — a hound at 1.6 runs at 4.8 u/s, the Vault Acolyte at 0.7 runs at 2.1. That is a debt, and §13 explains it; it is in this table because it is the number you actually reach for.</div>
+  <div class="rule note"><b>The Chase × column is a real speed, not a modifier on one.</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to 3 u/s and no definition authors a base locomotion speed, so the chase config's <code>SpeedMultiplier</code> <i>is</i> the per-enemy speed knob — a hound at 1.6 runs at 4.8 u/s, the Vault Acolyte at 0.7 runs at 2.1. That is a debt, and §13 explains it; it is in this table because it is the number you actually reach for.</div>
   <div class="note"><b>Numbers vs structure:</b> <code>GameContent.ini</code>'s <code>[Enemy:&lt;DefName&gt;]</code> section tunes only <code>maxHealth</code> and <code>canBeJuggled</code> — FSMs are authored in Unity; the INI numbers tune them. See <a href="tuning.html">Tuning &amp; INI</a>.</div>
 </section>
 
@@ -230,7 +230,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <li><b>Launch</b>: a single <code>IsLauncher</code> swing on a <b>grounded</b> target — the up-attacks — launches from <i>any</i> state, armor or not. This is the only way an enemy goes airborne; there is no meter. It does nothing to a target already up there.</li>
     <li><b>Spike</b>: a <code>Reaction = Spike</code> hit on an <b>airborne</b> target overrides all of the above — it cancels the launch, drives them at the floor at <code>|KnockbackForce.y|</code> (min 18), and pays off on landing with a bounce, hitstop and a flash. For 0.6&nbsp;s afterwards the enemy reads as <code>RecentlySpiked</code>, which executions can require.</li>
     <li><b>Super armor</b> gets its say only now: if the current state absorbs the hit, no hitstun — damage, meters, flash and sound already happened.</li>
-    <li>Otherwise → <code>hitstun</code>.</li>
+    <li>Otherwise → <code>hitstun</code> — and a <code>Push</code> reaction is applied <em>there</em>, by <code>EnemyHitState</code> rather than by <code>TakeHit</code>: the target slides away from the attacker's position at <code>|KnockbackForce.x|</code>, decaying linearly to a stop inside the resolved hitstun, its own solid collider sweeping ahead so it stops short of a wall (triggers and floor-tangent contacts ignored) and its horizontal velocity cleared on exit. The caps that bound it are on <a href="combat.html#swings">combat.html §02</a>.</li>
   </ol>
 
   <p>Steps 8–12 are one precedence order, and it is the part worth memorising — every "why did my armor not stop that" question is answered by this table:</p>
@@ -241,6 +241,7 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
     <tr><td>Spike (airborne target)</td><td>the launch it cancels, and everything below</td><td>The spike is the answer to the juggle, so it has to be able to end one.</td></tr>
     <tr><td>Launch (<code>IsLauncher</code>, grounded target)</td><td>armor, hitstun</td><td>The up-attack is the move that OPENS a combo, so it cannot be a move that armor turns down.</td></tr>
     <tr><td>Super armor</td><td>hitstun only</td><td>Armor suppresses the flinch and nothing else — damage, meters, flash and sound have already happened by the time it is consulted.</td></tr>
+    <tr><td>Hitstun, and <code>Push</code> with it</td><td>nothing</td><td><code>Push</code> is applied in the hit <b>state</b>, not in <code>TakeHit</code>, so it only happens once the pipeline has already awarded ordinary hitstun — death, an execution, a spike, an existing juggle, a launch and absorbing armor each take the hit first, and <code>EnemyHitState</code>'s own comment says so.</td></tr>
   </table>
   </div>
 
@@ -276,24 +277,24 @@ attackCharge ▶ attackLunge ▶ attackStrike ▶ attackRecover ──▶ chase<
 
 <section id="executions">
   <h2><span class="num">05</span>Executions</h2>
-  <p class="lead">One meter lives on the prefab's <code>CombatStatusManager</code>: <b>execution</b>, fed by each hit's <code>executionPoints</code>, decaying 25/s after 3s without one. Its threshold is the <b>definition's</b> <code>ExecutionThreshold</code> (§01) — 100 by default, 95 on the Imp, 140 on the Demon King — adopted at Awake, because it is a combat number and combat numbers are authored on the definition like every other one. Points are never consumed — instead, each enemy can be executed <b>once, ever</b>; a guard (<code>_executionReported</code>) prevents re-triggering. <span class="dim">(There is no juggle meter any more — an enemy goes airborne because a swing carried <code>IsLauncher</code>, not because a counter filled.)</span></p>
+  <p class="lead">One <b>execution</b> meter lives on the prefab's <code>CombatStatusManager</code>, fed by each hit's <code>executionPoints</code> and sized by the definition's <code>ExecutionThreshold</code> (§01), adopted at Awake because it is a combat number and combat numbers are authored on the definition like every other one; the arithmetic, the decay and the per-weapon reachability table are on <a href="combat.html#exectriggers">combat.html §07</a>. Points are never consumed — instead, each enemy can be executed <b>once, ever</b> (<code>_executionReported</code>).</p>
   <p>An <code>ExecutionDefinition</code> (<span class="kbd">Create ▸ Combat ▸ Execution Definition</span>) describes when a finisher fires and which state plays it:</p>
   <div class="scrollx">
   <table>
-    <tr><th>Field</th><th>What it does</th></tr>
-    <tr><td><code>ExecutionName</code></td><td>Display name.</td></tr>
-    <tr><td><code>ExecutionConfig</code></td><td>The finisher state config. Its state is <b>auto-registered</b> on the machine — you don't add it to the def's <code>States</code> list.</td></tr>
-    <tr><td><code>RequiredDamageType</code></td><td>The hit type that can trigger it (<code>MELEE_SLASH</code> / <code>RANGED_PIERCE</code> / <code>DASH_SLASH</code>).</td></tr>
-    <tr><td><code>MustBeAirborne</code> / <code>MustBeGrounded</code></td><td>State gates — airborne checks both "not grounded" and "currently in the juggled state".</td></tr>
-    <tr><td><code>RequireSpecificReaction</code> + <code>RequiredReaction</code></td><td>What this hit <b>is</b> — a Spike, a Crumple. Only melee sets a reaction, so this pairs with <code>MELEE_SLASH</code>.</td></tr>
-    <tr><td><code>RequireRecentlySpiked</code></td><td>What just <b>happened</b> to them: they landed from a spike within <code>SpikeWindow</code> (0.6&nbsp;s). Fires on the follow-up, which is the hit an execution is gated on anyway.</td></tr>
-    <tr><td><code>RequiredStatus</code> + <code>MinStatusCount</code></td><td>Optional status stack requirement (e.g. 3 StickyArrows).</td></tr>
-    <tr><td><code>ConsumeStatusOnTrigger</code></td><td>Default true — clears the required status when the execution fires.</td></tr>
+    <tr><th>Field</th><th>Default</th><th>What it does</th></tr>
+    <tr><td><code>ExecutionName</code></td><td>empty</td><td>Display name.</td></tr>
+    <tr><td><code>ExecutionConfig</code></td><td>none — required</td><td>The finisher state config. Its state is <b>auto-registered</b> on the machine — you don't add it to the def's <code>States</code> list.</td></tr>
+    <tr><td><code>RequiredDamageType</code></td><td><code>MELEE_SLASH</code></td><td>The hit type that can trigger it (<code>MELEE_SLASH</code> / <code>RANGED_PIERCE</code> / <code>DASH_SLASH</code>). Always checked.</td></tr>
+    <tr><td><code>MustBeAirborne</code> / <code>MustBeGrounded</code></td><td>both off</td><td>State gates — airborne checks both "not grounded" and "currently in the juggled state".</td></tr>
+    <tr><td><code>RequireSpecificReaction</code> + <code>RequiredReaction</code></td><td>off</td><td>What this hit <b>is</b> — a Spike, a Crumple, a Push (no shipped execution asks for Push). A melee swing or a dash strike can carry one; the bow never does, and no shipped dash authors one — so in practice this pairs with <code>MELEE_SLASH</code>.</td></tr>
+    <tr><td><code>RequireRecentlySpiked</code></td><td>off</td><td>What just <b>happened</b> to them: they landed from a spike within <code>SpikeWindow</code> (0.6&nbsp;s). Fires on the follow-up, which is the hit an execution is gated on anyway.</td></tr>
+    <tr><td><code>RequiredStatus</code> + <code>MinStatusCount</code></td><td>none, 0</td><td>Optional status stack requirement (e.g. 3 StickyArrows).</td></tr>
+    <tr><td><code>ConsumeStatusOnTrigger</code></td><td>true</td><td>Clears the required status when the execution fires.</td></tr>
   </table>
   </div>
-  <p>The full ten, with exactly how a player triggers each, live on the combat page: <a href="combat.html#execroster">Execution roster</a>. <b>A juggleable enemy carries all ten; an unjuggleable one carries three.</b> Seven of the ten (Meteor, Groundbreaker, Skyhook, Nailed, OffScreenKill, Overload, SamuraiSlice) ask for a juggled, airborne or recently-spiked target and can never open on a <code>CanBeJuggled: 0</code> fight, so those definitions list only Pinfall, Explosion and Firestorm — the three whose gates are a reaction and two statuses. That includes <code>DemonKingDef</code>, which listed none at all until 2026-08-17.
+  <p>The full ten, with exactly how a player triggers each, live on the combat page: <a href="combat.html#execroster">Execution roster</a> — including which of them a <code>CanBeJuggled: 0</code> fight can reach at all.</p>
 
-  <div class="rule note"><b>The ORDER of an enemy's <code>Executions</code> list is behaviour, not presentation.</b> <code>TakeHit</code> takes the first match and stops. So a definition that asks for strictly less than a later one makes that later one <b>unreachable</b> — silently, with no error, on every enemy that carries both. Two rules keep the shipped list honest, and both were live bugs first: <b>most specific first</b> (Meteor, "juggled", would swallow Skyhook, "juggled + Spike", if listed first — so Skyhook, the specific one, leads), and <b>status catch-alls last</b> (Firestorm at slot 4 made Groundbreaker, Meteor, Pinfall and Skyhook all unreachable with the greatsword equipped). <code>ExecutionTriggerTests</code> enforces both — an inspector drag reorders the list in one click.</div>
+  <div class="rule note"><b>The ORDER of an enemy's <code>Executions</code> list is behaviour, not presentation.</b> <code>TakeHit</code> takes the first match and stops, so a definition that asks for strictly less than a later one makes that later one <b>unreachable</b> — silently, on every enemy that carries both. Most specific first, status catch-alls last; <code>ExecutionTriggerTests</code> enforces both, because an inspector drag reorders the list in one click. The shipped pair that shows it, and why the order moved, are on <a href="executions.html#what">executions.html §01</a>.</div>
 
   <div class="note"><b>Debugging a trigger.</b> <span class="kbd">F1 ▸ Run (dev) ▸ Execution gates ▸ Explain executions</span> records, per hit, which gate closed on each of the ten and why — including the two reasons the roster is never consulted at all (meter not full <em>before</em> the hit; this enemy already executed once). Off by default; it builds a string per hit.</div>
   <div class="note"><b>What the finisher itself looks like is authored as DATA</b>, on an <code>ExecutionPayoffConfig</code> the definition points at — a list of beats, scheduled and accessibility-resolved before anything runs. All ten shipped executions are built that way. The beat vocabulary, the composition rules, the traps that make a payoff render nothing, and the <span class="kbd">Gleamwood ▸ Execution Preview…</span> window are all on <a href="executions.html#kinds">executions.html §02</a> onward. This section stays the <i>trigger</i> side.</div>
@@ -687,23 +688,8 @@ pivot   = <span class="a">2</span>
 <section id="gotchas">
   <h2><span class="num">13</span>Known debts &amp; gotchas</h2>
   <p class="lead">The things this page's cross-references point at: one real architectural debt (speed), a handful of conditions and fields whose behaviour is surprising rather than wrong, and the two clocks that make an enemy look soft-locked when it is not.</p>
-  <div class="warn note"><b>The MoveSpeed debt:</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to <code>3f</code> — nothing reads it from any definition asset. Chase and float-chase both compute <code>3 × SpeedMultiplier</code>, so <b>the chase config's <code>SpeedMultiplier</code> is the real per-enemy speed knob</b>, and the whole roster is authored through it (§01's Chase × column). The Workbench owns up to it ("Base chase speed is 3 u/s" with a computed "chases at N u/s" label).</div>
-  <div class="scrollx">
-  <table>
-    <tr><th>Definition</th><th><code>chase</code></th><th>enraged / float lane</th></tr>
-    <tr><td><code>CinderHoundDef</code></td><td>1.6</td><td>—</td></tr>
-    <tr><td><code>PyreRegentDef</code></td><td>1.2</td><td><code>chaseEnraged</code> 1.5</td></tr>
-    <tr><td><code>SootBomberDef</code></td><td>1.1</td><td>—</td></tr>
-    <tr><td><code>ImpScoutDef</code></td><td>1</td><td>—</td></tr>
-    <tr><td><code>CinderShepherdDef</code></td><td>—</td><td>no chase lane at all: it loops <code>summon ↔ relocate</code> and never walks</td></tr>
-    <tr><td><code>EmberWispDef</code></td><td>—</td><td><code>floatChase</code> 1.2 — the only lane it has</td></tr>
-    <tr><td><code>KragDef</code></td><td>1</td><td><code>chaseEnraged</code> 1.35</td></tr>
-    <tr><td><code>PyreArcherDef</code></td><td>0.9</td><td>—</td></tr>
-    <tr><td><code>DemonKingDef</code></td><td>0.85</td><td><code>chaseEnraged</code> 1.5</td></tr>
-    <tr><td><code>VaultAcolyteDef</code></td><td>0.7</td><td>—</td></tr>
-  </table>
-  </div>
   <ul>
+    <li><b>The MoveSpeed debt:</b> <code>EnemyContext.MoveSpeed</code> is hardcoded to 3 u/s and no definition authors a base locomotion speed, so the chase configs' <code>SpeedMultiplier</code> — plain chase and float chase each carry their own — is the only per-enemy walking-speed knob; §01's <code>Chase ×</code> column <i>is</i> that multiplier. An attack phase's own <code>MoveSpeed</code> (§03's Lunge Speed) is a separate committed forward burst, not locomotion. The Workbench owns up to it on the chase row: "Base chase speed is 3 u/s", with a computed "chases at N u/s" readout beside the field.</li>
     <li><code>HealthCondition</code> returns false for <code>MaxHealth ≤ 0</code> enemies — no-health enemies can't phase-switch on health.</li>
     <li><code>AnimationEndCondition</code> asks how far along the current animation is, never whose clip it is — so unlike an attack phase it has no own-clip guard, and on a state with no clip of its own it reads the lingering previous state's time. Always pair it with <code>HitStunCondition</code> like the shipped defs do.</li>
     <li>One transition per Update, and transitions run <i>before</i> the state's own Update each frame.</li>
@@ -711,7 +697,6 @@ pivot   = <span class="a">2</span>
     <li><b>Anything modal freezes the world, and the freeze outlives it.</b> <code>MenuState.Push</code> sets <code>Time.timeScale = 0</code> while a full-screen panel is up — the level intro card pushes on show and pops on dismiss — and hitstop drives the same clock to a fraction of 1 for the length of a hit. Neither animation backend advances while it is held — the <code>SpriteAnimator</code> runs on scaled time unless something explicitly asks it not to — so an editor test that never sets <code>Time.timeScale = 1</code> in its <code>SetUp</code> reads a stuck enemy as a soft-lock.</li>
     <li>Executions require pre-hit readiness and fire once per enemy; the run's juggle stat counts every launch.</li>
     <li>Shared SOs are never mutated at runtime — depth scaling goes through <code>ApplyStatScale</code> on the context. The scene ring tuner is the deliberate exception: it writes shared definitions in-editor, with Undo.</li>
-    <li><code>BossDefinition.musicCueId</code> is <b>gone</b> — superseded by <code>musicTrack</code> and then deleted on 2026-08-13 — it was written and never read, and the importer now reports it as an unknown key. <code>EnemyJuggledConfig.AirDrop</code> used to be listed here beside it and is <b>gone</b> (D20): it was authored on every juggled config, read by nothing, and shipped as a live Workbench slider labelled "Fall Speed" — so it was tunable, visible, and inert at once. The field and the slider went in the same commit; any <code>AirDrop: 1</code> line still in a definition asset is inert and drops off on its next resave.</li>
     <li>Inactive spawn markers are skipped on purpose — disable a marker to mute it. <code>isBossPoint</code> implies defer-to-sequence at assembly.</li>
     <li>Asset filenames and nodeIds are save data — never rename shipped ones.</li>
     <li>Enemy strikes and projectiles damage the player's health directly (minimum 1 each); projectiles ignore trigger colliders, pass through enemies, and die on world geometry or lifetime.</li>

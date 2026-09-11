@@ -274,6 +274,9 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <tr><td><code>boss</code></td><td>BossDefinition</td><td>Empty/<code>-</code> = stand-in mode (arena adds only).</td></tr>
     <tr><td><code>musicTrack</code></td><td>AudioClip</td><td>Looping biome music; <b>empty = silence</b>, deliberately — it no longer borrows <code>MusicSet.LevelTrack</code>, and <code>RunContentValidator</code> warns per biome that has none (<a href="audio.html">Audio</a> §05).</td></tr>
     <tr><td><code>standInLayout</code></td><td>Prefab ref</td><td>Hand-authored fallback layout used when the pool is empty (needs <code>EntryPoint</code> + <code>BiomeExit</code>).</td></tr>
+    <tr><td><code>wallTile</code> / <code>floorTile</code> / <code>platformTile</code></td><td><code>TileBase</code> refs</td><td><b>The look.</b> Painted over every <code>Walls</code>, <code>Floors</code> and <code>Platforms</code> map as a collider-less <b>overlay</b> (<code>BiomeSkin</code>), never as a repaint of the collision maps — which is why there is no <code>colliderType</code> gate: an art tile’s collider cannot reach the world, and the reachability model reads the greybox colliders underneath. Empty = the greybox stays. No shipped biome sets one.</td></tr>
+    <tr><td><code>backgroundPrefab</code></td><td>Prefab ref</td><td>Spawned once per room entry and parented to the layout, so it dies with it: parallax, sky, whatever goes behind the geometry.</td></tr>
+    <tr><td><code>ambientLightColor</code> / <code>cameraClearColor</code></td><td>Colour</td><td>The scene’s GLOBAL 2D light and the camera’s clear colour while this biome plays. <code>#RRGGBB</code>, <code>#RRGGBBAA</code> or a Unity name (<code>cyan</code>); anything else <b>errors and keeps the current value</b>. <b>Alpha carries meaning:</b> alpha 0 means “leave the scene’s own light and clear colour alone”, which is what an omitted key and <code>-</code> both read as and what every shipped biome reads as today. <code>#RRGGBB</code> is opaque, so <code>#000000</code> is not “no opinion” — it is black.</td></tr>
   </table>
   </div>
   <h4><code>[Boss:&lt;assetName&gt;]</code></h4>
@@ -432,27 +435,8 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
       <p>One-way import + the validator-as-build-gate means text edits can never silently break a build — a typo errors and leaves wiring untouched. Pair that with a human-editable <code>config.ini</code> and a <code>TunableRegistry</code> that the Impact tab has now used exactly as designed (§04), and the tuning surface is already shaped for hands that aren't ours.</p>
     </div>
   </div>
-  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. The order in which the open items on this page are meant to land — <code>displayName</code> in <code>[Boss:]</code> and the Deck hardware walk — is sequenced in <code>Documentation/DESIGNER-HANDOFF-PLAN.md</code>; the rows themselves live only in <code>Documentation/OUTSTANDING.md</code>. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
+  <p class="dim">None of the future items above exist yet beyond what §8 documents — treat this section as direction, not reference. When any of it lands, it moves up into the tables and this box shrinks. The order in which the open items on this page are meant to land — the Deck hardware walk and the legibility raise — is sequenced in <code>Documentation/DESIGNER-HANDOFF-PLAN.md</code>; the rows themselves live only in <code>Documentation/OUTSTANDING.md</code>. Extension seams in code live on <a href="extending.html">Extending</a>.</p>
 </section>
-
-<div class="honest">
-  <h4>Keep this page honest</h4>
-  <ul>
-    <li>The attribute + registry: <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code>, <code>Assets/_Framework/DebugUI/TunableTabs.cs</code> (signature, type support, tab merging, <code>TunableRegistry</code>).</li>
-    <li>The panel + save semantics: <code>Assets/_Framework/DebugUI/DebugUI.cs</code>, <code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code> (tabs, the release gate, save keys, auto-save modes, file locations, startup order).</li>
-    <li>The tunable inventory: <code>Assets/_Game/Player/Code/PlayerContext.cs</code>, <code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>, <code>Assets/_Game/Combat/Code/CombatHitboxViewer.cs</code> (the Hitboxes tab, §3), and the three Impact hosts <code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code>, <code>Assets/_Game/Systems/Mechanics/ShakeComponent.cs</code>, <code>Assets/_Game/Player/Code/PlayerHurtReact.cs</code> (§3/§4, pinned by <code>Assets/Tests/PlayMode/ImpactTuningTests.cs</code>); authored defaults in <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> and — for the mover only — <code>Assets/Prefabs/Player.prefab</code>; the clone in <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code>.</li>
-    <li>The <code>Save</code> rule §2/§3/§5 turn on: <code>Assets/Tests/PlayMode/TunableParityTests.cs</code>, plus the live <code>DebugSettings/DebugSettings.json</code> (if a key there is not <code>Camera.*</code>, this page is wrong or the suite is red).</li>
-    <li>Player settings: <code>Assets/_Game/Systems/Settings/GameSettings.cs</code>, <code>ConfigStore.cs</code>, <code>IniConfigBackend.cs</code>; menu rows in <code>Assets/_Game/UI/Code/Screens/SettingsMenuController.cs</code>; the <code>config.ini</code> path segments in <code>ProjectSettings/ProjectSettings.asset</code> (<code>companyName</code> / <code>productName</code>).</li>
-    <li>The content INI: <code>Assets/_Game/Content/GameContent.ini</code> and <code>Assets/_Game/Editor/ContentIniImporter.cs</code> (sections, keys, grammar, create-vs-tune rules) — a new key means a new table row here.</li>
-    <li>The INI's guardrails: <code>Assets/_Game/Systems/Run/ContentIni.cs</code> (the parser both sides share) and <code>Assets/_Game/Editor/GameContentSync.cs</code> (the in-sync / DIVERGED verdict), plus <code>Assets/_Game/Editor/RunContentValidator.cs</code> — the <span class="kbd">Validate Run Content</span> menu item <b>and</b> the <code>IPreprocessBuildWithReport</code> gate that §8's rule box claims.</li>
-    <li>This page is the source of record for the <code>[Tunable]</code> pattern; <code>GAME_TUNING_GUIDE.md</code> is an index and points here.</li>
-  </ul>
-</div>
-
-<div class="pn">
-  <a href="audio.html"><span>← Previous</span>Audio</a>
-  <a href="extending.html"><span>Next →</span>Extending</a>
-</div>
 
 <section id="deck">
   <h2><span class="num">10</span>The Steam Deck — a display you don't own</h2>
@@ -476,7 +460,7 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <tr><td>2560×1440 monitor</td><td>×2.00</td><td>24 px</td></tr>
   </table>
   </div>
-  <p>At ×1.11 a USS pixel is, near enough, a physical pixel on a screen seven inches across. Hence the floor: <b>keep information-bearing text at 12 px or more</b>. Enemy status stacks, HUD run-modifier names, run-map node names and the pause-menu seed are all information, and several of them ship below that today — the open half of <code>Documentation/OUTSTANDING.md</code>, the row <i>"Deck legibility: 10–13 px text and a Text Size row read by nothing"</i>, and closing it is USS-only, designer-doable work. The player's Text Size row (Small ×0.9 / Medium ×1 / Large ×1.15, <code>GameSettings.TextSizeScale</code>) multiplies the whole panel's scale; it is the player's accessibility dial, <b>not your size budget</b> — Large does not make a 10 px rule readable on a handheld, and Small makes it smaller still. Author for Medium and keep your floor clear of both ends.</p>
+  <p>At ×1.11 a USS pixel is, near enough, a physical pixel on a screen seven inches across. Hence the floor: <b>keep information-bearing text at 12 px or more</b>. Enemy status stacks, HUD run-modifier names, run-map node names and the pause-menu seed are all information, and several of them ship below that today — the open half of <code>Documentation/OUTSTANDING.md</code>, the row <i>"Deck legibility: 10–13 px text and a Text Size row read by nothing"</i>, which carries a verdict per rule: the nine sort into five groups and only the first is a pure USS edit. The player's Text Size row (Small ×0.9 / Medium ×1 / Large ×1.15, <code>GameSettings.TextSizeScale</code>) multiplies the whole panel's scale; it is the player's accessibility dial, <b>not your size budget</b> — Large does not make a 10 px rule readable on a handheld, and Small makes it smaller still. Author for Medium and keep your floor clear of both ends.</p>
   <div class="note"><b>Height is the whole story now.</b> Since 2026-08-24 the panel matches on height alone against a 16:9 1280×720 reference, so the factor no longer swings by aspect — but a 16:10 screen still buys more width per unit of scale than a 16:9 one, and the consistency work is tracked on OUTSTANDING <i>"The UI is not consistent across resolutions"</i>. The fix starts with a decision only Hisham can make and is tracked on OUTSTANDING <i>"The UI is not consistent across resolutions"</i>. Until it lands, walk any screen you author at 16:9 <b>and</b> 16:10 before calling it done.</div>
 
   <h3>A shake number is a haptics number</h3>
@@ -488,8 +472,27 @@ context = Instantiate(initalState);   <span class="c">// a fresh clone per sessi
     <li><b>Check Text Size in a development build, not in play mode.</b> The panel write is deliberately compiled out of the editor — <code>PanelSettings</code> is a tracked asset and a play-mode write to one survives exiting play mode — so flipping the row under the editor changes nothing, by design. In a build, Settings ▸ Accessibility ▸ Text Size: your layout must survive ×0.9 and ×1.15 without clipping a row.</li>
     <li><b>Run the suite.</b> <code>DeckDisplayPolicyTests</code> (the display deference, pinned in both directions with a desktop control), <code>InterfaceScaleTests</code> (the Text Size apply), <code>RumbleTests</code> (shake→motor, and the gate separation) and <code>PauseGuardTests</code> (the pause-on-interruption rules) all run on every machine, because each drives the platform answer through an injection seam.</li>
   </ol>
-  <div class="warn note"><b>The editor can prove the policy, never the platform.</b> Nothing on a dev machine is a Steam Deck — detection is <code>SteamUtils.IsSteamRunningOnSteamDeck()</code>, and every non-injected path answers <i>not a Deck</i> — so a green suite here is exactly as good as the injection seam and no better. The proof is a hardware walk at the next checkpoint build, scripted step by step in <a href="publishing.html#deck">publishing §09</a>; until somebody walks it, the whole policy stays on OUTSTANDING <i>"The Steam Deck display fix is in, but unproven on hardware"</i>.</div>
+  <p class="dim">Nothing on a dev machine is a Deck, and a green suite proves the policy rather than the platform — the hardware walk that closes these claims is scripted step by step in <a href="publishing.html#deck">publishing §09</a>.</p>
 </section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>The attribute + registry: <code>Assets/_Framework/DebugUI/TunableAttribute.cs</code>, <code>Assets/_Framework/DebugUI/TunableTabs.cs</code> (signature, type support, tab merging, <code>TunableRegistry</code>).</li>
+    <li>The panel + save semantics: <code>Assets/_Framework/DebugUI/DebugUI.cs</code>, <code>Assets/_Game/Player/Code/PlayerDebugUI.cs</code> (tabs, the release gate, save keys, auto-save modes, file locations, startup order).</li>
+    <li>The tunable inventory: <code>Assets/_Game/Player/Code/PlayerContext.cs</code>, <code>Assets/_Game/Systems/Movement/KinematicMover2D.cs</code>, <code>Assets/_Game/Combat/Code/CombatHitboxViewer.cs</code> (the Hitboxes tab, §3), and the three Impact hosts <code>Assets/_Game/Combat/Code/CombatTimeManager.cs</code>, <code>Assets/_Game/Systems/Mechanics/ShakeComponent.cs</code>, <code>Assets/_Game/Player/Code/PlayerHurtReact.cs</code> (§3/§4, pinned by <code>Assets/Tests/PlayMode/ImpactTuningTests.cs</code>); authored defaults in <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> and — for the mover only — <code>Assets/Prefabs/Player.prefab</code>; the clone in <code>Assets/_Game/Player/Code/PlayerStateMachine.cs</code>.</li>
+    <li>The <code>Save</code> rule §2/§3/§5 turn on: <code>Assets/Tests/PlayMode/TunableParityTests.cs</code>, plus the live <code>DebugSettings/DebugSettings.json</code> (if a key there is not <code>Camera.*</code>, this page is wrong or the suite is red).</li>
+    <li>Player settings: <code>Assets/_Game/Systems/Settings/GameSettings.cs</code>, <code>ConfigStore.cs</code>, <code>IniConfigBackend.cs</code>; menu rows in <code>Assets/_Game/UI/Code/Screens/SettingsMenuController.cs</code>; the <code>config.ini</code> path segments in <code>ProjectSettings/ProjectSettings.asset</code> (<code>companyName</code> / <code>productName</code>).</li>
+    <li>The content INI: <code>Assets/_Game/Content/GameContent.ini</code> and <code>Assets/_Game/Editor/ContentIniImporter.cs</code> (sections, keys, grammar, create-vs-tune rules) — a new key means a new table row here.</li>
+    <li>The INI's guardrails: <code>Assets/_Game/Systems/Run/ContentIni.cs</code> (the parser both sides share) and <code>Assets/_Game/Editor/GameContentSync.cs</code> (the in-sync / DIVERGED verdict), plus <code>Assets/_Game/Editor/RunContentValidator.cs</code> — the <span class="kbd">Validate Run Content</span> menu item <b>and</b> the <code>IPreprocessBuildWithReport</code> gate that §8's rule box claims.</li>
+    <li>This page is the source of record for the <code>[Tunable]</code> pattern; <code>GAME_TUNING_GUIDE.md</code> is an index and points here.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="audio.html"><span>← Previous</span>Audio</a>
+  <a href="extending.html"><span>Next →</span>Extending</a>
+</div>
 
 </main>
 

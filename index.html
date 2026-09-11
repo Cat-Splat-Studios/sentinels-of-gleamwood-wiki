@@ -113,7 +113,7 @@
 
 <section id="build">
   <h2><span class="num">03</span>Build the vanilla game</h2>
-  <p class="lead">The designer’s manual, chapter by chapter — one continuous walk from a fresh clone to a campaign folder another person can play. Each chapter is the procedure and links the reference pages for the facts; each ends with what success prints and a checklist.</p>
+  <p class="lead">The designer’s manual, chapter by chapter — one continuous walk from a fresh clone to a campaign folder another person can play.</p>
   <ol class="steps" id="build-spine">
     <li><a href="guide.html#ch1-kit">The kit and the contracts</a> — the two grids, PPU 64, pivots, the split rig, clip grammar, audio style — and the generated kit that embodies them</li>
     <li><a href="guide.html#ch2-biome">A biome from nothing</a> — look, music, roster, rooms, and a node on the run web — playable end to end</li>
@@ -133,7 +133,7 @@
   <h2><span class="num">04</span>New here? Start with your craft</h2>
   <p class="lead">Three road maps, one per discipline. Each takes somebody who has never opened this project to the point of shipping a change on their own — and each links out to the reference pages below rather than restating them, so there is only ever one copy of a fact to keep true.</p>
   <div class="grid c3">
-    <a class="card accent-cyan" href="onboarding-programmer.html"><h4>For Programmers 🛠</h4><p>The architecture in one screen, the ten rules this codebase paid real bugs for, the state machine that is the spine of both the player and the enemies, the <b>Content Workbench in full detail</b> — including how to add a field and a whole new page — and how to verify a change without breaking the editor.</p></a>
+    <a class="card accent-cyan" href="onboarding-programmer.html"><h4>For Programmers 🛠</h4><p>The architecture in one screen, the eleven rules this codebase paid real bugs for, the state machine that is the spine of both the player and the enemies, the <b>Content Workbench in full detail</b> — including how to add a field and a whole new page — and how to verify a change without breaking the editor.</p></a>
     <a class="card accent-violet" href="onboarding-artist.html"><h4>For Artists 🎨</h4><p>The spec first: 64 pixels per unit, sheet grids, what to export and how to name it. Then the art pipeline, how clips are sliced, the <b>split rig</b> and why both halves of the player must come from one drawing — and how to get art in and look at it without a programmer.</p></a>
     <a class="card accent-green" href="onboarding-designer.html"><h4>For Designers 🎚</h4><p>The four authoring surfaces and when to use which, end-to-end recipes for weapons, enemies, bosses, biomes, dialogue and boons, the ordering rules that break content silently, and the F1-panel trap that makes a retune look like it did nothing.</p></a>
   </div>
@@ -144,7 +144,7 @@
   <p class="lead">Every page is the complete story of one surface — with screenshots captured from the actual editor, field-by-field references, and step-by-step recipes. These are the reference; the three guides above are the road maps into them.</p>
   <div class="grid c3">
     <a class="card accent-ember" href="quickstart.html"><h4>Quick Start ⚡</h4><p>Start here. Two hands-on guides: add content to a system that exists, and add a whole new mechanic — plus the one rule that keeps additions from breaking what already works.</p></a>
-    <a class="card accent-gold" href="guide.html"><h4>Build a Game 🔨</h4><p>The designer’s manual: one continuous walk from a fresh clone to a packaged campaign — contracts, biome, enemy, boss, weapon, boons, dialogue, audio, rooms, validation, packaging. The road maps above orient; this one builds.</p></a>
+    <a class="card accent-gold" href="guide.html"><h4>Build a Game 🔨</h4><p>The designer’s manual — eleven chapters from a fresh clone to a shareable campaign; the chapter list is the section above. The road maps orient; this one builds.</p></a>
     <a class="card accent-cyan" href="workbench.html"><h4>The Content Workbench</h4><p>The designer cockpit: every category, every sub-tab, the save model, the validated dropdowns — a full guided tour in real screenshots.</p></a>
     <a class="card accent-ember" href="combat.html"><h4>Combat &amp; Weapons</h4><p>Melee swings, ranged, dash attacks, statuses — every live field and the scene tuners that let you drag hitboxes instead of typing them.</p></a>
     <a class="card accent-red" href="enemies.html"><h4>Enemies &amp; Bosses</h4><p>The zero-code enemy recipe: FSM states as data, phases, super armor, reactions — and the full boss staging kit with doors, music and dialogue.</p></a>
@@ -159,6 +159,7 @@
     <a class="card accent-cyan" href="extending.html"><h4>Extending the Game</h4><p>The seam catalog — every extension point in one place — plus meta-recipes for adding new seams when the catalog isn't enough.</p></a>
     <a class="card accent-violet" href="framework.html"><h4>Framework &amp; Architecture</h4><p>The state machine under everything, boot/services, signals — condensed, with pointers to the full API references.</p></a>
     <a class="card accent-red" href="publishing.html"><h4>Publishing to Steam</h4><p>Build in the Build Manager, upload with one PowerShell script, set live on the partner site. Who can play an unreleased app, the pinned-executable contract, the traps that make a good build refuse to start — and the Steam Deck hardware walk every checkpoint build owes.</p></a>
+    <a class="card accent-violet" href="diagrams.html"><h4>System Diagrams</h4><p>Class boxes drawn by reflection over the real types, state graphs taken from the machines as they are actually BUILT. Generated by <span class="kbd">Gleamwood ▸ Docs ▸ Generate Diagrams</span> — never hand-edit the page or the <code>Documentation/Diagrams/*.md</code> behind it.</p></a>
     <a class="card accent-gold" href="maintaining.html"><h4>Maintaining this Wiki</h4><p>The dummy-proof part: the update matrix, one-click screenshot regeneration, and how to add pages. Read once, never wonder again.</p></a>
   </div>
 </section>
@@ -180,7 +181,7 @@
     <tr><td>Verify content before calling it done</td><td><span class="kbd">Gleamwood ▸ Validate Run Content</span></td><td><a href="levels.html">Levels</a></td></tr>
     <tr><td>Check room traversability alone</td><td><span class="kbd">Gleamwood ▸ Audit Room Reachability</span></td><td><a href="levels.html">Levels</a></td></tr>
     <tr><td>Check the INI still matches the assets</td><td><span class="kbd">Gleamwood ▸ Check Content INI Sync</span></td><td><a href="tuning.html">Tuning</a></td></tr>
-    <tr><td>Run the test suite</td><td><code>Tools/run-tests.sh</code> → <code>Logs/playmode_test_results.txt</code> (it saves open scenes first and its exit code is the whole verdict; the menu item <span class="kbd">Gleamwood ▸ Run PlayMode Tests</span> does neither and wedges on a dirty scene)</td><td><a href="maintaining.html">Maintaining</a></td></tr>
+    <tr><td>Run the test suite</td><td><code>Tools/run-tests.sh</code> → <code>Logs/playmode_test_results.txt</code> (use the script, not the menu item)</td><td><a href="maintaining.html">Maintaining</a></td></tr>
     <tr><td>Rebuild / re-route the audio mixer</td><td><span class="kbd">Gleamwood ▸ Audio ▸ Create + Route Game Audio Mixer</span></td><td><a href="audio.html">Audio</a></td></tr>
     <tr><td>Re-capture the wiki screenshots</td><td><span class="kbd">Gleamwood ▸ Wiki ▸ Capture Tool Screenshots</span></td><td><a href="maintaining.html">Maintaining</a></td></tr>
     <tr><td>Add a whole new mechanic / content type</td><td>One SO class + attributes</td><td><a href="extending.html">Extending</a></td></tr>

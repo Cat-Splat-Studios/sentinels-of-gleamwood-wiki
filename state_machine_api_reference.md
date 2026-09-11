@@ -10,7 +10,7 @@
 > [`framework.html`](framework.html)** — that page has the screenshots and is kept in step with the
 > code. This page is the type-and-member reference it points at.
 >
-> Verified against the code 2026-08-09.
+> Verified against the code 2026-08-09; the `AddTransition` entry re-verified 2026-09-11.
 
 ---
 
@@ -39,28 +39,13 @@ without a prefab, so it is not dead code — it is just not how the game gets th
 
 **Event** — `Action<IState, IState> OnStateChanged` *(previous, current)*.
 
-> ### `AddTransition` MERGES same-target edges — it does not stack, and it no longer deletes
+> ### `AddTransition` MERGES same-target edges
 > A second edge to a target a state already has becomes **one** edge: the condition ORs both, the
-> priority is the higher of the two, and the pair is recorded in `ReplacedEdges`.
->
-> **It used to delete**, and that is the bug this behaviour was built to end: `list.RemoveAll(t =>
-> t.TargetState == toState)` ran before every insert, so a code-registered edge silently took the
-> authored one's condition with it. Four of `meleeAtk`'s five authored edges in `PlayerDef.asset`
-> died that way, and one of the four carried a condition nobody had noticed was wrong *precisely
-> because it never ran* — it required `CanGroundJump` to raise a bow.
->
-> **The order of the fix was the point.** The four collisions were resolved by hand FIRST — three
-> authored conditions were strictly worse duplicates of the code edge and the fourth was that wrong
-> one, so all four asset entries went — and only THEN did the merge land. Doing it the other way
-> round would have folded the wrong condition in, and a merge makes a condition fire MORE, not less.
->
-> **A merge is safe and is still a smell**, so it stays loud: two places now decide one edge, and the
-> console names each pair once per session. One thing genuinely is still lost — only the incoming
-> edge's `onTransition` callback survives. **So the fix is unchanged: one edge, one condition, ORing
-> the two cases together.** Any state whose edges are half data and half code is one refactor from
-> this. The shipped player graph resolves none of them, and `TransitionCollisionTests` asserts that
-> zero with a deliberate collision beside it, so the zero cannot come from the recorder having
-> quietly stopped.
+> higher priority wins, the pair lands in `ReplacedEdges` and is logged once per (from, to) pair per
+> session, and only the incoming edge's `onTransition` survives. `TransitionCollisionTests` asserts
+> the shipped player graph resolves zero of them, with a deliberate collision beside it so the zero
+> cannot come from the recorder having stopped. Why it merges rather than deletes, and the `meleeAtk`
+> cleanup that had to come first: [`framework.html`](framework.html) §02/§04.
 
 Insertion is a **stable** highest-priority-first insert, deliberately not `List.Sort` — that is an
 unstable quicksort, and since `CheckTransitions` takes the first match, re-sorting would turn

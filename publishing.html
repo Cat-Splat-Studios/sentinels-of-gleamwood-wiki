@@ -185,7 +185,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 
 <section id="provenance">
   <h2><span class="num">08</span>Provenance and the AI disclosure</h2>
-  <p class="lead">Steam asks, at submission, whether the game contains AI-generated content, and the answer is a public field on the store page. <b>The answer is yes, and it stays yes after the strip</b> &mdash; the six music tracks are Suno, generated on a Pro subscription that carries commercial rights, and they ship. Every other AI-generated class goes.</p>
+  <p class="lead">Steam asks, at submission, whether the game contains AI-generated content, and the answer is a public field on the store page. <b>The answer is yes, and it stays yes after the strip</b> &mdash; the six music tracks are Suno, generated on a Pro subscription that carries commercial rights, and they ship. Every other AI-generated class goes, bar the one fate still recorded as <code>decide</code> &mdash; the Balen atlas, in the table below.</p>
 
   <p><b>The ledger is <code>Documentation/PROVENANCE.md</code></b> &mdash; one row per media class with the evidence for it, and what the H4 strip does with it. It is checked mechanically, not maintained by memory: <code>Tools/check-provenance.py</code> refuses a media file under <code>Assets/</code> with no row <i>and</i> a row that covers no file, and <code>Tools/check-wiki.py</code> runs it, so it is part of the ordinary verification loop rather than a second command to remember.</p>
 
@@ -195,7 +195,7 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
     <tbody>
       <tr><td><code>keep</code></td><td>144</td><td>Provenance is clean and recorded. Our own art and synthesized audio, the input glyphs, the fonts, Unity&rsquo;s TextMesh Pro samples, the generated kit, and the six Suno tracks.</td></tr>
       <tr><td><code>strip</code></td><td>111</td><td>Leaves the repo in H4. The AI sprite sets, the AI portraits and weapon icons, the placeholder hero and level art, and the sword-slash pack. (The SAPI voice-over is already gone — 28 takes deleted 2026-08-24.) Git keeps every byte.</td></tr>
-      <tr><td><code>decide</code></td><td>0</td><td>Nothing is undecided. The three open questions were answered on 2026-08-19.</td></tr>
+      <tr><td><code>decide</code></td><td>1</td><td>The Balen atlas (<code>Assets/_Game/Player/Art/Balen/atlas.png</code>): its sources and rebuild contract are recorded, but the licence-clean replacement decision is still <code>Documentation/OUTSTANDING.md</code>&rsquo;s <i>"The placeholder and machine-generated art has no licence-clean replacement"</i>. The other three questions were answered on 2026-08-19.</td></tr>
     </tbody>
   </table>
   </div>
@@ -206,23 +206,6 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
 
   <div class="note"><b>One gap holds regardless of those answers.</b> The OFL text and the required copyright line now ship for <b>Pixelify Sans</b> and <b>Space Mono</b>: <code>PixelifySans - OFL.txt</code> and <code>SpaceMono - OFL.txt</code> sit beside the faces, <code>ThirdPartyNotices.Compose</code> reproduces every such file verbatim, and <code>BuildManagerWindow</code> writes the assembled <code>THIRD-PARTY-NOTICES.txt</code> into the version folder on every successful build. Both copyright lines are also in the ledger, read out of the fonts&rsquo; own name tables. And the <b>credits roll has no Art &amp; Animation or Music &amp; Sound row</b> &mdash; deliberately, because there is nobody to name yet; <code>CreditsScreenController.cs</code> says the rows come back when the ledger says what the shipped art and audio are. Answering the three questions above is what unblocks the credits, too.</div>
 </section>
-
-<div class="honest">
-  <h4>Keep this page honest</h4>
-  <ul>
-    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> (folder pick, the channel guard, the incomplete-build guard, the build description&rsquo;s commit, steamcmd resolution, the confirm prompt) · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> (the exclusion list in §02) · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §02 in step).</li>
-    <li>The build side: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildManagerWindow.cs</code> — <code>GetBuildPath</code> (the channel tier), <code>WriteChannelMarker</code>, <code>BeginPendingVersion</code>/<code>DiscardPendingVersion</code> (the version rollback) and <code>CreateGitTagForBuild</code>. Both of that file's stale "NOT uploadable" claims — the on-screen channel note and the <code>DevelopmentBuild</code> doc comment — are fixed; it now names the invocation (<code>-Channel development -Branch playtest</code>) instead of denying the workflow. <code>Upload-SteamBuild.ps1</code> remains the authority: write §03 from the PowerShell.</li>
-    <li>The pinned exe: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildNaming.cs</code>, consumed by <code>BuildManagerWindow.GetBuildPath</code>. Identity lives in <code>ProjectSettings/ProjectSettings.asset</code>.</li>
-    <li>The release notes: <code>Documentation/BUILD-NOTES.md</code> — §02 step 4 is the only instruction in the wiki to write them, so a change to how they are kept lands here as well as on <a href="maintaining.html#map">maintaining §05</a>.</li>
-    <li>The provenance numbers in §08 are not hand-counted: <code>python Tools/check-provenance.py --list</code> prints them, and <code>Tools/check-wiki.py</code> prints the same totals on every run as <code>media assets swept</code>. If they disagree with the table, the table is stale — the ledger is <code>Documentation/PROVENANCE.md</code> and the rows carry their own evidence.</li>
-    <li>Valve's rules (branches, Dev Comp autogrant, key waiting periods) come from the Steamworks partner docs and <b>do drift</b> — re-verify against <code>partner.steamgames.com/doc/</code> before trusting a detail that costs you an afternoon.</li>
-  </ul>
-</div>
-
-<div class="pn">
-  <a href="framework.html"><span>← Previous</span>Framework</a>
-  <a href="maintaining.html"><span>Next →</span>Maintaining</a>
-</div>
 
 <section id="deck">
   <h2><span class="num">09</span>The Steam Deck — proof happens on hardware</h2>
@@ -250,6 +233,23 @@ setx STEAM_BUILD_ACCOUNT your_login_name     <span class="c"># then open a NEW t
   <p>Measured against what ships today: controller-first menus with correct glyphs (<code>SteamInputBrandProvider</code>), no keyboard-dependent entry point, and a default configuration that runs without ever opening a settings screen — the display policy exists for exactly this — are all in place. The known gap is <b>text legibility</b>: the 10–13&nbsp;px rules on OUTSTANDING <i>"Deck legibility: 10–13 px text and a Text Size row read by nothing"</i> are precisely the sort of thing a Verified grade fails on, so close that row before requesting the review. And the warning this page already carries about Valve's rules applies double here: the criteria drift — re-verify against <code>partner.steamgames.com/doc/</code> before scheduling anything against them.</p>
   <div class="warn note"><b>A Deck regression is a real regression, not a polish item.</b> The platform bar in <code>CLAUDE.md</code> says it and shipping is where it bites: any change to display, windowing, fullscreen or UI scaling re-opens the hardware debt — the walk above goes back on the next checkpoint build, and <i>it works on Windows</i> goes back to being half a claim.</div>
 </section>
+
+<div class="honest">
+  <h4>Keep this page honest</h4>
+  <ul>
+    <li>Tooling: <code>Tools/Steam/Upload-SteamBuild.ps1</code> (folder pick, the channel guard, the incomplete-build guard, the build description&rsquo;s commit, steamcmd resolution, the confirm prompt) · <code>app_build.template.vdf</code> · <code>depot_build_2953371.vdf</code> (the exclusion list in §02) · <code>Tools/Steam/README.md</code> (the terse runbook — keep it and §02 in step).</li>
+    <li>The build side: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildManagerWindow.cs</code> — <code>GetBuildPath</code> (the channel tier), <code>WriteChannelMarker</code>, <code>BeginPendingVersion</code>/<code>DiscardPendingVersion</code> (the version rollback) and <code>CreateGitTagForBuild</code>. Both of that file's stale "NOT uploadable" claims — the on-screen channel note and the <code>DevelopmentBuild</code> doc comment — are fixed; it now names the invocation (<code>-Channel development -Branch playtest</code>) instead of denying the workflow. <code>Upload-SteamBuild.ps1</code> remains the authority: write §03 from the PowerShell.</li>
+    <li>The pinned exe: <code>Assets/_Game/Systems/Utils/Build/Editor/BuildNaming.cs</code>, consumed by <code>BuildManagerWindow.GetBuildPath</code>. Identity lives in <code>ProjectSettings/ProjectSettings.asset</code>.</li>
+    <li>The release notes: <code>Documentation/BUILD-NOTES.md</code> — §02 step 4 is the only instruction in the wiki to write them, so a change to how they are kept lands here as well as on <a href="maintaining.html#map">maintaining §05</a>.</li>
+    <li>The provenance numbers in §08 are not hand-counted: <code>python Tools/check-provenance.py --list</code> prints them, and <code>Tools/check-wiki.py</code> prints the same totals on every run as <code>media assets swept</code>. If they disagree with the table, the table is stale — the ledger is <code>Documentation/PROVENANCE.md</code> and the rows carry their own evidence.</li>
+    <li>Valve's rules (branches, Dev Comp autogrant, key waiting periods) come from the Steamworks partner docs and <b>do drift</b> — re-verify against <code>partner.steamgames.com/doc/</code> before trusting a detail that costs you an afternoon.</li>
+  </ul>
+</div>
+
+<div class="pn">
+  <a href="framework.html"><span>← Previous</span>Framework</a>
+  <a href="maintaining.html"><span>Next →</span>Maintaining</a>
+</div>
 
 </main>
 

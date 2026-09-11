@@ -35,7 +35,7 @@
 
 <header class="page">
   <h1>Framework &amp; <span class="flame">Architecture</span></h1>
-  <p class="tag">The state machine that runs every player and enemy, the data-driven transition system designers author against, the one known bug that eats config edges, and the boot/services spine underneath it all. This is the condensed map; <a href="state_machine_api_reference.md"><code>state_machine_api_reference.md</code></a> beside it carries the signatures.</p>
+  <p class="tag">The state machine that runs every player and enemy, the data-driven transition system designers author against, the same-target edge merge where two places end up deciding one edge, and the boot/services spine underneath it all. This is the condensed map; <a href="state_machine_api_reference.md"><code>state_machine_api_reference.md</code></a> beside it carries the signatures.</p>
 </header>
 
 <main>
@@ -126,16 +126,16 @@ state.AddTransition(stateMachine)
 </section>
 
 <section id="hybrid">
-  <h2><span class="num">04</span>The hybrid model — and the known bug that eats config edges</h2>
+  <h2><span class="num">04</span>The hybrid model — two places deciding one edge</h2>
   <p class="lead">Some player states are <b>hybrids</b>: they call <code>base.SetupTransitions()</code> (config-authored edges) and then keep hardcoded <code>AddTransition</code> calls afterward. That used to be a bug factory — the hardcoded edge deleted the authored one to the same target — and is now merely something to know: the two merge under one condition. <code>meleeAtk</code> was the worst case, four dead edges out of five, and its four asset entries were cleaned up when the merge landed.</p>
   <div class="note"><b>Hybrid states are safe now, and the console still tells you when one collides.</b> A hybrid state calls <code>base.SetupTransitions()</code> for its config-authored edges and then registers hardcoded ones; before the merge landed, every hardcoded edge to an already-authored target silently deleted it. <b>Read the console first</b>: each collision logs <code>[StateMachine] FromType-&gt;ToType: …</code> once per pair per session, and that list is now the set of edges where two places decide one exit — not a list of dead conditions, but still worth resolving in the asset or the state. The shipped player graph prints none.</div>
-<pre><code><span class="c">// The hybrid shape (abridged — this is the bug pattern, not a model to copy):</span>
+<pre><code><span class="c">// The hybrid shape (abridged — something to know, not a model to copy):</span>
 <span class="k">public override void</span> SetupTransitions()
 {
     <span class="k">if</span> (config != <span class="k">null</span>) { <span class="k">base</span>.SetupTransitions(); }   <span class="c">// config edges land first…</span>
 
-    <span class="c">// …then these run unconditionally — no early return — and each call</span>
-    <span class="c">// RemoveAll()s any existing edge to the same target. Hardcoded wins.</span>
+    <span class="c">// …then these run unconditionally. A second edge to the same target MERGES:</span>
+    <span class="c">// the conditions OR, the higher priority survives, and the pair is logged once.</span>
     stateMachine.AddTransition(<span class="k">this</span>, stateMachine.GetState(<span class="s">"idle"</span>), () =&gt; Done());
 }</code></pre>
   <h3>The rest of the framework ledger</h3>
@@ -167,7 +167,7 @@ state.AddTransition(stateMachine)
   <h3>Recipe: a brand-new state type, end to end</h3>
   <ol class="steps">
     <li><b>Only if the state TYPE doesn't exist yet:</b> <span class="kbd">Cat Splat State Machine ▸ Tools ▸ State Machine Creator</span> → <b>State Creator</b> → pick the Target System, name it, choose the base config, add variables → <b>Generate</b>. Wait for the compile. (Reusing an existing type? Skip straight to step 2.)</li>
-    <li><span class="kbd">Gleamwood ▸ Content Workbench</span> → <b>Enemies ▸ States</b>, or for the player the left rail's <b>Balen (State Machine)</b> entry, which opens the same surface directly — <b>the Player category has no States sub-tab</b> (its five are Movement / Jump &amp; Air / Dash &amp; Wall / Bow / Vitals, and the states form is drawn for the <code>PlayerDefinition</code> asset instead of the <code>PlayerContext</code> one) → <b>+ Create State</b>: pick the type, name it. That one action creates the sub-asset, sets <code>StateName</code>, adds it to <code>States</code>, promotes it to <code>InitialState</code> if it's the first, and runs the post-processors.</li>
+    <li><span class="kbd">Gleamwood ▸ Content Workbench</span> → <b>Enemies ▸ States</b>, or for the player the left rail's <b>Balen (State Machine)</b> entry, which opens the same surface directly — <b>the Player category has no States sub-tab</b> (its sub-tabs are feel, not states — <a href="workbench.html#player">Workbench §09</a> — and the states form is drawn for the <code>PlayerDefinition</code> asset instead of the <code>PlayerContext</code> one) → <b>+ Create State</b>: pick the type, name it. That one action creates the sub-asset, sets <code>StateName</code>, adds it to <code>States</code>, promotes it to <code>InitialState</code> if it's the first, and runs the post-processors.</li>
     <li>Same tab: wire its <b>Transitions</b> (To State + Conditions), and <b>Set as Initial State</b> if this is the entry state.</li>
     <li>Check the validation rows are green, then test in the Visualizer.</li>
   </ol>
@@ -178,9 +178,8 @@ state.AddTransition(stateMachine)
 <section id="sources">
   <h2><span class="num">06</span>Source-of-record docs</h2>
   <p class="lead">There is <b>one</b> markdown page beside this one in <code>Documentation/Wiki/</code>: <a href="state_machine_api_reference.md"><code>state_machine_api_reference.md</code></a> — the type-and-member reference. This page carries the concepts, the recipes, the menu paths and the bug list; that one carries the signatures.</p>
-  <div class="warn note"><b>Six more live INSIDE the package.</b> <code>Assets/_Framework/StateMachine/</code> ships <code>README.md</code>, <code>StateMachine_Design_Document.md</code>, <code>Core/Core_Documentation.md</code>, <code>State/State_Documentation.md</code>, <code>Editor/Editor_Documentation.md</code> and <code>Editor/Editor_Visualizer_Document.md</code>. Three of them walked the reader through a <b>Config Creator tab</b> and an <b>Assembler</b> drag-and-drop step, both removed in the 2026-07-20 consolidation (§05); they were corrected when the creator window&rsquo;s matching leftovers were finally deleted from the code. They travel with the package rather than with the wiki, which is exactly why they got missed; the paragraph below is about them too.</div>
-  <p>There used to be four, plus a second wiki index. They are gone, and the reason is worth keeping: <b>this section held a nine-row table of their known false claims</b> — a UI walkthrough for tabs that had been deleted, an NPC module that no longer existed, a snippet that did not compile, an interface listing that omitted the very method the data-driven system hangs off. Each row had been verified, written down honestly, and left in place. None of them got fixed; the table just grew.</p>
-  <div class="rule"><b>A known-lies table is a maintenance debt, not a disclosure.</b> Documenting that a page is wrong costs the same as fixing it and helps nobody who does not read the correction first. The four pages were merged into one verified reference and the table is now empty — which is what "keep this page honest" is supposed to mean.</div>
+  <div class="warn note"><b>Six more live INSIDE the package.</b> <code>Assets/_Framework/StateMachine/</code> ships <code>README.md</code>, <code>StateMachine_Design_Document.md</code>, <code>Core/Core_Documentation.md</code>, <code>State/State_Documentation.md</code>, <code>Editor/Editor_Documentation.md</code> and <code>Editor/Editor_Visualizer_Document.md</code>. Three of them walked the reader through a <b>Config Creator tab</b> and an <b>Assembler</b> drag-and-drop step, both removed in the 2026-07-20 consolidation (§05); they were corrected when the creator window&rsquo;s matching leftovers were finally deleted from the code. They travel with the package rather than with the wiki, which is exactly why they got missed; the rule below applies to them too.</div>
+  <div class="rule">Four more pages and a second wiki index were deleted rather than annotated, because <b>a known-lies table is a maintenance debt, not a disclosure</b> — documenting that a page is wrong costs what fixing it costs and helps nobody who does not read the correction first.</div>
   <p><a href="../OUTSTANDING.md"><code>Documentation/OUTSTANDING.md</code></a> is the only to-do list in the repo — the <code>AddTransition</code> debt it used to carry was paid on 2026-08-17 (§04). <a href="../../HANDOVER.md"><code>HANDOVER.md</code></a> (repo root) is a <b>pointer page</b> to it now — it no longer carries the boot/services/run architecture, which is why <a href="#boot">§07</a> below <i>is</i> that record rather than a summary of one. <a href="../GAME_TUNING_GUIDE.md"><code>Documentation/GAME_TUNING_GUIDE.md</code></a> is a one-page index of where each designer-facing topic is documented; the Workbench and <code>[Tunable]</code> live on <a href="tuning.html">Tuning</a> and <a href="workbench.html">Workbench</a>.</p>
 </section>
 
@@ -232,8 +231,7 @@ state.AddTransition(stateMachine)
   </table>
   </div>
   <div class="warn"><b>Stale claim alert: there is no <code>LevelManager</code>.</b> It was deleted in the M1 run-based redesign along with Checkpoint/LevelExit/RunTracker — none of those four types exists anywhere in <code>Assets/</code>, which is the check to run rather than trusting a doc. Any doc or memory line saying "LevelManager/CombatTimeManager stay scene singletons" is out of date — <code>RunDirector</code> (the static run phase machine under <code>Systems/Run/</code>) plus the host controllers replaced it. The sanctioned pair is <code>CombatTimeManager</code> + <code>BiomeHostController</code>.</div>
-  <h3>PlayerSettings: clone at boot, never mutate the asset</h3>
-  <p><code>PlayerStateMachine.Awake()</code> (execution order −110) loads <code>Resources.Load&lt;PlayerContext&gt;("PlayerSettings")</code> — the asset at <code>Assets/_Game/Player/Resources/PlayerSettings.asset</code> — and assigns <code>context = Instantiate(initalState)</code>: a <b>clone</b>. Runtime tweaks (states, the F1 panel) hit the copy and evaporate on scene change; the Workbench's Player category edits the asset itself, which is the durable path. Same philosophy as the run loadout: <code>RunDirector</code> hands out <code>WeaponInstance</code> wrappers (upgrade levels ride the instance) and the shared weapon definitions are never mutated.</p>
+  <p><code>PlayerStateMachine.Awake()</code> (execution order −110) loads and <code>Instantiate</code>s <code>PlayerSettings.asset</code>, so every runtime tweak hits a per-session <b>clone</b>; the durable path and the shadowing trap are on <a href="tuning.html#clone">Tuning &amp; INI §06</a>. Same philosophy as the run loadout: <code>RunDirector</code> hands out <code>WeaponInstance</code> wrappers (upgrade levels ride the instance) and the shared weapon definitions are never mutated.</p>
 </section>
 
 <section id="sortorder">

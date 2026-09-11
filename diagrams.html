@@ -9,6 +9,7 @@
   .diagram { overflow-x: auto; margin: 1.2rem 0; }
   .diagram .mermaid { min-width: min-content; }
   .diagram-src { font-size: .85em; opacity: .7; }
+  .diagram-toc ul { margin: .2rem 0 .6rem; }
 </style>
 </head>
 <body>
@@ -40,11 +41,59 @@
 
 <main>
 <h1>System diagrams</h1>
-<p class="lead"><b>This page is GENERATED.</b> Every diagram on it is drawn from the code and the shipped assets — the class boxes come from reflection over the real types, and the state graphs from the machines as they are actually BUILT, which is not the same as what the definition assets author. Regenerate with <span class="kbd">Gleamwood ▸ Docs ▸ Generate Diagrams</span>.</p>
-<p>The prose, the tables and the notes marking which parts are AUTHORED rather than derived live beside each diagram in its markdown source, linked under every section. They are deliberately not copied here: two copies of an explanation means one of them is wrong, and it is always the one nobody regenerates.</p>
+<p class="lead"><b>This page is GENERATED.</b> Every diagram on it is drawn from the code and the shipped assets — the class boxes come from reflection over the real types, and the state graphs from a PlayMode dump of the machines as they were actually BUILT (<code>Documentation/Diagrams/_data/</code>, rewritten by <code>Assets/Tests/PlayMode/StateGraphDumpFixture.cs</code> when the suite runs), which is not the same as what the definition assets author. A stale dump is REFUSED rather than redrawn and the previous picture is left in place, so a state graph can be older than the rest of this page; each state file's header says how to refresh it. Regenerate with <span class="kbd">Gleamwood ▸ Docs ▸ Generate Diagrams</span>.</p>
+<p>The headlines of the AUTHORED rules travel with their diagrams and are on this page, inside the mermaid. Their PROSE, the tables and the per-file commentary stay beside each diagram in its markdown source, linked under every section, and are deliberately not copied here: two copies of an explanation means one of them is wrong, and it is always the one nobody regenerates.</p>
+<ul class="diagram-toc">
+  <li><a href="#combat">Combat</a>
+    <ul>
+      <li><a href="#weapons-and-the-run-scoped-instance">Weapons, and the run-scoped instance</a></li>
+      <li><a href="#a-hit">A hit</a></li>
+      <li><a href="#the-move-vocabulary">The move vocabulary</a></li>
+      <li><a href="#executions-and-the-order-they-are-tried-in">Executions, and the order they are tried in</a></li>
+      <li><a href="#the-per-run-modifier-tier">The per-run modifier tier</a></li>
+    </ul>
+  </li>
+  <li><a href="#the-enemy-state-machines">The enemy state machines</a>
+    <ul>
+      <li><a href="#cinderhounddef-impscoutdef-sootbomberdef-3-machines-one-identical-graph">CinderHoundDef, ImpScoutDef, SootBomberDef — 3 machines, one identical graph</a></li>
+      <li><a href="#cindershepherddef">CinderShepherdDef</a></li>
+      <li><a href="#demonkingdef">DemonKingDef</a></li>
+      <li><a href="#emberwispdef">EmberWispDef</a></li>
+      <li><a href="#kragdef">KragDef</a></li>
+      <li><a href="#pyrearcherdef">PyreArcherDef</a></li>
+      <li><a href="#pyreregentdef">PyreRegentDef</a></li>
+      <li><a href="#vaultacolytedef">VaultAcolyteDef</a></li>
+    </ul>
+  </li>
+  <li><a href="#modding-tiers">Modding tiers</a>
+    <ul>
+      <li><a href="#a-campaign-and-the-session-that-activates-it">A campaign, and the session that activates it</a></li>
+      <li><a href="#the-tiers-and-the-order-they-reload-in">The tiers, and the order they reload in</a></li>
+      <li><a href="#the-clone-seams">The clone seams</a></li>
+    </ul>
+  </li>
+  <li><a href="#the-player-state-machine">The player state machine</a>
+    <ul>
+      <li><a href="#playerdef">PlayerDef</a></li>
+    </ul>
+  </li>
+  <li><a href="#the-run-spine">The run spine</a>
+    <ul>
+      <li><a href="#the-spine">The spine</a></li>
+      <li><a href="#what-one-node-carries">What one node carries</a></li>
+      <li><a href="#the-shipped-web-as-authored">The shipped web, as authored</a></li>
+    </ul>
+  </li>
+  <li><a href="#save-data">Save data</a>
+    <ul>
+      <li><a href="#the-shape">The shape</a></li>
+    </ul>
+  </li>
+</ul>
 
-<h2>Weapons, and the run-scoped instance</h2>
-<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/combat.md</code></p>
+<h2 id="combat">Combat</h2>
+<p class="diagram-src">Source, with the full notes: <a href="../Diagrams/combat.md"><code>Documentation/Diagrams/combat.md</code></a></p>
+<h3 id="weapons-and-the-run-scoped-instance">Weapons, and the run-scoped instance</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class WeaponDefinition {
@@ -212,7 +261,7 @@ classDiagram
     note for MeleeAttackConfig "An imbue writes into a by-VALUE struct copy, never back into the asset"
     note for WeaponInstance "Definition may be an in-memory CLONE, not the shipped asset"
 </pre></div>
-<h3>A hit</h3>
+<h3 id="a-hit">A hit</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class HitInfo {
@@ -267,7 +316,7 @@ classDiagram
     HitInfo ..&gt; HitReaction : reaction
     note for HitInfo "No knockback helper: every consumer reads the raw fields its own way"
 </pre></div>
-<h3>The move vocabulary</h3>
+<h3 id="the-move-vocabulary">The move vocabulary</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class MoveKey {
@@ -336,7 +385,7 @@ classDiagram
     }
     note for MoveKey "Two holes on purpose: ground:neutral and bow:down are not keys"
 </pre></div>
-<h3>Executions, and the order they are tried in</h3>
+<h3 id="executions-and-the-order-they-are-tried-in">Executions, and the order they are tried in</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class EnemyDefinition {
@@ -398,7 +447,7 @@ classDiagram
     note for EnemyDefinition "Executions is FIRST-MATCH-WINS - the list order IS behaviour"
     note for EnemyDefinition "plus 2 serialized field(s) inherited from StateMachineDefinition, not drawn here"
 </pre></div>
-<h3>The per-run modifier tier</h3>
+<h3 id="the-per-run-modifier-tier">The per-run modifier tier</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class RunModifiers {
@@ -521,8 +570,9 @@ classDiagram
     note for RunModifiers "Budget and Scale are keyed by EFFECT, never by id"
 </pre></div>
 
-<h2>CinderHoundDef, ImpScoutDef, SootBomberDef — 3 machines, one identical graph</h2>
-<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/enemy-states.md</code></p>
+<h2 id="the-enemy-state-machines">The enemy state machines</h2>
+<p class="diagram-src">Source, with the full notes: <a href="../Diagrams/enemy-states.md"><code>Documentation/Diagrams/enemy-states.md</code></a></p>
+<h3 id="cinderhounddef-impscoutdef-sootbomberdef-3-machines-one-identical-graph">CinderHoundDef, ImpScoutDef, SootBomberDef — 3 machines, one identical graph</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -553,7 +603,7 @@ stateDiagram-v2
     s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
     s_idle --&gt; s_chase : 1. Cond_Idle_Chase
 </pre></div>
-<h3>CinderShepherdDef</h3>
+<h3 id="cindershepherddef">CinderShepherdDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -572,7 +622,7 @@ stateDiagram-v2
     s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
     s_idle --&gt; s_relocate : 1. Cond_Idle_Chase
 </pre></div>
-<h3>DemonKingDef</h3>
+<h3 id="demonkingdef">DemonKingDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -601,7 +651,7 @@ stateDiagram-v2
     s_chaseEnraged --&gt; s_relocate : 1. Cond_Enraged_Relocate
     s_idle --&gt; s_chase : 0. Cond_Idle_Chase
 </pre></div>
-<h3>EmberWispDef</h3>
+<h3 id="emberwispdef">EmberWispDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -625,7 +675,7 @@ stateDiagram-v2
     s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
     s_idle --&gt; s_floatChase : 1. Cond_Idle_Chase
 </pre></div>
-<h3>KragDef</h3>
+<h3 id="kragdef">KragDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -659,7 +709,7 @@ stateDiagram-v2
     s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
     s_idle --&gt; s_chase : 1. Cond_Idle_Chase
 </pre></div>
-<h3>PyreArcherDef</h3>
+<h3 id="pyrearcherdef">PyreArcherDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -691,7 +741,7 @@ stateDiagram-v2
     s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
     s_idle --&gt; s_chase : 1. Cond_Idle_Chase
 </pre></div>
-<h3>PyreRegentDef</h3>
+<h3 id="pyreregentdef">PyreRegentDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -723,7 +773,7 @@ stateDiagram-v2
     s_idle --&gt; s_juggled : 0. Dy_JuggleCondition, Dy_NotDeadCheck, Dy_...
     s_idle --&gt; s_chase : 1. Cond_Idle_Chase
 </pre></div>
-<h3>VaultAcolyteDef</h3>
+<h3 id="vaultacolytedef">VaultAcolyteDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -748,8 +798,9 @@ stateDiagram-v2
     s_idle --&gt; s_chase : 1. Cond_Idle_Chase
 </pre></div>
 
-<h2>A campaign, and the session that activates it</h2>
-<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/modding-tiers.md</code></p>
+<h2 id="modding-tiers">Modding tiers</h2>
+<p class="diagram-src">Source, with the full notes: <a href="../Diagrams/modding-tiers.md"><code>Documentation/Diagrams/modding-tiers.md</code></a></p>
+<h3 id="a-campaign-and-the-session-that-activates-it">A campaign, and the session that activates it</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class ModSet {
@@ -817,7 +868,7 @@ classDiagram
     note for ModManifest "gameVersion is parsed, recorded and READ BY NOTHING"
     note for ModSet "Exactly one campaign is active, or none - no load order, no precedence"
 </pre></div>
-<h3>The tiers, and the order they reload in</h3>
+<h3 id="the-tiers-and-the-order-they-reload-in">The tiers, and the order they reload in</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class CampaignSession {
@@ -913,9 +964,9 @@ classDiagram
         +Reset() void$
     }
     note for CampaignPlan "TWO clone levels: the plan clone keeps its BiomeDefinition refs SHARED"
-    note for DeclaredRooms "Rooms is Campaign/Rooms - a subfolder, not a seventh domain"
+    note for DeclaredRooms "Rooms is Campaign/Rooms - a subfolder, not a top-level domain"
 </pre></div>
-<h3>The clone seams</h3>
+<h3 id="the-clone-seams">The clone seams</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class CloneCache {
@@ -996,8 +1047,9 @@ classDiagram
     note for EnemyDefinitionClone "Instantiate copies REFERENCES as references - every edge is relinked"
 </pre></div>
 
-<h2>PlayerDef</h2>
-<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/player-states.md</code></p>
+<h2 id="the-player-state-machine">The player state machine</h2>
+<p class="diagram-src">Source, with the full notes: <a href="../Diagrams/player-states.md"><code>Documentation/Diagrams/player-states.md</code></a></p>
+<h3 id="playerdef">PlayerDef</h3>
 <div class="diagram"><pre class="mermaid">
 stateDiagram-v2
     direction LR
@@ -1063,8 +1115,9 @@ stateDiagram-v2
     s_wallSlide --&gt; s_fall : 5. CODE (p5)
 </pre></div>
 
-<h2>The spine</h2>
-<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/run-spine.md</code></p>
+<h2 id="the-run-spine">The run spine</h2>
+<p class="diagram-src">Source, with the full notes: <a href="../Diagrams/run-spine.md"><code>Documentation/Diagrams/run-spine.md</code></a></p>
+<h3 id="the-spine">The spine</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class RunDirector {
@@ -1137,7 +1190,7 @@ classDiagram
     note for RunDirector "Plan is CampaignPlan.Resolve(RunPlan.Load()) - never the shipped asset directly"
     note for RunEdge "No serialized existence - a shape over two authored fields"
 </pre></div>
-<h3>What one node carries</h3>
+<h3 id="what-one-node-carries">What one node carries</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class BiomeNode {
@@ -1311,7 +1364,7 @@ classDiagram
     note for GenRules "The ASSET is what ships - C initializers here are not the shipped values"
     note for RunContentCatalog "A campaign reaches the SAME assets by NAME through here"
 </pre></div>
-<h3>The shipped web, as authored</h3>
+<h3 id="the-shipped-web-as-authored">The shipped web, as authored</h3>
 <div class="diagram"><pre class="mermaid">
 flowchart LR
     nstart["start / The Emberfall Clearing"]
@@ -1346,8 +1399,9 @@ flowchart LR
     nt4_b --&gt;|via rest| nfinale
 </pre></div>
 
-<h2>The shape</h2>
-<p class="diagram-src">Source, with the full notes: <code>Documentation/Diagrams/save-data.md</code></p>
+<h2 id="save-data">Save data</h2>
+<p class="diagram-src">Source, with the full notes: <a href="../Diagrams/save-data.md"><code>Documentation/Diagrams/save-data.md</code></a></p>
+<h3 id="the-shape">The shape</h3>
 <div class="diagram"><pre class="mermaid">
 classDiagram
     class SaveSystem {
